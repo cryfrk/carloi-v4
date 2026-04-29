@@ -13,38 +13,62 @@ import type {
   VerifyCodeRequest,
   VerifyCodeResponse,
 } from '@carloi-v4/types';
-
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://localhost:3001';
+import { isMobileApiDebugEnabled, MOBILE_API_BASE_URL } from './api-base-url';
 
 export class AuthApiError extends Error {
   verificationRequired?: boolean;
+  code?: string;
 }
 
 async function postJson<TRequest extends object, TResponse>(path: string, body: TRequest) {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'x-device-name': 'carloi-mobile',
-    },
-    body: JSON.stringify(body),
-  });
+  const url = `${MOBILE_API_BASE_URL}${path}`;
 
-  const payload = (await response.json().catch(() => ({}))) as Record<string, unknown>;
-
-  if (!response.ok) {
-    const error = new AuthApiError(
-      typeof payload.message === 'string' ? payload.message : 'Islem tamamlanamadi.',
-    );
-
-    if (typeof payload.verificationRequired === 'boolean') {
-      error.verificationRequired = payload.verificationRequired;
-    }
-
-    throw error;
+  if (isMobileApiDebugEnabled()) {
+    console.info(`[carloi:mobile:auth] POST ${url}`);
   }
 
-  return payload as TResponse;
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-device-name': 'carloi-mobile',
+      },
+      body: JSON.stringify(body),
+    });
+
+    const payload = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+
+    if (!response.ok) {
+      const error = new AuthApiError(
+        typeof payload.message === 'string'
+          ? payload.message
+          : 'Islem tamamlanamadi.',
+      );
+
+      if (typeof payload.verificationRequired === 'boolean') {
+        error.verificationRequired = payload.verificationRequired;
+      }
+
+      if (typeof payload.code === 'string') {
+        error.code = payload.code;
+      }
+
+      throw error;
+    }
+
+    return payload as TResponse;
+  } catch (error) {
+    if (error instanceof AuthApiError) {
+      throw error;
+    }
+
+    const networkError = new AuthApiError(
+      'Baglanti kurulamadı. API yanit vermiyor veya erisim engellendi.',
+    );
+    networkError.code = 'NETWORK_ERROR';
+    throw networkError;
+  }
 }
 
 export const mobileAuthApi = {
@@ -76,3 +100,4 @@ export const mobileAuthApi = {
     return postJson<ResetPasswordRequest, GenericMessageResponse>('/auth/reset-password', body);
   },
 };
+

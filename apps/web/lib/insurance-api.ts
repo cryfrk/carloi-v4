@@ -8,7 +8,9 @@ import type {
   UploadInsuranceDocumentsRequest,
 } from '@carloi-v4/types';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:3001';
+import { WEB_API_BASE_URL } from './api-base-url';
+
+const API_BASE_URL = WEB_API_BASE_URL;
 
 export class InsuranceApiError extends Error {}
 
@@ -106,3 +108,4 @@ export const webAdminInsuranceApi = {
     );
   },
 };
+

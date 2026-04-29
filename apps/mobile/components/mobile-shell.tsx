@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { Redirect, usePathname, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -6,11 +7,11 @@ import { useAuth } from '../context/auth-context';
 import { mobileNotificationsApi } from '../lib/notifications-api';
 
 const NAV_ITEMS = [
-  { href: '/home', label: 'Home', glyph: 'O' },
-  { href: '/listings', label: 'Listings', glyph: 'L' },
-  { href: '/loi-ai', label: 'Loi AI', glyph: 'AI' },
-  { href: '/garage', label: 'Garage', glyph: 'G' },
-  { href: '/profile', label: 'Profile', glyph: 'P' },
+  { href: '/home', label: 'Anasayfa', icon: 'home-outline', activeIcon: 'home' },
+  { href: '/listings', label: 'Ilanlar', icon: 'car-sport-outline', activeIcon: 'car-sport' },
+  { href: '/loi-ai', label: 'Loi AI', icon: 'sparkles-outline', activeIcon: 'sparkles' },
+  { href: '/garage', label: 'Garajim', icon: 'cube-outline', activeIcon: 'cube' },
+  { href: '/profile', label: 'Profil', icon: 'person-circle-outline', activeIcon: 'person-circle' },
 ] as const;
 
 export function MobileShell({
@@ -67,36 +68,42 @@ export function MobileShell({
       <View style={styles.container}>
         <View style={styles.header}>
           <View style={styles.headerCopy}>
-            <Text style={styles.eyebrow}>Carloi Feed</Text>
+            <Text style={styles.eyebrow}>Carloi</Text>
             <Text style={styles.title}>{title}</Text>
             <Text style={styles.subtitle}>{subtitle}</Text>
           </View>
+
           <View style={styles.headerActions}>
             {showPrimaryHeader ? (
               <>
-                <Pressable onPress={() => router.push('/create')} style={styles.ghostActionButton}>
-                  <Text style={styles.ghostActionButtonLabel}>+</Text>
+                <Pressable onPress={() => router.push('/create')} style={styles.headerIconButton}>
+                  <Ionicons color="#111111" name="add" size={20} />
                 </Pressable>
-                <Pressable onPress={() => router.push('/notifications')} style={styles.ghostActionButton}>
-                  <Text style={styles.ghostActionButtonLabel}>{unreadCount > 0 ? `N ${unreadCount}` : 'N'}</Text>
+                <Pressable onPress={() => router.push('/notifications')} style={styles.headerGhostButton}>
+                  <Ionicons color="#111111" name="notifications-outline" size={18} />
+                  {unreadCount > 0 ? <Text style={styles.inlineBadge}>{unreadCount}</Text> : null}
                 </Pressable>
                 <Pressable
                   onPress={() => router.push(pathname === '/profile' ? '/settings' : '/messages')}
-                  style={styles.actionButton}
+                  style={styles.headerGhostButton}
                 >
-                  <Text style={styles.actionButtonLabel}>{pathname === '/profile' ? 'Ayar' : 'DM'}</Text>
+                  <Ionicons
+                    color="#111111"
+                    name={pathname === '/profile' ? 'menu-outline' : 'paper-plane-outline'}
+                    size={18}
+                  />
                 </Pressable>
               </>
             ) : (
               <>
                 {!pathname.startsWith('/messages') ? (
-                  <Pressable onPress={() => router.push('/messages')} style={styles.ghostActionButton}>
-                    <Text style={styles.ghostActionButtonLabel}>DM</Text>
+                  <Pressable onPress={() => router.push('/messages')} style={styles.headerGhostButton}>
+                    <Ionicons color="#111111" name="paper-plane-outline" size={18} />
                   </Pressable>
                 ) : null}
                 {actionLabel && onActionPress ? (
-                  <Pressable onPress={onActionPress} style={styles.actionButton}>
-                    <Text style={styles.actionButtonLabel}>{actionLabel}</Text>
+                  <Pressable onPress={onActionPress} style={styles.headerIconButton}>
+                    <Text style={styles.iconButtonText}>{actionLabel}</Text>
                   </Pressable>
                 ) : null}
               </>
@@ -109,15 +116,23 @@ export function MobileShell({
         <View style={styles.tabBar}>
           {NAV_ITEMS.map((item) => {
             const active = pathname === item.href;
+
             return (
               <Pressable
                 key={item.href}
+                accessibilityLabel={item.label}
                 accessibilityRole="button"
-                onPress={() => router.push(item.href)}
                 onLongPress={item.href === '/profile' ? () => setSwitcherVisible(true) : undefined}
-                style={[styles.tabItem, active ? styles.tabItemActive : null]}
+                onPress={() => router.push(item.href)}
+                style={styles.tabItem}
               >
-                <Text style={[styles.tabGlyph, active ? styles.tabGlyphActive : null]}>{item.glyph}</Text>
+                <View style={[styles.tabIconWrap, active ? styles.tabIconWrapActive : null]}>
+                  <Ionicons
+                    color={active ? '#111111' : '#54606c'}
+                    name={active ? item.activeIcon : item.icon}
+                    size={22}
+                  />
+                </View>
                 <Text style={[styles.tabLabel, active ? styles.tabLabelActive : null]}>{item.label}</Text>
               </Pressable>
             );
@@ -144,13 +159,21 @@ export function MobileShell({
                 >
                   <View>
                     <Text style={styles.switcherName}>@{item.user.username}</Text>
-                    <Text style={styles.switcherMeta}>{item.user.firstName} {item.user.lastName}</Text>
+                    <Text style={styles.switcherMeta}>
+                      {item.user.firstName} {item.user.lastName}
+                    </Text>
                   </View>
                   <Text style={styles.switcherMeta}>{active ? 'Aktif' : 'Gec'}</Text>
                 </Pressable>
               );
             })}
-            <Pressable style={styles.secondaryFullButton} onPress={() => { setSwitcherVisible(false); router.push('/login'); }}>
+            <Pressable
+              style={styles.secondaryFullButton}
+              onPress={() => {
+                setSwitcherVisible(false);
+                router.push('/login');
+              }}
+            >
               <Text style={styles.secondaryFullButtonLabel}>Hesap ekle</Text>
             </Pressable>
           </View>
@@ -163,7 +186,7 @@ export function MobileShell({
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#07121b',
+    backgroundColor: '#f6f7f8',
   },
   loadingWrap: {
     flex: 1,
@@ -171,14 +194,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   loadingText: {
-    color: '#f8f2ea',
+    color: '#111111',
   },
   container: {
     flex: 1,
     paddingHorizontal: 14,
     paddingTop: 8,
     paddingBottom: 12,
-    backgroundColor: '#07121b',
+    backgroundColor: '#f6f7f8',
   },
   header: {
     flexDirection: 'row',
@@ -186,59 +209,72 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 12,
     paddingHorizontal: 6,
-    paddingBottom: 14,
+    paddingBottom: 12,
   },
   headerCopy: {
     flex: 1,
-    gap: 6,
+    gap: 4,
   },
   eyebrow: {
-    color: '#ffd6c2',
+    color: '#7a7f86',
     fontSize: 11,
     fontWeight: '700',
-    letterSpacing: 1.8,
+    letterSpacing: 1.4,
     textTransform: 'uppercase',
   },
   title: {
-    color: '#f8f2ea',
+    color: '#111111',
     fontSize: 28,
     fontWeight: '800',
   },
   subtitle: {
-    color: '#aebdcc',
+    color: '#717780',
     fontSize: 14,
     lineHeight: 20,
-  },
-  actionButton: {
-    marginTop: 2,
-    borderRadius: 18,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    backgroundColor: '#ef8354',
   },
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
-  ghostActionButton: {
-    marginTop: 2,
-    borderRadius: 18,
+  headerIconButton: {
+    minWidth: 44,
+    minHeight: 44,
     paddingHorizontal: 12,
-    paddingVertical: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#111111',
   },
-  ghostActionButtonLabel: {
-    color: '#f8f2ea',
+  headerGhostButton: {
+    minWidth: 44,
+    minHeight: 44,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#e8ebee',
+    position: 'relative',
+  },
+  iconButtonText: {
+    color: '#ffffff',
     fontSize: 12,
     fontWeight: '800',
   },
-  actionButtonLabel: {
-    color: '#08131d',
-    fontSize: 13,
+  inlineBadge: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    minWidth: 16,
+    paddingHorizontal: 4,
+    borderRadius: 999,
+    backgroundColor: '#111111',
+    color: '#ffffff',
+    fontSize: 10,
     fontWeight: '800',
+    textAlign: 'center',
   },
   body: {
     flex: 1,
@@ -251,52 +287,51 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingHorizontal: 10,
     paddingVertical: 10,
-    borderRadius: 26,
+    borderRadius: 28,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.09)',
-    backgroundColor: 'rgba(11,24,34,0.96)',
+    borderColor: '#e8ebee',
+    backgroundColor: 'rgba(255,255,255,0.94)',
   },
   tabItem: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
-    paddingVertical: 8,
-    borderRadius: 18,
+    paddingVertical: 4,
   },
-  tabItemActive: {
-    backgroundColor: 'rgba(239,131,84,0.16)',
+  tabIconWrap: {
+    width: 42,
+    height: 42,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
   },
-  tabGlyph: {
-    color: '#8aa0b2',
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  tabGlyphActive: {
-    color: '#ffd6c2',
+  tabIconWrapActive: {
+    backgroundColor: '#111111',
   },
   tabLabel: {
-    color: '#8aa0b2',
-    fontSize: 11,
+    color: '#7a7f86',
+    fontSize: 10,
     fontWeight: '700',
   },
   tabLabelActive: {
-    color: '#f8f2ea',
+    color: '#111111',
   },
   modalBackdrop: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    backgroundColor: 'rgba(0,0,0,0.24)',
   },
   switcherSheet: {
     gap: 10,
     padding: 22,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
-    backgroundColor: '#0d1d2a',
+    backgroundColor: '#ffffff',
   },
   switcherTitle: {
-    color: '#f8f2ea',
+    color: '#111111',
     fontSize: 20,
     fontWeight: '900',
   },
@@ -306,28 +341,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 14,
     borderRadius: 18,
-    backgroundColor: '#102030',
+    backgroundColor: '#f6f7f8',
   },
   switcherRowActive: {
     borderWidth: 1,
-    borderColor: 'rgba(239,131,84,0.32)',
+    borderColor: '#111111',
   },
   switcherName: {
-    color: '#f8f2ea',
+    color: '#111111',
     fontWeight: '800',
   },
   switcherMeta: {
-    color: '#9fb0be',
+    color: '#7a7f86',
     fontSize: 12,
   },
   secondaryFullButton: {
     alignItems: 'center',
     borderRadius: 18,
     paddingVertical: 14,
-    backgroundColor: '#102030',
+    backgroundColor: '#111111',
   },
   secondaryFullButtonLabel: {
-    color: '#f8f2ea',
+    color: '#ffffff',
     fontWeight: '800',
   },
 });

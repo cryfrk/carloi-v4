@@ -10,6 +10,7 @@ import type {
 } from '@carloi-v4/types';
 import { useEffect, useMemo, useState } from 'react';
 import { AppShell } from './app-shell';
+import { CommentIcon, HeartIcon, SaveIcon, ShareIcon } from './app-icons';
 import { useAuth } from './auth-provider';
 import { webSocialApi } from '../lib/social-api';
 
@@ -366,10 +367,10 @@ export function SocialHomeClient() {
   if (!isReady) {
     return (
       <AppShell>
-        <section className="detail-card gate-card">
+        <section className="auth-entry-card">
           <div className="card-label">Auth status</div>
           <h3 className="card-title">Oturum kontrol ediliyor</h3>
-          <p className="card-copy">Carloi V4 web istemcisi mevcut oturumu yukluyor.</p>
+          <p className="card-copy">Carloi hesabiniz yuklenirken feed hazirlaniyor.</p>
         </section>
       </AppShell>
     );
@@ -377,12 +378,12 @@ export function SocialHomeClient() {
 
   if (!session) {
     return (
-      <AppShell>
-        <section className="detail-card gate-card">
-          <div className="card-label">Auth required</div>
-          <h3 className="card-title">Feed icin once giris yapin</h3>
+      <div className="auth-entry-wrap">
+        <section className="auth-entry-card">
+          <div className="card-label">Carloi Feed</div>
+          <h3 className="card-title">Sosyal akisa devam etmek icin giris yapin</h3>
           <p className="card-copy">
-            Dogrulanmis hesabinla girdiginde takip ettiklerin, kesif akisi ve post olusturma araclari burada acilacak.
+            Post akisi, hikayeler, ilanlar ve mesajlar tek bir sade deneyimde burada toplanir.
           </p>
           <div className="gate-actions">
             <Link className="primary-link" href="/login">
@@ -393,35 +394,18 @@ export function SocialHomeClient() {
             </Link>
           </div>
         </section>
-      </AppShell>
+      </div>
     );
   }
 
   return (
     <AppShell>
-      <section className="feed-hero-card">
-        <div>
-          <div className="card-label">Social Layer</div>
-          <h2 className="feed-hero-title">Instagram benzeri akisin calisan surumu</h2>
-          <p className="feed-hero-copy">
-            Takip ettiklerin onde, story halkalari yukarida, kesif akisi hemen arkada.
-          </p>
-        </div>
-        <div className="gate-actions compact-actions">
-          <Link className="secondary-link" href="/stories/create">
-            Hikaye olustur
-          </Link>
-          <Link className="primary-link" href="/create-post">
-            Post olustur
-          </Link>
-        </div>
-      </section>
-
-      <section className="story-strip-card">
+      <div className="feed-page-shell">
+      <section className="story-strip-card instagram-story-row">
         <div className="story-strip-head">
           <div>
             <div className="card-label">Stories</div>
-            <h3 className="card-title">24 saatlik akis</h3>
+            <h3 className="card-title">Gunun halkalari</h3>
           </div>
           <Link className="secondary-link" href="/stories/create">
             Ekle
@@ -474,7 +458,7 @@ export function SocialHomeClient() {
         </section>
       ) : null}
 
-      <div className="feed-stack">
+      <div className="feed-stack instagram-feed">
         {feed.map((post) => {
           const comments = commentsByPost[post.id] ?? [];
           const expanded = expandedCaptions[post.id] ?? false;
@@ -515,23 +499,40 @@ export function SocialHomeClient() {
                 ))}
               </div>
 
-              <div className="post-actions-row">
-                <div className="post-action-group">
-                  <button className="post-action" onClick={() => void handleLike(post)}>
-                    {post.isLiked ? 'Begenildi' : 'Begen'}
-                  </button>
-                  <button className="post-action" onClick={() => void toggleComments(post.id)}>
-                    Yorum
+              <div className="instagram-action-row">
+                <div className="instagram-action-group">
+                  <button
+                    aria-label={post.isLiked ? 'Begeniyi kaldir' : 'Begen'}
+                    className={`icon-action-button${post.isLiked ? ' active' : ''}`}
+                    onClick={() => void handleLike(post)}
+                    type="button"
+                  >
+                    <HeartIcon className="inline-action-icon" filled={post.isLiked} />
                   </button>
                   <button
-                    className="post-action"
-                    onClick={() => setNotice('Paylasim kisayiolu bir sonraki asamada eklenecek.')}
+                    aria-label="Yorumlari goster"
+                    className="icon-action-button"
+                    onClick={() => void toggleComments(post.id)}
+                    type="button"
                   >
-                    Paylas
+                    <CommentIcon className="inline-action-icon" />
+                  </button>
+                  <button
+                    aria-label="Paylas"
+                    className="icon-action-button"
+                    onClick={() => setNotice('Paylasim kisayiolu bir sonraki asamada eklenecek.')}
+                    type="button"
+                  >
+                    <ShareIcon className="inline-action-icon" />
                   </button>
                 </div>
-                <button className="post-action" onClick={() => void handleSave(post)}>
-                  {post.isSaved ? 'Kayitli' : 'Kaydet'}
+                <button
+                  aria-label={post.isSaved ? 'Kaydi kaldir' : 'Kaydet'}
+                  className={`icon-action-button${post.isSaved ? ' active' : ''}`}
+                  onClick={() => void handleSave(post)}
+                  type="button"
+                >
+                  <SaveIcon className="inline-action-icon" filled={post.isSaved} />
                 </button>
               </div>
 
@@ -606,6 +607,7 @@ export function SocialHomeClient() {
             </article>
           );
         })}
+      </div>
       </div>
 
       {!loading && nextCursor ? (

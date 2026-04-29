@@ -4,7 +4,7 @@
     "version":  "0.1.0",
     "packageManager":  "pnpm@10.17.1",
     "scripts":  {
-                    "postinstall":  "node ./node_modules/prisma/build/index.js generate --schema prisma/schema.prisma",
+                    "postinstall":  "node ./node_modules/prisma/build/index.js generate --schema prisma/schema.prisma && node scripts/fix-metro-serialize-error.js",
                     "setup:windows":  "powershell -ExecutionPolicy Bypass -File scripts/setup-windows.ps1",
                     "fix:web:swc:windows":  "powershell -ExecutionPolicy Bypass -File scripts/fix-next-swc-windows.ps1",
                     "deploy:prod":  "docker compose -f docker-compose.prod.yml --env-file .env up -d --build",
@@ -13,7 +13,7 @@
                     "dev":  "concurrently -n api,web,mobile,admin-desktop,admin-mobile -c cyan,green,yellow,magenta,blue \"pnpm api:dev\" \"pnpm web:dev\" \"pnpm mobile:dev\" \"pnpm admin-desktop:dev\" \"pnpm admin-mobile:dev\"",
                     "api:dev":  "pnpm --filter @carloi-v4/api dev",
                     "web:dev":  "pnpm --filter @carloi-v4/web dev",
-                    "mobile:dev":  "pnpm --filter @carloi-v4/mobile dev",
+                    "mobile:dev":  "scripts\\start-mobile-expo.cmd",
                     "admin-desktop:dev":  "pnpm --filter @carloi-v4/admin-desktop dev",
                     "admin-mobile:dev":  "pnpm --filter @carloi-v4/admin-mobile dev",
                     "build":  "pnpm -r build",
@@ -29,7 +29,8 @@
                             "@types/node":  "^25.6.0",
                             "concurrently":  "^9.2.1",
                             "prisma":  "^6.19.3",
-                            "typescript":  "^5.9.3"
+                            "typescript":  "^5.9.3",
+                            "ws":  "^8.20.0"
                         },
     "dependencies":  {
                          "@prisma/client":  "^6.19.3",

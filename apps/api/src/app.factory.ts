@@ -12,10 +12,21 @@ import { AppModule } from './app.module';
 
 export async function createApp() {
   const isProduction = process.env.NODE_ENV === 'production';
-  const corsOrigins = (process.env.CORS_ORIGINS ?? '')
+  const configuredCorsOrigins = (process.env.CORS_ORIGINS ?? '')
     .split(',')
     .map((value) => value.trim())
     .filter(Boolean);
+  const defaultProductionOrigins = [
+    'https://carloi-v4-web.vercel.app',
+    'https://www.carloi.com',
+    'https://carloi.com',
+  ];
+  const corsOrigins =
+    configuredCorsOrigins.length > 0
+      ? configuredCorsOrigins
+      : isProduction
+        ? defaultProductionOrigins
+        : [];
   const logger = new AppLogger();
 
   const app = await NestFactory.create(AppModule, {

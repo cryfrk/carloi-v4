@@ -18,14 +18,24 @@ export function AuthPageShell({
   backLabel?: string;
 }) {
   return (
-    <div className="auth-layout">
-      <section className="auth-splash">
-        <div className="hero-kicker">{eyebrow}</div>
-        <h1 className="hero-title auth-title">{title}</h1>
-        <p className="hero-description">{description}</p>
-      </section>
-      <section className="auth-card-shell">
-        {children}
+    <div className="auth-screen">
+      <section className="auth-card-shell minimal">
+        <div className="auth-brand-lockup">
+          <div className="auth-logo-mark">C</div>
+          <div className="auth-brand-copy">
+            <span className="auth-brand-name">Carloi</span>
+            <span className="auth-brand-subtitle">Social + listings + garage</span>
+          </div>
+        </div>
+
+        <div className="auth-heading-block">
+          <div className="auth-eyebrow">{eyebrow}</div>
+          <h1 className="auth-title">{title}</h1>
+          <p className="auth-description">{description}</p>
+        </div>
+
+        <div className="auth-form-stack">{children}</div>
+
         <Link className="secondary-cta center-link" href={backHref}>
           {backLabel}
         </Link>

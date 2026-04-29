@@ -5,14 +5,11 @@ import { AuthProvider } from '../context/auth-context';
 export default function RootLayout() {
   return (
     <AuthProvider>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
       <Stack
         screenOptions={{
-          headerStyle: { backgroundColor: '#102030' },
-          headerTintColor: '#f8f2ea',
-          headerShadowVisible: false,
-          headerTitleStyle: { fontWeight: '700' },
-          contentStyle: { backgroundColor: '#08131d' },
+          headerShown: false,
+          contentStyle: { backgroundColor: '#f6f7f8' },
         }}
       />
     </AuthProvider>

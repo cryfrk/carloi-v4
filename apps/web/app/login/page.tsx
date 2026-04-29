@@ -66,7 +66,7 @@ export default function LoginPage() {
           type="password"
           value={password}
           onChange={setPassword}
-          placeholder="••••••••"
+          placeholder="********"
         />
         {errorMessage ? <FormMessage tone="error" message={errorMessage} /> : null}
         <PrimaryCta
@@ -82,3 +82,4 @@ export default function LoginPage() {
     </AuthPageShell>
   );
 }
+

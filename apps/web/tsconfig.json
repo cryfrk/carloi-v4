@@ -2,9 +2,14 @@
   "extends": "../../packages/config/tsconfig.react.json",
   "compilerOptions": {
     "allowJs": false,
+    "baseUrl": ".",
     "incremental": true,
     "isolatedModules": true,
     "noEmit": true,
+    "paths": {
+      "@carloi-v4/types": ["../../packages/types/src/index.ts"],
+      "@carloi-v4/ui": ["../../packages/ui/src/index.ts"]
+    },
     "plugins": [{ "name": "next" }]
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],

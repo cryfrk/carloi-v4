@@ -749,6 +749,26 @@ export class AuthService {
 
   private handlePrismaWriteError(error: unknown): never {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      const targets = Array.isArray(error.meta?.target)
+        ? error.meta.target.filter((item): item is string => typeof item === 'string')
+        : [];
+
+      if (targets.includes('username')) {
+        throw new ConflictException('Bu kullanici adi zaten kullaniliyor.');
+      }
+
+      if (targets.includes('email')) {
+        throw new ConflictException('Bu email adresi zaten kullaniliyor.');
+      }
+
+      if (targets.includes('phone')) {
+        throw new ConflictException('Bu telefon numarasi zaten kullaniliyor.');
+      }
+
+      if (targets.includes('tcIdentityNo')) {
+        throw new ConflictException('Bu TC kimlik numarasi zaten kullaniliyor.');
+      }
+
       throw new ConflictException('Girdiginiz bilgilerden biri zaten kullaniliyor.');
     }
 

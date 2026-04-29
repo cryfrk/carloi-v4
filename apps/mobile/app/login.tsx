@@ -66,7 +66,7 @@ export default function LoginScreen() {
         label="Sifre"
         value={password}
         onChangeText={setPassword}
-        placeholder="••••••••"
+        placeholder="********"
         secureTextEntry
       />
       {errorMessage ? <FormMessage tone="error" message={errorMessage} /> : null}
@@ -81,3 +81,4 @@ export default function LoginScreen() {
     </AuthScreen>
   );
 }
+

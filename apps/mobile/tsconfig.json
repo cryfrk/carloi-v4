@@ -3,12 +3,26 @@
   "compilerOptions": {
     "strict": true,
     "noEmit": true,
+    "baseUrl": ".",
     "moduleResolution": "bundler",
     "jsx": "react-jsx",
     "allowSyntheticDefaultImports": true,
     "resolveJsonModule": true,
     "skipLibCheck": true,
-    "types": ["node"]
+    "paths": {
+      "@carloi-v4/types": [
+        "../../packages/types/src/index.ts"
+      ],
+      "@carloi-v4/ui": [
+        "../../packages/ui/src/index.ts"
+      ]
+    },
+    "types": [
+      "node"
+    ]
   },
-  "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"]
+  "include": [
+    "**/*.ts",
+    "**/*.tsx"
+  ]
 }

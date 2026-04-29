@@ -17,7 +17,7 @@ Ornek dosya:
 - `.env.production.web.example`
 
 Gerekli alan:
-- `NEXT_PUBLIC_API_BASE_URL=https://api.carloi.example`
+- `NEXT_PUBLIC_API_BASE_URL=https://api.carloi.com`
 
 Vercel dashboard icinde bu degiskeni su ortamlara ekleyin:
 - Production
@@ -27,8 +27,9 @@ Vercel dashboard icinde bu degiskeni su ortamlara ekleyin:
 ## 3. Domain ve API Yonlendirmesi
 
 Onerilen domainler:
-- `app.carloi.example`
-- `www.carloi.example`
+- `carloi-v4-web.vercel.app`
+- `www.carloi.com`
+- `carloi.com`
 
 Dikkat:
 - API domaini `NEXT_PUBLIC_API_BASE_URL` ile birebir eslesmeli.

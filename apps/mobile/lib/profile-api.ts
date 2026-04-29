@@ -12,7 +12,9 @@ import type {
   UpdateProfileRequest,
 } from '@carloi-v4/types';
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://localhost:3001';
+import { MOBILE_API_BASE_URL } from './api-base-url';
+
+const API_BASE_URL = MOBILE_API_BASE_URL;
 
 export class ProfileApiError extends Error {}
 
@@ -106,3 +108,4 @@ export const mobileProfileApi = {
     return requestJson<SavedItemsResponse>('/saved-items', { accessToken });
   },
 };
+
