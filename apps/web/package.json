@@ -1,0 +1,23 @@
+{
+  "name": "@carloi-v4/web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "node ../../node_modules/next/dist/bin/next dev",
+    "build": "node ../../node_modules/next/dist/bin/next build --webpack",
+    "bundle": "pnpm build",
+    "start": "node ../../node_modules/next/dist/bin/next start",
+    "typecheck": "node ../../node_modules/typescript/bin/tsc --noEmit"
+  },
+  "dependencies": {
+    "@carloi-v4/types": "workspace:*",
+    "@carloi-v4/ui": "workspace:*",
+    "next": "^16.2.4",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3"
+  }
+}

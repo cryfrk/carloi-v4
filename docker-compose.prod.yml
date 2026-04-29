@@ -1,0 +1,96 @@
+﻿services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-carloi_v4}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-carloi_v4}']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes']
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/carloi_v4?schema=public}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      LOCAL_UPLOAD_DIR: ${LOCAL_UPLOAD_DIR:-uploads}
+      MEDIA_STORAGE_PROVIDER: ${MEDIA_STORAGE_PROVIDER:-s3}
+      ENABLE_FILE_LOGS: ${ENABLE_FILE_LOGS:-true}
+      LOG_DIR: ${LOG_DIR:-logs}
+    ports:
+      - '3001:3001'
+    volumes:
+      - uploads_data:/app/uploads
+      - app_logs:/app/logs
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'node -e "fetch(''http://127.0.0.1:3001/health'').then((response)=>response.ok?process.exit(0):process.exit(1)).catch(()=>process.exit(1))"',
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  postgres-backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      BACKUP_DIR: /backups
+      BACKUP_SCHEDULE: ${BACKUP_SCHEDULE:-0 3 * * *}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-7}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-carloi_v4}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    volumes:
+      - postgres_backups:/backups
+      - ./scripts/postgres-backup.sh:/usr/local/bin/postgres-backup.sh:ro
+      - ./scripts/postgres-backup-entrypoint.sh:/usr/local/bin/postgres-backup-entrypoint.sh:ro
+    entrypoint: ['/bin/sh', '/usr/local/bin/postgres-backup-entrypoint.sh']
+
+volumes:
+  postgres_data:
+  redis_data:
+  uploads_data:
+  postgres_backups:
+  app_logs:

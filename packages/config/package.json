@@ -1,0 +1,21 @@
+{
+  "name": "@carloi-v4/config",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "files": [
+    "dist",
+    "src",
+    "tsconfig.base.json",
+    "tsconfig.react.json",
+    "tsconfig.nest.json",
+    "tsconfig.package.json"
+  ],
+  "scripts": {
+    "build": "node ../../node_modules/typescript/bin/tsc -p tsconfig.json",
+    "typecheck": "node ../../node_modules/typescript/bin/tsc --noEmit -p tsconfig.json"
+  }
+}
+

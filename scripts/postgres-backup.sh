@@ -1,0 +1,20 @@
+#!/bin/sh
+set -eu
+
+BACKUP_DIR="${BACKUP_DIR:-/backups}"
+RETENTION_DAYS="${BACKUP_RETENTION_DAYS:-7}"
+POSTGRES_HOST="${POSTGRES_HOST:-postgres}"
+POSTGRES_PORT="${POSTGRES_PORT:-5432}"
+POSTGRES_DB="${POSTGRES_DB:-carloi_v4}"
+POSTGRES_USER="${POSTGRES_USER:-postgres}"
+: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}"
+
+mkdir -p "$BACKUP_DIR"
+TIMESTAMP="$(date -u +%Y%m%d-%H%M%S)"
+BACKUP_FILE="$BACKUP_DIR/${POSTGRES_DB}-${TIMESTAMP}.sql.gz"
+
+export PGPASSWORD="$POSTGRES_PASSWORD"
+pg_dump -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U "$POSTGRES_USER" -d "$POSTGRES_DB" | gzip > "$BACKUP_FILE"
+find "$BACKUP_DIR" -type f -name '*.sql.gz' -mtime "+$RETENTION_DAYS" -delete
+
+echo "Backup completed: $BACKUP_FILE"

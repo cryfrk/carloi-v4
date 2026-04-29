@@ -1,0 +1,53 @@
+{
+  "name": "@carloi-v4/admin-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Carloi V4 admin desktop application",
+  "author": "Carloi V4",
+  "main": "out/main/index.js",
+  "scripts": {
+    "dev": "node ../../node_modules/electron-vite/bin/electron-vite.js dev",
+    "build": "pnpm typecheck",
+    "bundle": "node ../../node_modules/electron-vite/bin/electron-vite.js build",
+    "dist:win": "pnpm run dist:win:installer",
+    "dist:win:portable": "pnpm run bundle && pnpm dlx electron-builder --win portable",
+    "dist:win:installer": "pnpm run bundle && pnpm dlx electron-builder --win nsis",
+    "typecheck": "node ../../node_modules/typescript/bin/tsc --noEmit -p tsconfig.json"
+  },
+  "build": {
+    "appId": "com.carloi.v4.admin.desktop",
+    "productName": "Carloi V4 Admin Desktop",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "out/**/*",
+      "package.json"
+    ],
+    "extraMetadata": {
+      "main": "out/main/index.js"
+    },
+    "win": {
+      "signAndEditExecutable": false,
+      "target": [
+        "portable",
+        "nsis"
+      ],
+      "artifactName": "carloi-v4-admin-desktop-${version}.${ext}"
+    }
+  },
+  "dependencies": {
+    "@carloi-v4/types": "workspace:*",
+    "@carloi-v4/ui": "workspace:*",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "electron": "^41.3.0",
+    "electron-vite": "^5.0.0",
+    "vite": "^7.3.2"
+  }
+}

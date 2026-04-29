@@ -1,0 +1,1192 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserType {
+  INDIVIDUAL
+  COMMERCIAL
+}
+
+enum AdminRole {
+  SUPER_ADMIN
+  INSURANCE_ADMIN
+  COMMERCIAL_ADMIN
+}
+
+enum CommercialApplicationStatus {
+  PENDING
+  IN_REVIEW
+  APPROVED
+  REJECTED
+}
+
+enum ContentVisibility {
+  PUBLIC
+  FOLLOWERS_ONLY
+  PRIVATE
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+}
+
+enum MediaAssetPurpose {
+  POST_MEDIA
+  STORY_MEDIA
+  LISTING_MEDIA
+  PROFILE_AVATAR
+  MESSAGE_ATTACHMENT
+  COMMERCIAL_DOCUMENT
+  INSURANCE_OFFER
+  INSURANCE_POLICY
+  INSURANCE_INVOICE
+  GARAGE_VEHICLE_MEDIA
+}
+
+enum MediaVisibility {
+  PUBLIC
+  PRIVATE
+}
+
+enum SavedItemType {
+  POST
+  LISTING
+}
+
+enum ListingStatus {
+  DRAFT
+  PENDING_LEGAL_CHECK
+  PENDING_REVIEW
+  ACTIVE
+  SUSPENDED
+  RESERVED
+  SOLD
+  DELETED
+  REJECTED
+  ARCHIVED
+}
+
+enum SellerType {
+  OWNER
+  DEALER
+}
+
+enum DamageStatus {
+  NONE
+  PAINTED
+  REPLACED
+}
+
+enum VehicleType {
+  SEDAN
+  SUV
+  HATCHBACK
+  COUPE
+  PICKUP
+  VAN
+  MOTORCYCLE
+  OTHER
+}
+
+enum FuelType {
+  GASOLINE
+  DIESEL
+  HYBRID
+  ELECTRIC
+  LPG
+  OTHER
+}
+
+enum TransmissionType {
+  MANUAL
+  AUTOMATIC
+  SEMI_AUTOMATIC
+  CVT
+}
+
+enum MessageThreadType {
+  DIRECT
+  GROUP
+  LISTING_DEAL
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  VIDEO
+  AUDIO
+  FILE
+  SYSTEM_CARD
+}
+
+enum AttachmentType {
+  IMAGE
+  VIDEO
+  AUDIO
+  FILE
+}
+
+enum AiMessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+enum AiProvider {
+  OPENAI
+  DEEPSEEK
+  INTERNAL
+}
+
+enum InsuranceRequestStatus {
+  PENDING
+  OFFER_CREATED
+  ACCEPTED
+  REJECTED
+  PAID
+  POLICY_UPLOADED
+  CANCELLED
+}
+
+enum InsuranceOfferStatus {
+  ACTIVE
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+enum PaymentProvider {
+  GARANTI
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+enum VerificationTargetType {
+  EMAIL
+  PHONE
+}
+
+enum VerificationCodePurpose {
+  SIGN_UP
+  LOGIN
+  PASSWORD_RESET
+  EMAIL_UPDATE
+  PHONE_UPDATE
+}
+
+enum ObdConnectionStatus {
+  CONNECTED
+  DISCONNECTED
+  ERROR
+  REVOKED
+}
+
+enum ObdAdapterType {
+  MOCK
+  BLUETOOTH
+  WIFI
+}
+
+enum ObdReportStatus {
+  CREATED
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum ObdFaultSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+enum LegalComplianceCheckType {
+  IDENTITY_VERIFICATION
+  LISTING_LIMIT
+  COMMERCIAL_ELIGIBILITY
+  LICENSE_OWNERSHIP
+  CONTENT_POLICY
+  KVKK_CONSENT
+}
+
+enum LegalComplianceStatus {
+  PENDING
+  PASSED
+  FAILED
+  NEEDS_REVIEW
+}
+
+model User {
+  id                            String                     @id @default(cuid())
+  userType                      UserType
+  email                         String?                    @unique
+  phone                         String?                    @unique
+  username                      String                     @unique
+  passwordHash                  String
+  firstName                     String
+  lastName                      String
+  tcIdentityNo                  String?                    @unique
+  isVerified                    Boolean                    @default(false)
+  isCommercialApproved          Boolean                    @default(false)
+  isActive                      Boolean                    @default(true)
+  disabledAt                    DateTime?
+  createdAt                     DateTime                   @default(now())
+  updatedAt                     DateTime                   @updatedAt
+  deletedAt                     DateTime?
+  profile                       Profile?
+  accountSessions               AccountSession[]
+  verificationCodes             VerificationCode[]
+  passwordResetTokens           PasswordResetToken[]
+  commercialApplications        CommercialApplication[]
+  posts                         Post[]                     @relation("PostOwner")
+  stories                       Story[]                    @relation("StoryOwner")
+  likes                         Like[]
+  comments                      Comment[]                  @relation("CommentOwner")
+  commentLikes                  CommentLike[]
+  savedItems                    SavedItem[]
+  following                     Follow[]                   @relation("FollowFollower")
+  followers                     Follow[]                   @relation("FollowFollowing")
+  notifications                 Notification[]             @relation("NotificationRecipient")
+  notificationsTriggered        Notification[]             @relation("NotificationActorUser")
+  listings                      Listing[]                  @relation("ListingSeller")
+  garageVehicles                GarageVehicle[]            @relation("GarageVehicleOwner")
+  obdConnections                ObdConnection[]            @relation("ObdConnectionOwner")
+  messageThreadParticipants     MessageThreadParticipant[]
+  sentMessages                  Message[]                  @relation("MessageSender")
+  listingDealAgreementsAsBuyer  ListingDealAgreement[]     @relation("ListingDealBuyer")
+  listingDealAgreementsAsSeller ListingDealAgreement[]     @relation("ListingDealSeller")
+  aiConversations               AiConversation[]
+  insuranceRequestsAsBuyer      InsuranceRequest[]         @relation("InsuranceRequestBuyer")
+  insuranceRequestsAsSeller     InsuranceRequest[]         @relation("InsuranceRequestSeller")
+  payments                      Payment[]
+  auditLogs                     AuditLog[]                 @relation("AuditActorUser")
+  legalComplianceChecks         LegalComplianceCheck[]
+  userListingLimits             UserListingLimit[]
+  mediaAssets                   MediaAsset[]                 @relation("MediaAssetOwner")
+  storyViews                    StoryView[]                 @relation("StoryViewViewer")
+
+  @@index([deletedAt])
+  @@index([isActive, deletedAt])
+}
+
+model Profile {
+  id                 String   @id @default(cuid())
+  userId             String   @unique
+  avatarUrl          String?
+  avatarMediaAssetId String?
+  bio                String?
+  websiteUrl         String?
+  locationText       String?
+  isPrivate          Boolean  @default(false)
+  showGarageVehicles Boolean  @default(true)
+  blueVerified       Boolean  @default(false)
+  goldVerified       Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  avatarMediaAsset   MediaAsset? @relation("ProfileAvatarAsset", fields: [avatarMediaAssetId], references: [id], onDelete: SetNull)
+}
+
+model AccountSession {
+  id               String    @id @default(cuid())
+  userId           String
+  sessionTokenHash String    @unique
+  ipAddress        String?
+  userAgent        String?
+  deviceName       String?
+  expiresAt        DateTime
+  lastSeenAt       DateTime?
+  revokedAt        DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+}
+
+model VerificationCode {
+  id           String                  @id @default(cuid())
+  userId       String?
+  targetType   VerificationTargetType
+  targetValue  String
+  purpose      VerificationCodePurpose
+  codeHash     String
+  expiresAt    DateTime
+  consumedAt   DateTime?
+  attemptCount Int                     @default(0)
+  createdAt    DateTime                @default(now())
+  updatedAt    DateTime                @updatedAt
+  user         User?                   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([targetValue, purpose])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+}
+
+model CommercialApplication {
+  id           String                      @id @default(cuid())
+  userId       String
+  reviewerId   String?
+  companyName  String
+  taxNumber    String
+  taxDocumentUrl String?
+  otherDocumentUrls Json?
+  taxDocumentMediaAssetId String?
+  contactEmail String?
+  contactPhone String?
+  notes        String?
+  rejectionReason String?
+  status       CommercialApplicationStatus @default(PENDING)
+  submittedAt  DateTime                    @default(now())
+  reviewedAt   DateTime?
+  createdAt    DateTime                    @default(now())
+  updatedAt    DateTime                    @updatedAt
+  user         User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reviewer     AdminUser?                  @relation("CommercialApplicationReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+  taxDocumentMediaAsset MediaAsset?        @relation("CommercialDocumentAsset", fields: [taxDocumentMediaAssetId], references: [id], onDelete: SetNull)
+
+  @@index([status, submittedAt])
+  @@index([userId, status])
+}
+
+model Post {
+  id           String            @id @default(cuid())
+  ownerId      String
+  /// Max 600 chars should be enforced in backend validation.
+  caption      String?           @db.VarChar(600)
+  locationText String?
+  visibility   ContentVisibility @default(PUBLIC)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  owner        User              @relation("PostOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  media        PostMedia[]
+  likes        Like[]
+  comments     Comment[]
+  savedItems   SavedItem[]
+
+  @@index([ownerId, createdAt])
+  @@index([visibility, createdAt])
+  @@index([visibility, ownerId, createdAt])
+  @@index([createdAt, id])
+}
+
+model PostMedia {
+  id        String    @id @default(cuid())
+  postId    String
+  mediaAssetId String?
+  mediaType MediaType
+  url       String
+  sortOrder Int       @default(0)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  post      Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  mediaAsset MediaAsset? @relation("PostMediaAsset", fields: [mediaAssetId], references: [id], onDelete: SetNull)
+
+  @@unique([postId, sortOrder])
+}
+
+model Story {
+  id           String            @id @default(cuid())
+  ownerId      String
+  caption      String?           @db.VarChar(250)
+  locationText String?
+  visibility   ContentVisibility @default(PUBLIC)
+  expiresAt    DateTime
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  owner        User              @relation("StoryOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  media        StoryMedia[]
+  views        StoryView[]
+
+  @@index([ownerId, expiresAt])
+}
+
+model StoryMedia {
+  id        String    @id @default(cuid())
+  storyId   String
+  mediaAssetId String?
+  mediaType MediaType
+  url       String
+  sortOrder Int       @default(0)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  story     Story     @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  mediaAsset MediaAsset? @relation("StoryMediaAsset", fields: [mediaAssetId], references: [id], onDelete: SetNull)
+
+  @@unique([storyId, sortOrder])
+}
+
+model StoryView {
+  id        String   @id @default(cuid())
+  storyId    String
+  viewerId   String
+  viewedAt   DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  story      Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  viewer     User     @relation("StoryViewViewer", fields: [viewerId], references: [id], onDelete: Cascade)
+
+  @@unique([storyId, viewerId])
+  @@index([storyId, viewedAt])
+}
+
+model Like {
+  id        String   @id @default(cuid())
+  userId    String
+  postId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, postId])
+  @@index([postId, createdAt])
+}
+
+model Comment {
+  id              String    @id @default(cuid())
+  postId          String
+  ownerId         String
+  parentCommentId String?
+  body            String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  post            Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  owner           User      @relation("CommentOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  parentComment   Comment?  @relation("CommentReplies", fields: [parentCommentId], references: [id], onDelete: Cascade)
+  replies         Comment[] @relation("CommentReplies")
+  likes           CommentLike[]
+
+  @@index([postId, createdAt])
+}
+
+model CommentLike {
+  id        String   @id @default(cuid())
+  userId    String
+  commentId String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  comment   Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, commentId])
+  @@index([commentId, createdAt])
+}
+
+model SavedItem {
+  id        String        @id @default(cuid())
+  userId    String
+  itemType  SavedItemType
+  postId    String?
+  listingId String?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post      Post?         @relation(fields: [postId], references: [id], onDelete: Cascade)
+  listing   Listing?      @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, postId])
+  @@unique([userId, listingId])
+  @@index([userId, itemType])
+}
+
+model Follow {
+  id          String   @id @default(cuid())
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  follower    User     @relation("FollowFollower", fields: [followerId], references: [id], onDelete: Cascade)
+  following   User     @relation("FollowFollowing", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followingId])
+  @@index([followingId, createdAt])
+}
+
+model Notification {
+  id           String     @id @default(cuid())
+  userId       String
+  actorUserId  String?
+  actorAdminId String?
+  type         String
+  title        String
+  body         String
+  targetUrl    String?
+  metadata     Json?
+  readAt       DateTime?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  user         User       @relation("NotificationRecipient", fields: [userId], references: [id], onDelete: Cascade)
+  actorUser    User?      @relation("NotificationActorUser", fields: [actorUserId], references: [id], onDelete: SetNull)
+  actorAdmin   AdminUser? @relation("NotificationActorAdmin", fields: [actorAdminId], references: [id], onDelete: SetNull)
+
+  @@index([userId, readAt])
+  @@index([userId, createdAt])
+}
+
+model VehicleBrand {
+  id        String         @id @default(cuid())
+  name      String         @unique
+  slug      String         @unique
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  models    VehicleModel[]
+  vehicles  Vehicle[]
+  garageVehicles GarageVehicle[] @relation("GarageVehicleBrand")
+}
+
+model VehicleModel {
+  id        String           @id @default(cuid())
+  brandId   String
+  name      String
+  slug      String
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  brand     VehicleBrand     @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  packages  VehiclePackage[]
+  vehicles  Vehicle[]
+  knowledge VehicleKnowledge?
+  garageVehicles GarageVehicle[] @relation("GarageVehicleModel")
+
+  @@unique([brandId, name])
+  @@unique([brandId, slug])
+}
+
+model VehiclePackage {
+  id             String          @id @default(cuid())
+  modelId        String
+  name           String
+  slug           String
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  model          VehicleModel    @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  spec           VehicleSpec?
+  garageVehicles GarageVehicle[]
+  vehicles       Vehicle[]
+
+  @@unique([modelId, name])
+  @@unique([modelId, slug])
+}
+
+model VehicleKnowledge {
+  id               String       @id @default(cuid())
+  vehicleModelId   String?      @unique
+  brandName        String
+  modelName        String
+  chronicIssues    Json
+  marketNotes      String
+  partsAvailability String
+  buyerAdvice      String
+  sellerAdvice     String
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  vehicleModel     VehicleModel? @relation(fields: [vehicleModelId], references: [id], onDelete: SetNull)
+
+  @@unique([brandName, modelName])
+}
+
+model Vehicle {
+  id                String             @id @default(cuid())
+  brandId           String?
+  modelId           String?
+  vehiclePackageId  String?
+  brandText         String?
+  modelText         String?
+  packageText       String?
+  year              Int?
+  vehicleType       VehicleType?
+  fuelType          FuelType?
+  transmissionType  TransmissionType?
+  vin               String?            @unique
+  chassisNo         String?
+  engineNo          String?
+  color             String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  brand             VehicleBrand?      @relation(fields: [brandId], references: [id], onDelete: SetNull)
+  model             VehicleModel?      @relation(fields: [modelId], references: [id], onDelete: SetNull)
+  vehiclePackage    VehiclePackage?    @relation(fields: [vehiclePackageId], references: [id], onDelete: SetNull)
+  spec              VehicleSpec?
+  insuranceRequests InsuranceRequest[]
+
+  @@index([brandId, modelId])
+}
+
+model VehicleSpec {
+  id                 String   @id @default(cuid())
+  vehicleId          String?  @unique
+  packageId          String?  @unique
+  bodyType           String?
+  engineVolumeCc     Int?
+  enginePowerHp      Int?
+  tractionType       String?
+  fuelType           FuelType?
+  transmissionType   TransmissionType?
+  equipmentSummary   String?
+  multimediaSummary  String?
+  interiorSummary    String?
+  exteriorSummary    String?
+  seatCount          Int?
+  doorCount          Int?
+  batteryCapacityKwh Decimal? @db.Decimal(10, 2)
+  rangeKm            Int?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  vehicle            Vehicle? @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  package            VehiclePackage? @relation(fields: [packageId], references: [id], onDelete: Cascade)
+}
+
+model GarageVehicle {
+  id                  String               @id @default(cuid())
+  ownerId             String
+  brandId             String?
+  modelId             String?
+  vehiclePackageId    String?
+  vehicleType         VehicleType          @default(OTHER)
+  brandText           String
+  modelText           String
+  packageText         String?
+  year                Int
+  plateNumber         String               @unique
+  color               String?
+  fuelType            FuelType
+  transmissionType    TransmissionType
+  km                  Int
+  isPublic            Boolean              @default(false)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  deletedAt           DateTime?
+  owner               User                 @relation("GarageVehicleOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  brand               VehicleBrand?        @relation("GarageVehicleBrand", fields: [brandId], references: [id], onDelete: SetNull)
+  model               VehicleModel?        @relation("GarageVehicleModel", fields: [modelId], references: [id], onDelete: SetNull)
+  vehiclePackage      VehiclePackage?      @relation(fields: [vehiclePackageId], references: [id], onDelete: SetNull)
+  media               GarageVehicleMedia[]
+  listings            Listing[]
+  obdConnections      ObdConnection[]
+  obdExpertiseReports ObdExpertiseReport[]
+  obdMetricSnapshots  ObdMetricSnapshot[]
+
+  @@index([ownerId, isPublic])
+  @@index([ownerId, deletedAt, createdAt])
+  @@index([deletedAt])
+}
+
+model GarageVehicleMedia {
+  id             String       @id @default(cuid())
+  garageVehicleId String
+  mediaAssetId   String?
+  mediaType      MediaType
+  url            String
+  sortOrder      Int          @default(0)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  garageVehicle  GarageVehicle @relation(fields: [garageVehicleId], references: [id], onDelete: Cascade)
+  mediaAsset     MediaAsset?   @relation("GarageVehicleMediaAsset", fields: [mediaAssetId], references: [id], onDelete: SetNull)
+
+  @@unique([garageVehicleId, sortOrder])
+}
+
+model Listing {
+  id                    String                 @id @default(cuid())
+  sellerId              String
+  garageVehicleId       String?
+  title                 String
+  /// Max 600 chars should be enforced in backend validation.
+  description           String                 @db.VarChar(600)
+  price                 Decimal                @db.Decimal(14, 2)
+  currency              String                 @default("TRY")
+  city                  String
+  district              String?
+  listingNo             String                 @unique
+  listingStatus         ListingStatus          @default(DRAFT)
+  sellerType            SellerType
+  tradeAvailable        Boolean                @default(false)
+  contactPhone          String?
+  showPhone             Boolean                @default(false)
+  obdExpertiseReportId  String?
+  plateNumber           String?
+  plateNumberHash       String?
+  licenseOwnerName      String?
+  licenseOwnerTcNo      String?
+  isLicenseVerified     Boolean                @default(false)
+  hasExpertiseReport    Boolean                @default(false)
+  ownerAuthorizationRequired Boolean           @default(false)
+  suspensionReason      String?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  deletedAt             DateTime?
+  seller                User                   @relation("ListingSeller", fields: [sellerId], references: [id], onDelete: Cascade)
+  garageVehicle         GarageVehicle?         @relation(fields: [garageVehicleId], references: [id], onDelete: SetNull)
+  obdExpertiseReport    ObdExpertiseReport?    @relation("ListingExpertiseReport", fields: [obdExpertiseReportId], references: [id], onDelete: SetNull)
+  media                 ListingMedia[]
+  damageParts           ListingDamagePart[]
+  savedItems            SavedItem[]
+  messageThreads        MessageThread[]
+  dealAgreements        ListingDealAgreement[]
+  insuranceRequests     InsuranceRequest[]
+  legalComplianceChecks LegalComplianceCheck[]
+
+  @@index([sellerId, listingStatus])
+  @@index([listingStatus, createdAt])
+  @@index([listingStatus, deletedAt, createdAt])
+  @@index([listingStatus, city, createdAt])
+  @@index([city, district])
+  @@index([deletedAt])
+  @@index([obdExpertiseReportId])
+}
+
+model ListingMedia {
+  id        String    @id @default(cuid())
+  listingId String
+  mediaAssetId String?
+  mediaType MediaType
+  url       String
+  sortOrder Int       @default(0)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  listing   Listing   @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  mediaAsset MediaAsset? @relation("ListingMediaAsset", fields: [mediaAssetId], references: [id], onDelete: SetNull)
+
+  @@unique([listingId, sortOrder])
+}
+
+model ListingDamagePart {
+  id           String       @id @default(cuid())
+  listingId    String
+  partName     String
+  damageStatus DamageStatus @default(NONE)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  listing      Listing      @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@unique([listingId, partName])
+}
+
+model ObdConnection {
+  id               String               @id @default(cuid())
+  ownerId          String
+  garageVehicleId  String
+  adapterType      ObdAdapterType       @default(MOCK)
+  provider         String?
+  deviceName       String?
+  deviceId         String?
+  deviceSerial     String?              @unique
+  connectionStatus ObdConnectionStatus  @default(DISCONNECTED)
+  lastConnectedAt  DateTime?
+  lastError        String?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  owner            User                 @relation("ObdConnectionOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  garageVehicle    GarageVehicle        @relation(fields: [garageVehicleId], references: [id], onDelete: Cascade)
+  expertiseReports ObdExpertiseReport[]
+
+  @@index([garageVehicleId, connectionStatus])
+}
+
+model ObdExpertiseReport {
+  id              String              @id @default(cuid())
+  garageVehicleId String
+  obdConnectionId String?
+  reportStatus    ObdReportStatus     @default(CREATED)
+  durationSeconds Int?
+  overallScore    Int?
+  summaryText     String?
+  criticalIssues  Json?
+  warnings        Json?
+  normalFindings  Json?
+  rawMetricsSummary Json?
+  reportJson      Json?
+  startedAt       DateTime?
+  endedAt         DateTime?
+  reportedAt      DateTime?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  garageVehicle   GarageVehicle       @relation(fields: [garageVehicleId], references: [id], onDelete: Cascade)
+  obdConnection   ObdConnection?      @relation(fields: [obdConnectionId], references: [id], onDelete: SetNull)
+  faultCodes      ObdFaultCode[]
+  metricSnapshots ObdMetricSnapshot[]
+  listings        Listing[]           @relation("ListingExpertiseReport")
+
+  @@index([garageVehicleId, reportedAt])
+}
+
+model ObdFaultCode {
+  id          String             @id @default(cuid())
+  reportId    String
+  faultCode   String
+  description String?
+  severity    ObdFaultSeverity   @default(INFO)
+  isActive    Boolean            @default(true)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  report      ObdExpertiseReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@unique([reportId, faultCode])
+}
+
+model ObdMetricSnapshot {
+  id              String              @id @default(cuid())
+  garageVehicleId String
+  reportId        String?
+  metricKey       String?
+  metricValue     String?
+  metricUnit      String?
+  rpm             Int?
+  speed           Int?
+  coolantTemp     Int?
+  engineLoad      Int?
+  fuelLevel       Int?
+  batteryVoltage  Decimal?            @db.Decimal(10, 2)
+  intakeAirTemp   Int?
+  throttlePosition Int?
+  capturedAt      DateTime            @default(now())
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  garageVehicle   GarageVehicle       @relation(fields: [garageVehicleId], references: [id], onDelete: Cascade)
+  report          ObdExpertiseReport? @relation(fields: [reportId], references: [id], onDelete: SetNull)
+
+  @@index([garageVehicleId, capturedAt])
+}
+
+model MessageThread {
+    id            String                     @id @default(cuid())
+    type          MessageThreadType
+    listingId     String?
+    groupName     String?
+    createdAt     DateTime                   @default(now())
+    updatedAt     DateTime                   @updatedAt
+    listing       Listing?                   @relation(fields: [listingId], references: [id], onDelete: SetNull)
+    participants  MessageThreadParticipant[]
+    messages      Message[]
+    dealAgreement ListingDealAgreement?
+    insuranceRequests InsuranceRequest[]     @relation("InsuranceSourceThread")
+
+    @@index([listingId, type])
+  }
+
+model MessageThreadParticipant {
+  id         String        @id @default(cuid())
+  threadId   String
+  userId     String
+  joinedAt   DateTime      @default(now())
+  lastReadAt DateTime?
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+    thread     MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+    user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@unique([threadId, userId])
+    @@index([userId, joinedAt])
+  }
+
+model Message {
+    id          String              @id @default(cuid())
+    threadId    String
+    senderId    String
+    body        String?
+    messageType MessageType         @default(TEXT)
+    metadata    Json?
+    seenAt      DateTime?
+    createdAt   DateTime            @default(now())
+    updatedAt   DateTime            @updatedAt
+    thread      MessageThread       @relation(fields: [threadId], references: [id], onDelete: Cascade)
+    sender      User                @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+    attachments MessageAttachment[]
+
+    @@index([threadId, createdAt])
+    @@index([threadId, seenAt])
+  }
+
+model MessageAttachment {
+  id             String         @id @default(cuid())
+  messageId      String
+  mediaAssetId   String?
+  attachmentType AttachmentType
+  url            String
+  fileName       String?
+  mimeType       String?
+  sizeBytes      Int?
+  sortOrder      Int            @default(0)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  message        Message        @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  mediaAsset     MediaAsset?    @relation("MessageAttachmentAsset", fields: [mediaAssetId], references: [id], onDelete: SetNull)
+
+  @@unique([messageId, sortOrder])
+}
+
+model ListingDealAgreement {
+  id              String        @id @default(cuid())
+  listingId       String
+  threadId        String        @unique
+  buyerId         String
+  sellerId        String
+  buyerAgreedAt   DateTime?
+  sellerAgreedAt  DateTime?
+  licenseSharedAt DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  listing         Listing       @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  thread          MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  buyer           User          @relation("ListingDealBuyer", fields: [buyerId], references: [id], onDelete: Cascade)
+  seller          User          @relation("ListingDealSeller", fields: [sellerId], references: [id], onDelete: Cascade)
+
+  @@unique([listingId, buyerId, sellerId])
+}
+
+model AiConversation {
+  id          String         @id @default(cuid())
+  userId      String
+  title       String
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages    AiMessage[]
+  toolResults AiToolResult[]
+
+  @@index([userId, createdAt])
+  @@index([userId, updatedAt])
+}
+
+model AiMessage {
+  id             String         @id @default(cuid())
+  conversationId String
+  role           AiMessageRole
+  provider       AiProvider?
+  content        String
+  metadata       Json?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  conversation   AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  toolResults    AiToolResult[]
+
+  @@index([conversationId, createdAt])
+}
+
+model AiToolResult {
+  id             String         @id @default(cuid())
+  conversationId String
+  messageId      String?
+  toolName       String
+  resultJson     Json
+  success        Boolean        @default(true)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  conversation   AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  message        AiMessage?     @relation(fields: [messageId], references: [id], onDelete: SetNull)
+
+  @@index([conversationId, createdAt])
+}
+
+model InsuranceRequest {
+    id              String                    @id @default(cuid())
+    buyerId         String
+    sellerId        String
+    listingId       String
+    vehicleId       String?
+    sourceThreadId  String?                   @unique
+    status          InsuranceRequestStatus    @default(PENDING)
+    createdAt       DateTime                  @default(now())
+    updatedAt       DateTime                  @updatedAt
+    buyer           User                      @relation("InsuranceRequestBuyer", fields: [buyerId], references: [id], onDelete: Cascade)
+    seller          User                      @relation("InsuranceRequestSeller", fields: [sellerId], references: [id], onDelete: Cascade)
+    listing         Listing                   @relation(fields: [listingId], references: [id], onDelete: Cascade)
+    vehicle         Vehicle?                  @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+    sourceThread    MessageThread?            @relation("InsuranceSourceThread", fields: [sourceThreadId], references: [id], onDelete: SetNull)
+    offers          InsuranceOffer[]
+    policyDocuments InsurancePolicyDocument[]
+    payments        Payment[]
+
+    @@index([status, createdAt])
+}
+
+model InsuranceOffer {
+  id           String               @id @default(cuid())
+  requestId    String
+  adminId      String
+  offerFileMediaAssetId String?
+  amount       Decimal              @db.Decimal(14, 2)
+  currency     String               @default("TRY")
+  offerFileUrl String?
+  status       InsuranceOfferStatus @default(ACTIVE)
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+  request      InsuranceRequest     @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  admin        AdminUser            @relation("InsuranceOfferAdmin", fields: [adminId], references: [id], onDelete: Cascade)
+  offerFileMediaAsset MediaAsset?   @relation("InsuranceOfferAsset", fields: [offerFileMediaAssetId], references: [id], onDelete: SetNull)
+  payments     Payment[]
+
+  @@index([requestId, status])
+}
+
+model InsurancePolicyDocument {
+  id           String           @id @default(cuid())
+  requestId    String
+  adminId      String?
+  mediaAssetId String?
+  documentType String
+  fileUrl      String
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  request      InsuranceRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  admin        AdminUser?       @relation("InsurancePolicyDocumentAdmin", fields: [adminId], references: [id], onDelete: SetNull)
+  mediaAsset   MediaAsset?      @relation("InsurancePolicyDocumentAsset", fields: [mediaAssetId], references: [id], onDelete: SetNull)
+}
+
+model Payment {
+  id                    String            @id @default(cuid())
+  userId                String
+  insuranceRequestId    String?
+  insuranceOfferId      String?
+  amount                Decimal           @db.Decimal(14, 2)
+  currency              String            @default("TRY")
+  provider              PaymentProvider   @default(GARANTI)
+  status                PaymentStatus     @default(PENDING)
+  providerTransactionId String?
+  failureReason         String?
+  callbackVerifiedAt    DateTime?
+  completedAt           DateTime?
+  metadata              Json?
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+  user                  User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  insuranceRequest      InsuranceRequest? @relation(fields: [insuranceRequestId], references: [id], onDelete: SetNull)
+  insuranceOffer        InsuranceOffer?   @relation(fields: [insuranceOfferId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([insuranceRequestId, status])
+  @@index([insuranceOfferId, status])
+}
+
+model AdminUser {
+  id                             String                    @id @default(cuid())
+  username                       String                    @unique
+  passwordHash                   String
+  role                           AdminRole
+  isActive                       Boolean                   @default(true)
+  createdAt                      DateTime                  @default(now())
+  updatedAt                      DateTime                  @updatedAt
+  sessions                       AdminSession[]
+  reviewedCommercialApplications CommercialApplication[]   @relation("CommercialApplicationReviewer")
+  insuranceOffers                InsuranceOffer[]          @relation("InsuranceOfferAdmin")
+  policyDocuments                InsurancePolicyDocument[] @relation("InsurancePolicyDocumentAdmin")
+  notificationsTriggered         Notification[]            @relation("NotificationActorAdmin")
+  auditLogs                      AuditLog[]                @relation("AuditActorAdmin")
+  mediaAssets                    MediaAsset[]              @relation("MediaAssetAdmin")
+}
+
+model MediaAsset {
+  id                 String             @id @default(cuid())
+  ownerId            String?
+  uploadedByAdminId  String?
+  purpose            MediaAssetPurpose
+  url                String
+  storageKey         String             @unique
+  originalFileName   String?
+  mimeType           String
+  size               Int
+  visibility         MediaVisibility    @default(PUBLIC)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  deletedAt          DateTime?
+  owner              User?              @relation("MediaAssetOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  uploadedByAdmin    AdminUser?         @relation("MediaAssetAdmin", fields: [uploadedByAdminId], references: [id], onDelete: SetNull)
+  avatarProfiles     Profile[]          @relation("ProfileAvatarAsset")
+  commercialApplications CommercialApplication[] @relation("CommercialDocumentAsset")
+  postMediaItems     PostMedia[]        @relation("PostMediaAsset")
+  storyMediaItems    StoryMedia[]       @relation("StoryMediaAsset")
+  listingMediaItems  ListingMedia[]     @relation("ListingMediaAsset")
+  garageVehicleMediaItems GarageVehicleMedia[] @relation("GarageVehicleMediaAsset")
+  messageAttachments MessageAttachment[] @relation("MessageAttachmentAsset")
+  insuranceOfferFiles InsuranceOffer[]  @relation("InsuranceOfferAsset")
+  insuranceDocuments InsurancePolicyDocument[] @relation("InsurancePolicyDocumentAsset")
+
+  @@index([ownerId, purpose, createdAt])
+  @@index([uploadedByAdminId, purpose, createdAt])
+  @@index([visibility, purpose, createdAt])
+  @@index([deletedAt])
+}
+
+model AdminSession {
+  id               String    @id @default(cuid())
+  adminUserId      String
+  sessionTokenHash String    @unique
+  ipAddress        String?
+  userAgent        String?
+  expiresAt        DateTime
+  lastSeenAt       DateTime?
+  revokedAt        DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  adminUser        AdminUser @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
+
+  @@index([adminUserId, expiresAt])
+}
+
+model AuditLog {
+  id           String     @id @default(cuid())
+  actorAdminId String?
+  actorUserId  String?
+  action       String
+  entityType   String
+  entityId     String
+  metadata     Json
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  actorAdmin   AdminUser? @relation("AuditActorAdmin", fields: [actorAdminId], references: [id], onDelete: SetNull)
+  actorUser    User?      @relation("AuditActorUser", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId])
+}
+
+model LegalComplianceCheck {
+  id         String                   @id @default(cuid())
+  userId     String
+  listingId  String?
+  checkType  LegalComplianceCheckType
+  status     LegalComplianceStatus
+  resultJson Json
+  createdAt  DateTime                 @default(now())
+  updatedAt  DateTime                 @updatedAt
+  user       User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listing    Listing?                 @relation(fields: [listingId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([listingId, createdAt])
+}
+
+model UserListingLimit {
+  id             String    @id @default(cuid())
+  userId         String
+  year           Int
+  listingCount   Int       @default(0)
+  warningShownAt DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, year])
+}

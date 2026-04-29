@@ -1,0 +1,40 @@
+{
+  "expo": {
+    "name": "Carloi V4 Admin Mobile",
+    "slug": "carloi-v4-admin-mobile",
+    "scheme": "carloi-v4-admin-mobile",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#f5f6f7"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "plugins": [
+      "expo-router"
+    ],
+    "experiments": {
+      "typedRoutes": false
+    },
+    "ios": {
+      "bundleIdentifier": "com.carloi.v4.adminmobile",
+      "supportsTablet": false
+    },
+    "android": {
+      "package": "com.carloi.v4.adminmobile",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#f5f6f7"
+      }
+    },
+    "web": {
+      "bundler": "metro",
+      "favicon": "./assets/favicon.png"
+    }
+  }
+}

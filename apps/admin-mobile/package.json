@@ -1,0 +1,31 @@
+{
+  "name": "@carloi-v4/admin-mobile",
+  "version": "0.1.0",
+  "private": true,
+  "main": "expo-router/entry",
+  "scripts": {
+    "dev": "node ../../node_modules/expo/bin/cli start --clear",
+    "build": "pnpm typecheck",
+    "typecheck": "node ../../node_modules/typescript/bin/tsc --noEmit"
+  },
+  "dependencies": {
+    "@carloi-v4/types": "workspace:*",
+    "@expo/metro-runtime": "^55.0.10",
+    "expo": "^55.0.17",
+    "expo-document-picker": "^55.0.13",
+    "expo-image-picker": "^55.0.19",
+    "expo-router": "^55.0.13",
+    "expo-status-bar": "^55.0.5",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "react-native": "^0.83.6",
+    "react-native-safe-area-context": "^5.7.0",
+    "react-native-screens": "^4.24.0",
+    "react-native-web": "^0.21.2"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.14",
+    "babel-preset-expo": "^55.0.18"
+  }
+}
+

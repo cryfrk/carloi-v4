@@ -1,0 +1,38 @@
+{
+    "name":  "carloi-v4",
+    "private":  true,
+    "version":  "0.1.0",
+    "packageManager":  "pnpm@10.17.1",
+    "scripts":  {
+                    "postinstall":  "node ./node_modules/prisma/build/index.js generate --schema prisma/schema.prisma",
+                    "setup:windows":  "powershell -ExecutionPolicy Bypass -File scripts/setup-windows.ps1",
+                    "fix:web:swc:windows":  "powershell -ExecutionPolicy Bypass -File scripts/fix-next-swc-windows.ps1",
+                    "deploy:prod":  "docker compose -f docker-compose.prod.yml --env-file .env up -d --build",
+                    "deploy:dry-run":  "bash scripts/deploy-dry-run.sh",
+                    "backup:postgres":  "bash scripts/postgres-backup.sh",
+                    "dev":  "concurrently -n api,web,mobile,admin-desktop,admin-mobile -c cyan,green,yellow,magenta,blue \"pnpm api:dev\" \"pnpm web:dev\" \"pnpm mobile:dev\" \"pnpm admin-desktop:dev\" \"pnpm admin-mobile:dev\"",
+                    "api:dev":  "pnpm --filter @carloi-v4/api dev",
+                    "web:dev":  "pnpm --filter @carloi-v4/web dev",
+                    "mobile:dev":  "pnpm --filter @carloi-v4/mobile dev",
+                    "admin-desktop:dev":  "pnpm --filter @carloi-v4/admin-desktop dev",
+                    "admin-mobile:dev":  "pnpm --filter @carloi-v4/admin-mobile dev",
+                    "build":  "pnpm -r build",
+                    "lint":  "pnpm typecheck",
+                    "test":  "pnpm --filter @carloi-v4/api test",
+                    "typecheck":  "pnpm -r typecheck",
+                    "prisma:generate":  "node ./node_modules/prisma/build/index.js generate --schema prisma/schema.prisma",
+                    "prisma:migrate":  "node ./node_modules/prisma/build/index.js migrate deploy --schema prisma/schema.prisma",
+                    "prisma:push":  "node ./node_modules/prisma/build/index.js db push --schema prisma/schema.prisma",
+                    "prisma:seed":  "node prisma/seed.js"
+                },
+    "devDependencies":  {
+                            "@types/node":  "^25.6.0",
+                            "concurrently":  "^9.2.1",
+                            "prisma":  "^6.19.3",
+                            "typescript":  "^5.9.3"
+                        },
+    "dependencies":  {
+                         "@prisma/client":  "^6.19.3",
+                         "bcryptjs":  "^3.0.3"
+                     }
+}

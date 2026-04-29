@@ -1,0 +1,2 @@
+export * from './garage.module';
+
