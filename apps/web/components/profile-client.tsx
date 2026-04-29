@@ -112,7 +112,7 @@ export function ProfileClient({ identifier }: { identifier?: string }) {
                   ) : null}
                   <p className="card-copy">{profile?.locationText ?? 'Konum bilgisi yok'}</p>
                   <p className="card-copy">
-                    {profile?.followerCount ?? 0} takipci · {profile?.followingCount ?? 0} takip edilen
+                    {profile?.followerCount ?? 0} takipci Â· {profile?.followingCount ?? 0} takip edilen
                   </p>
                   {profile?.mutualFollowers.length ? (
                     <p className="card-copy">
@@ -165,7 +165,7 @@ export function ProfileClient({ identifier }: { identifier?: string }) {
                 {posts.map((post) => (
                   <Link key={post.id} className="profile-grid-card" href={`/posts/${post.id}`}>
                     <strong>{post.thumbnailUrl ?? 'Medya yok'}</strong>
-                    <span>{post.likeCount} begeni · {post.commentCount} yorum</span>
+                    <span>{post.likeCount} begeni Â· {post.commentCount} yorum</span>
                   </Link>
                 ))}
                 {!posts.length ? <div className="detail-card">Bu sekmede gosterilecek gonderi yok.</div> : null}
@@ -178,7 +178,7 @@ export function ProfileClient({ identifier }: { identifier?: string }) {
                   <Link key={listing.listingId} className="bullet-card" href={`/listings/${listing.listingId}`}>
                     <div className="card-label">Listing</div>
                     <h3 className="card-title">{listing.title}</h3>
-                    <p className="card-copy">{[listing.brand, listing.model, listing.package].filter(Boolean).join(' · ')}</p>
+                    <p className="card-copy">{[listing.brand, listing.model, listing.package].filter(Boolean).join(' Â· ')}</p>
                     <p className="card-copy">{listing.city}{listing.district ? ` / ${listing.district}` : ''}</p>
                     <strong>{listing.price.toLocaleString('tr-TR')} TL</strong>
                   </Link>
@@ -194,7 +194,7 @@ export function ProfileClient({ identifier }: { identifier?: string }) {
                     <div className="card-label">Garage</div>
                     <h3 className="card-title">{vehicle.brand} {vehicle.model}</h3>
                     <p className="card-copy">{vehicle.package ?? 'Paket bilgisi yok'}</p>
-                    <p className="card-copy">{vehicle.year} · {vehicle.km.toLocaleString('tr-TR')} km · {vehicle.plateNumberMasked}</p>
+                    <p className="card-copy">{vehicle.year} Â· {vehicle.km.toLocaleString('tr-TR')} km Â· {vehicle.plateNumberMasked}</p>
                     {vehicle.latestObdReport ? <strong>Expertiz skoru: {vehicle.latestObdReport.overallScore ?? '-'} / 100</strong> : null}
                   </article>
                 ))}

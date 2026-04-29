@@ -54,7 +54,7 @@ export function SavedItemsClient() {
                 <Link key={item.listing.listingId} className="settings-card" href={`/listings/${item.listing.listingId}`}>
                   <div className="settings-kicker">{item.listing.listingNo}</div>
                   <h3>{item.listing.title}</h3>
-                  <p>{[item.listing.brand, item.listing.model, item.listing.package].filter(Boolean).join(' · ')}</p>
+                  <p>{[item.listing.brand, item.listing.model, item.listing.package].filter(Boolean).join(' Â· ')}</p>
                   <strong>{item.listing.price.toLocaleString('tr-TR')} TL</strong>
                 </Link>
               ))}
