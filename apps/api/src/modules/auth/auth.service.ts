@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  ConflictException,
   ForbiddenException,
   Injectable,
   InternalServerErrorException,
@@ -748,30 +747,32 @@ export class AuthService {
   }
 
   private handlePrismaWriteError(error: unknown): never {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-      const targets = Array.isArray(error.meta?.target)
-        ? error.meta.target.filter((item): item is string => typeof item === 'string')
-        : [];
+    console.error(error);
 
-      if (targets.includes('username')) {
-        throw new ConflictException('Bu kullanici adi zaten kullaniliyor.');
+    if (error instanceof Prisma.PrismaClientKnownRequestError || (error && typeof error === 'object' && 'code' in error)) {
+      const prismaError = error as Prisma.PrismaClientKnownRequestError;
+
+      if (prismaError.code === 'P2002') {
+        const targets = Array.isArray(prismaError.meta?.target)
+          ? prismaError.meta.target.filter((item): item is string => typeof item === 'string')
+          : [];
+
+        if (targets.includes('username')) {
+          throw new BadRequestException({ message: 'Bu kullanıcı adı zaten kullanılıyor' });
+        }
+
+        if (targets.includes('email')) {
+          throw new BadRequestException({ message: 'Bu email zaten kullanılıyor' });
+        }
+
+        if (targets.includes('phone')) {
+          throw new BadRequestException({ message: 'Bu telefon zaten kullanılıyor' });
+        }
+
+        throw new BadRequestException({ message: 'Bu bilgi zaten kullanılıyor' });
       }
-
-      if (targets.includes('email')) {
-        throw new ConflictException('Bu email adresi zaten kullaniliyor.');
-      }
-
-      if (targets.includes('phone')) {
-        throw new ConflictException('Bu telefon numarasi zaten kullaniliyor.');
-      }
-
-      if (targets.includes('tcIdentityNo')) {
-        throw new ConflictException('Bu TC kimlik numarasi zaten kullaniliyor.');
-      }
-
-      throw new ConflictException('Girdiginiz bilgilerden biri zaten kullaniliyor.');
     }
 
-    throw new InternalServerErrorException('Islem tamamlanamadi. Lutfen tekrar deneyin.');
+    throw new BadRequestException({ message: 'İşlem tamamlanamadı' });
   }
 }
