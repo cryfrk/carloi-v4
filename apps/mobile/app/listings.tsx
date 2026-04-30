@@ -152,8 +152,8 @@ export default function ListingsScreen() {
   return (
     <MobileShell
       title="Ilanlar"
-      subtitle="Sehir oncelikli ilan akisini filtrele, kaydet ve garajindaki araci yayina al."
-      actionLabel="Ilan ver"
+      subtitle="Yakinindaki ilanlari kesfet, filtrele ve tek akis icinde detaylara ulas."
+      actionLabel="Olustur"
       onActionPress={() => router.push('/create-listing')}
     >
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
@@ -429,20 +429,20 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   metaText: {
-    color: '#9cb0be',
+    color: '#6b7280',
   },
   banner: {
     borderRadius: 18,
     padding: 14,
   },
   noticeBanner: {
-    backgroundColor: 'rgba(255,255,255,0.07)',
+    backgroundColor: '#ffffff',
   },
   errorBanner: {
-    backgroundColor: 'rgba(216,82,82,0.2)',
+    backgroundColor: '#fff1f2',
   },
   bannerText: {
-    color: '#f8f2ea',
+    color: '#374151',
     lineHeight: 20,
   },
   loadingCard: {
@@ -450,40 +450,40 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     borderRadius: 24,
-    backgroundColor: '#0e1f2d',
+    backgroundColor: '#ffffff',
   },
   loadingText: {
-    color: '#d1dce5',
+    color: '#6b7280',
   },
   emptyCard: {
     padding: 22,
     borderRadius: 24,
-    backgroundColor: '#102030',
+    backgroundColor: '#ffffff',
     gap: 8,
   },
   emptyTitle: {
-    color: '#f8f2ea',
+    color: '#374151',
     fontSize: 20,
     fontWeight: '800',
   },
   emptyCopy: {
-    color: '#afbdc8',
+    color: '#6b7280',
   },
   card: {
     flexDirection: 'row',
     gap: 14,
     padding: 14,
-    borderRadius: 24,
-    backgroundColor: '#0d1d2a',
+    borderRadius: 22,
+    backgroundColor: '#ffffff',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: '#e8ebee',
   },
   imageWrap: {
     width: 108,
     aspectRatio: 1,
     borderRadius: 20,
     overflow: 'hidden',
-    backgroundColor: '#08131d',
+    backgroundColor: '#e5e7eb',
   },
   cardImage: {
     width: '100%',
@@ -495,7 +495,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   imageFallbackLabel: {
-    color: '#ffd6c2',
+    color: '#6b7280',
     fontWeight: '800',
     letterSpacing: 1.8,
   },
@@ -510,7 +510,7 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     flex: 1,
-    color: '#f8f2ea',
+    color: '#374151',
     fontSize: 16,
     fontWeight: '800',
     lineHeight: 22,
@@ -519,15 +519,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 8,
     borderRadius: 14,
-    backgroundColor: '#142636',
+    backgroundColor: '#f3f4f6',
   },
   savePillLabel: {
-    color: '#ffd6c2',
+    color: '#6b7280',
     fontSize: 12,
     fontWeight: '800',
   },
   cardMeta: {
-    color: '#9cb0be',
+    color: '#6b7280',
     lineHeight: 19,
   },
   cardBottom: {
@@ -537,11 +537,11 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   cardKm: {
-    color: '#d6e1e8',
+    color: '#6b7280',
     fontWeight: '700',
   },
   cardPrice: {
-    color: '#f8f2ea',
+    color: '#374151',
     fontWeight: '800',
     fontSize: 18,
   },
@@ -567,10 +567,10 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 28,
     padding: 18,
     gap: 16,
-    backgroundColor: '#0d1d2a',
+    backgroundColor: '#ffffff',
   },
   modalTitle: {
-    color: '#f8f2ea',
+    color: '#374151',
     fontSize: 22,
     fontWeight: '800',
   },
@@ -582,8 +582,8 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     paddingHorizontal: 14,
     paddingVertical: 13,
-    color: '#f8f2ea',
-    backgroundColor: '#08131d',
+    color: '#374151',
+    backgroundColor: '#e5e7eb',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
   },
@@ -594,13 +594,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderRadius: 16,
-    backgroundColor: '#142636',
+    backgroundColor: '#f3f4f6',
   },
   choiceChipActive: {
     backgroundColor: 'rgba(239,131,84,0.2)',
   },
   choiceChipLabel: {
-    color: '#f8f2ea',
+    color: '#374151',
     fontWeight: '700',
   },
   modalActions: {
@@ -625,10 +625,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 14,
     borderRadius: 18,
-    backgroundColor: '#142636',
+    backgroundColor: '#f3f4f6',
   },
   modalSecondaryLabel: {
-    color: '#ffd6c2',
+    color: '#6b7280',
     fontWeight: '800',
   },
 });

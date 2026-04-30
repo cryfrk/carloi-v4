@@ -83,9 +83,9 @@ export default function RegisterDetailsScreen() {
   return (
     <AuthScreen
       eyebrow={userType === USER_TYPES.COMMERCIAL ? 'Ticari Uyelik' : 'Bireysel Uyelik'}
-      title="Uyelik bilgilerini tamamla"
-      description="En az bir email veya telefon bilgisi gir. Ticari hesaplar icin firma ve vergi bilgileri de zorunludur."
-      footer={<GhostButton label="Uyelik secimine don" onPress={() => router.back()} />}
+      title="Bilgilerini gir"
+      description="En az bir email veya telefon alanini doldur. Ticari hesapta firma, TC ve vergi bilgileri de zorunludur."
+      footer={<GhostButton label="Geri don" onPress={() => router.back()} />}
     >
       <AuthInput
         label="Ad"
@@ -155,7 +155,7 @@ export default function RegisterDetailsScreen() {
       ) : null}
       {errorMessage ? <FormMessage tone="error" message={errorMessage} /> : null}
       <PrimaryButton
-        label={loading ? 'Kayit olusturuluyor...' : 'Uyeligi olustur'}
+        label={loading ? 'Kayit olusturuluyor...' : 'Kayit ol'}
         onPress={() => {
           void handleSubmit();
         }}

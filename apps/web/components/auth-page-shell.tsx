@@ -24,7 +24,7 @@ export function AuthPageShell({
           <div className="auth-logo-mark">C</div>
           <div className="auth-brand-copy">
             <span className="auth-brand-name">Carloi</span>
-            <span className="auth-brand-subtitle">Social + listings + garage</span>
+            <span className="auth-brand-subtitle">Araclar, sosyal akis ve garaj tek yerde</span>
           </div>
         </div>
 

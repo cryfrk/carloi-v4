@@ -15,6 +15,13 @@ export function AuthScreen({
 }) {
   return (
     <ScrollView contentContainerStyle={styles.scrollContent}>
+      <View style={styles.brandBlock}>
+        <View style={styles.brandMark}>
+          <Text style={styles.brandMarkLabel}>C</Text>
+        </View>
+        <Text style={styles.brandName}>Carloi</Text>
+        <Text style={styles.brandTagline}>Araclar, ilanlar ve sosyal akis tek yerde.</Text>
+      </View>
       <View style={styles.hero}>
         <Text style={styles.eyebrow}>{eyebrow}</Text>
         <Text style={styles.title}>{title}</Text>
@@ -146,76 +153,109 @@ export function FormMessage({
 const styles = StyleSheet.create({
   scrollContent: {
     minHeight: '100%',
-    padding: 20,
-    gap: 18,
-    backgroundColor: '#08131d',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 28,
+    gap: 16,
+    backgroundColor: '#f5f6f7',
+  },
+  brandBlock: {
+    alignItems: 'center',
+    gap: 8,
+    paddingTop: 28,
+  },
+  brandMark: {
+    width: 68,
+    height: 68,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#111111',
+  },
+  brandMarkLabel: {
+    color: '#ffffff',
+    fontSize: 32,
+    fontWeight: '900',
+  },
+  brandName: {
+    color: '#111111',
+    fontSize: 28,
+    fontWeight: '900',
+  },
+  brandTagline: {
+    color: '#6b7280',
+    fontSize: 14,
   },
   hero: {
-    marginTop: 32,
-    padding: 24,
-    borderRadius: 28,
-    backgroundColor: '#102030',
-    borderWidth: 1,
-    borderColor: 'rgba(239,131,84,0.18)',
+    gap: 8,
+    paddingHorizontal: 6,
+    paddingTop: 6,
+    alignItems: 'center',
   },
   eyebrow: {
-    color: '#ffd6c2',
+    color: '#8a8f98',
     textTransform: 'uppercase',
-    letterSpacing: 2,
-    fontSize: 12,
-    marginBottom: 12,
+    letterSpacing: 1.8,
+    fontSize: 11,
+    fontWeight: '700',
   },
   title: {
-    color: '#f8f2ea',
-    fontSize: 32,
+    color: '#111111',
+    fontSize: 28,
     fontWeight: '800',
-    marginBottom: 10,
+    textAlign: 'center',
   },
   description: {
-    color: '#b7c4ce',
+    color: '#6b7280',
     fontSize: 15,
-    lineHeight: 23,
+    lineHeight: 22,
+    textAlign: 'center',
   },
   card: {
     padding: 18,
-    borderRadius: 24,
+    borderRadius: 28,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    backgroundColor: '#0f1f2d',
+    borderColor: '#e8ebee',
+    backgroundColor: '#ffffff',
     gap: 14,
+    shadowColor: '#000000',
+    shadowOpacity: 0.05,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 2,
   },
   footer: {
-    paddingBottom: 28,
+    paddingBottom: 12,
   },
   field: {
     gap: 8,
   },
   label: {
-    color: '#f8f2ea',
+    color: '#111111',
     fontSize: 13,
     fontWeight: '700',
   },
   input: {
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: '#e5e7eb',
     borderRadius: 18,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    color: '#f8f2ea',
-    backgroundColor: '#0b1822',
+    color: '#111111',
+    backgroundColor: '#fafafa',
   },
   primaryButton: {
     marginTop: 6,
     borderRadius: 18,
     paddingVertical: 15,
     alignItems: 'center',
-    backgroundColor: '#ef8354',
+    backgroundColor: '#111111',
   },
   primaryButtonDisabled: {
     opacity: 0.6,
   },
   primaryButtonLabel: {
-    color: '#08131d',
+    color: '#ffffff',
     fontWeight: '800',
     fontSize: 15,
   },
@@ -224,55 +264,55 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   ghostButtonLabel: {
-    color: '#ffd6c2',
+    color: '#111111',
     fontSize: 14,
     fontWeight: '700',
   },
   choiceButton: {
     flex: 1,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: '#e5e7eb',
     borderRadius: 18,
     paddingVertical: 14,
     paddingHorizontal: 12,
-    backgroundColor: '#0b1822',
+    backgroundColor: '#ffffff',
     alignItems: 'center',
   },
   choiceButtonActive: {
-    borderColor: '#ef8354',
-    backgroundColor: 'rgba(239,131,84,0.16)',
+    borderColor: '#111111',
+    backgroundColor: '#f3f4f6',
   },
   choiceLabel: {
-    color: '#b7c4ce',
+    color: '#6b7280',
     fontSize: 14,
     fontWeight: '700',
   },
   choiceLabelActive: {
-    color: '#f8f2ea',
+    color: '#111111',
   },
   messageBox: {
     borderRadius: 16,
     padding: 14,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: '#f3f4f6',
   },
   messageError: {
-    backgroundColor: 'rgba(216,82,82,0.16)',
+    backgroundColor: '#fff1f2',
     borderWidth: 1,
-    borderColor: 'rgba(216,82,82,0.3)',
+    borderColor: '#fecdd3',
   },
   messageSuccess: {
-    backgroundColor: 'rgba(143,214,148,0.16)',
+    backgroundColor: '#ecfdf3',
     borderWidth: 1,
-    borderColor: 'rgba(143,214,148,0.3)',
+    borderColor: '#bbf7d0',
   },
   messageText: {
-    color: '#d7e1e8',
+    color: '#374151',
     lineHeight: 20,
   },
   messageTextError: {
-    color: '#ffd5d5',
+    color: '#be123c',
   },
   messageTextSuccess: {
-    color: '#dcffe0',
+    color: '#166534',
   },
 });

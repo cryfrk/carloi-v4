@@ -16,10 +16,10 @@ export default function RegisterScreen() {
 
   return (
     <AuthScreen
-      eyebrow="Uyelik Secimi"
-      title="Carloi hesabini olustur"
-      description="Bireysel veya ticari uyelik secimiyle kayit akisina basla. Ticari secim sonrasi ek firma bilgileri istenecek."
-      footer={<GhostButton label="Giris ekranina don" onPress={() => router.push('/login')} />}
+      eyebrow="Uyelik"
+      title="Hesap turunu sec"
+      description="Bireysel hesapla sosyal akis ve ilan deneyimine hemen basla. Ticari hesapta ek firma ve vergi bilgileri gerekir."
+      footer={<GhostButton label="Zaten hesabim var" onPress={() => router.push('/login')} />}
     >
       <View style={{ flexDirection: 'row', gap: 12 }}>
         <ChoiceButton
@@ -34,7 +34,7 @@ export default function RegisterScreen() {
         />
       </View>
       <PrimaryButton
-        label="Bilgi girisine gec"
+        label="Devam et"
         onPress={() =>
           router.push({
             pathname: '/register-details',

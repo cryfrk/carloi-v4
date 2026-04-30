@@ -18,3 +18,5 @@ Thumbs.db
 prisma/dev.db
 apps/admin-desktop/release/
 *.exe
+apps/mobile/credentials/
+apps/mobile/credentials.json

@@ -50,9 +50,9 @@ export default function LoginPage() {
 
   return (
     <AuthPageShell
-      eyebrow="Carloi Access"
-      title="Telefon, email veya kullanici adi ile giris"
-      description="Web istemcisinde auth akisi aktif. Dogrulanmamis hesaplar kayit dogrulama adimina yonlendirilir."
+      eyebrow="Carloi Giris"
+      title="Telefon, email veya kullanici adi ile giris yap"
+      description="Carloi hesabinizla sosyal akis, ilanlar, garaj ve mesajlasma alanlarini ayni yerden yonetin."
     >
       <div className="form-grid">
         <TextField

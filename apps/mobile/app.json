@@ -2,6 +2,7 @@
   "expo": {
     "name": "Carloi V4 Mobile",
     "slug": "carloi-v4-mobile",
+    "owner": "newtv",
     "scheme": "carloi-v4-mobile",
     "version": "0.1.0",
     "orientation": "portrait",
@@ -36,6 +37,12 @@
     "web": {
       "bundler": "metro",
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "2d830153-f1b7-4b5b-a9a3-661adb7a1d0d"
+      }
     }
   }
 }

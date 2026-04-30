@@ -51,10 +51,10 @@ export default function LoginScreen() {
 
   return (
     <AuthScreen
-      eyebrow="Carloi Access"
-      title="Tek hesapla giris yap"
-      description="Telefon, email veya kullanici adi ile giris yap. Dogrulanmamis hesaplar dogrulama ekranina yonlendirilir."
-      footer={<GhostButton label="Uye ol" onPress={() => router.push('/register')} />}
+      eyebrow="Carloi Giris"
+      title="Telefon, email veya kullanici adi ile giris yap"
+      description="Carloi hesabinla sosyal akis, ilanlar, garaj ve mesajlasmaya ayni yerden eris."
+      footer={<GhostButton label="Hesabin yok mu? Uye ol" onPress={() => router.push('/register')} />}
     >
       <AuthInput
         label="Telefon, email veya kullanici adi"
@@ -69,6 +69,7 @@ export default function LoginScreen() {
         placeholder="********"
         secureTextEntry
       />
+      <GhostButton label="Sifremi unuttum" onPress={() => router.push('/forgot-password')} />
       {errorMessage ? <FormMessage tone="error" message={errorMessage} /> : null}
       <PrimaryButton
         label={loading ? 'Giris yapiliyor...' : 'Giris yap'}
@@ -77,7 +78,6 @@ export default function LoginScreen() {
         }}
         disabled={loading}
       />
-      <GhostButton label="Sifremi unuttum" onPress={() => router.push('/forgot-password')} />
     </AuthScreen>
   );
 }

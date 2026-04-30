@@ -1,4 +1,5 @@
-﻿import type { FeedPost, SocialComment } from '@carloi-v4/types';
+import { Ionicons } from '@expo/vector-icons';
+import type { FeedPost, SocialComment } from '@carloi-v4/types';
 import { Redirect, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -42,7 +43,7 @@ export default function HomeScreen() {
   const [openComments, setOpenComments] = useState<OpenCommentsState>({});
   const [storyRefreshKey, setStoryRefreshKey] = useState(0);
 
-  const mediaWidth = useMemo(() => Math.max(280, width - 44), [width]);
+  const mediaWidth = useMemo(() => Math.max(320, width), [width]);
   const maybeAccessToken = session?.accessToken;
   const maybeCurrentUserId = session?.user.id;
 
@@ -243,8 +244,8 @@ export default function HomeScreen() {
   return (
     <MobileShell
       title="Anasayfa"
-      subtitle="Takip ettiklerin once, hikayeler tepede, kesif akisi hemen arkada. Post ve story olusturma artik gercek upload ile calisiyor."
-      actionLabel="Post olustur"
+      subtitle="Takip ettiklerin once gelir, kesif akisi araya karisir ve sosyal akis sade kalir."
+      actionLabel="Olustur"
       onActionPress={() => router.push('/create-post')}
     >
       <ScrollView
@@ -316,7 +317,7 @@ export default function HomeScreen() {
                       {post.owner.goldVerified ? <Text style={styles.tickGold}>Gold</Text> : null}
                     </View>
                     <Text style={styles.ownerMeta}>
-                      {post.locationText || 'Konum eklenmedi'} · {new Date(post.createdAt).toLocaleDateString('tr-TR')}
+                      {post.locationText || 'Konum eklenmedi'}   Â·   {new Date(post.createdAt).toLocaleDateString('tr-TR')}
                     </Text>
                   </View>
                 </View>
@@ -338,21 +339,29 @@ export default function HomeScreen() {
 
               <View style={styles.actionsRow}>
                 <View style={styles.actionCluster}>
-                  <Pressable onPress={() => void handleLike(post)} style={styles.actionChip}>
-                    <Text style={styles.actionText}>{post.isLiked ? 'Begenildi' : 'Begen'}</Text>
+                  <Pressable onPress={() => void handleLike(post)} style={styles.iconActionButton}>
+                    <Ionicons
+                      color={post.isLiked ? '#e11d48' : '#111111'}
+                      name={post.isLiked ? 'heart' : 'heart-outline'}
+                      size={24}
+                    />
                   </Pressable>
-                  <Pressable onPress={() => void toggleComments(post.id)} style={styles.actionChip}>
-                    <Text style={styles.actionText}>Yorum</Text>
+                  <Pressable onPress={() => void toggleComments(post.id)} style={styles.iconActionButton}>
+                    <Ionicons color="#111111" name="chatbubble-outline" size={22} />
                   </Pressable>
                   <Pressable
                     onPress={() => setNotice('Paylasim kisayiolu bir sonraki asamada eklenecek.')}
-                    style={styles.actionChip}
+                    style={styles.iconActionButton}
                   >
-                    <Text style={styles.actionText}>Paylas</Text>
+                    <Ionicons color="#111111" name="paper-plane-outline" size={22} />
                   </Pressable>
                 </View>
-                <Pressable onPress={() => void handleSave(post)} style={styles.actionChip}>
-                  <Text style={styles.actionText}>{post.isSaved ? 'Kayitli' : 'Kaydet'}</Text>
+                <Pressable onPress={() => void handleSave(post)} style={styles.iconActionButton}>
+                  <Ionicons
+                    color="#111111"
+                    name={post.isSaved ? 'bookmark' : 'bookmark-outline'}
+                    size={22}
+                  />
                 </Pressable>
               </View>
 
@@ -408,9 +417,11 @@ export default function HomeScreen() {
                           }}
                           style={styles.commentLikeButton}
                         >
-                          <Text style={styles.commentLikeLabel}>
-                            {comment.isLiked ? 'Begenildi' : 'Begen'}
-                          </Text>
+                          <Ionicons
+                            color={comment.isLiked ? '#e11d48' : '#6b7280'}
+                            name={comment.isLiked ? 'heart' : 'heart-outline'}
+                            size={18}
+                          />
                         </Pressable>
                       </View>
                     ))
@@ -465,46 +476,47 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    gap: 16,
-    paddingBottom: 10,
+    gap: 0,
+    paddingBottom: 18,
+    backgroundColor: '#f5f6f7',
   },
   banner: {
     borderRadius: 18,
     padding: 14,
   },
   bannerInfo: {
-    backgroundColor: 'rgba(255,255,255,0.07)',
+    backgroundColor: '#ffffff',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: '#e8ebee',
   },
   bannerError: {
-    backgroundColor: 'rgba(216,82,82,0.18)',
+    backgroundColor: '#fff1f2',
     borderWidth: 1,
-    borderColor: 'rgba(216,82,82,0.26)',
+    borderColor: '#fecdd3',
   },
   bannerText: {
-    color: '#f8f2ea',
+    color: '#374151',
     lineHeight: 20,
   },
   loadingCard: {
     paddingVertical: 28,
     alignItems: 'center',
     gap: 10,
-    borderRadius: 26,
-    backgroundColor: '#0e1f2d',
+    borderRadius: 24,
+    backgroundColor: '#ffffff',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: '#e8ebee',
   },
   loadingText: {
-    color: '#d2dde5',
+    color: '#6b7280',
   },
   emptyCard: {
     gap: 8,
     padding: 22,
-    borderRadius: 28,
-    backgroundColor: '#102030',
+    borderRadius: 24,
+    backgroundColor: '#ffffff',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: '#e8ebee',
   },
   emptyTitle: {
     color: '#f8f2ea',
@@ -512,16 +524,18 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   emptyCopy: {
-    color: '#b7c4ce',
+    color: '#6b7280',
     lineHeight: 22,
   },
   postCard: {
     gap: 14,
-    padding: 14,
-    borderRadius: 30,
-    backgroundColor: '#0d1d2a',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    marginHorizontal: -14,
+    paddingTop: 14,
+    paddingHorizontal: 14,
+    paddingBottom: 18,
+    backgroundColor: '#ffffff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#eceff3',
   },
   postHeader: {
     flexDirection: 'row',
@@ -541,10 +555,10 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#ef8354',
+    backgroundColor: '#111111',
   },
   avatarLabel: {
-    color: '#08131d',
+    color: '#ffffff',
     fontSize: 18,
     fontWeight: '800',
   },
@@ -559,7 +573,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   ownerName: {
-    color: '#f8f2ea',
+    color: '#111111',
     fontWeight: '800',
     fontSize: 15,
   },
@@ -574,17 +588,17 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   ownerMeta: {
-    color: '#91a6b5',
+    color: '#6b7280',
     fontSize: 12,
   },
   followButton: {
     borderRadius: 16,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    backgroundColor: 'rgba(239,131,84,0.14)',
+    backgroundColor: '#f3f4f6',
   },
   followLabel: {
-    color: '#ffd6c2',
+    color: '#111111',
     fontSize: 12,
     fontWeight: '800',
   },
@@ -593,8 +607,7 @@ const styles = StyleSheet.create({
   },
   mediaFrame: {
     overflow: 'hidden',
-    borderRadius: 24,
-    backgroundColor: '#08131d',
+    backgroundColor: '#e5e7eb',
     aspectRatio: 1,
   },
   mediaImage: {
@@ -607,16 +620,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 10,
     padding: 20,
-    backgroundColor: '#122334',
+    backgroundColor: '#f3f4f6',
   },
   videoBadge: {
-    color: '#ffd6c2',
+    color: '#6b7280',
     fontSize: 12,
     fontWeight: '800',
     letterSpacing: 1.6,
   },
   videoUrl: {
-    color: '#d5e0e7',
+    color: '#6b7280',
     textAlign: 'center',
     lineHeight: 20,
   },
@@ -632,23 +645,18 @@ const styles = StyleSheet.create({
     gap: 8,
     flexWrap: 'wrap',
   },
-  actionChip: {
-    borderRadius: 15,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    backgroundColor: '#142636',
-  },
-  actionText: {
-    color: '#f8f2ea',
-    fontSize: 12,
-    fontWeight: '700',
+  iconActionButton: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   metricRow: {
     flexDirection: 'row',
     gap: 12,
   },
   metricText: {
-    color: '#f8f2ea',
+    color: '#111111',
     fontWeight: '700',
     fontSize: 13,
   },
@@ -656,15 +664,15 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   captionText: {
-    color: '#d8e1e8',
+    color: '#111111',
     lineHeight: 21,
   },
   captionOwner: {
-    color: '#f8f2ea',
+    color: '#111111',
     fontWeight: '800',
   },
   moreLabel: {
-    color: '#ffd6c2',
+    color: '#6b7280',
     fontSize: 12,
     fontWeight: '700',
   },
@@ -673,7 +681,7 @@ const styles = StyleSheet.create({
     paddingTop: 4,
   },
   commentEmpty: {
-    color: '#91a6b5',
+    color: '#6b7280',
   },
   commentRow: {
     flexDirection: 'row',
@@ -686,26 +694,22 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   commentBody: {
-    color: '#d8e1e8',
+    color: '#111111',
     lineHeight: 20,
   },
   commentOwner: {
-    color: '#f8f2ea',
+    color: '#111111',
     fontWeight: '800',
   },
   commentMeta: {
-    color: '#8aa0b2',
+    color: '#6b7280',
     fontSize: 12,
   },
   commentLikeButton: {
     paddingHorizontal: 10,
     paddingVertical: 8,
   },
-  commentLikeLabel: {
-    color: '#ffd6c2',
-    fontSize: 12,
-    fontWeight: '700',
-  },
+
   commentComposer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -716,31 +720,31 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    color: '#f8f2ea',
-    backgroundColor: '#08131d',
+    color: '#111111',
+    backgroundColor: '#fafafa',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: '#e5e7eb',
   },
   commentSendButton: {
     borderRadius: 16,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    backgroundColor: '#ef8354',
+    backgroundColor: '#111111',
   },
   commentSendLabel: {
-    color: '#08131d',
+    color: '#ffffff',
     fontWeight: '800',
   },
   loadMoreButton: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 16,
-    borderRadius: 22,
-    backgroundColor: '#ef8354',
+    borderRadius: 20,
+    backgroundColor: '#111111',
     marginBottom: 8,
   },
   loadMoreLabel: {
-    color: '#08131d',
+    color: '#ffffff',
     fontWeight: '800',
   },
 });
