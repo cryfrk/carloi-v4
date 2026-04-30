@@ -1,0 +1,35 @@
+export const adminMobileTheme = {
+  colors: {
+    background: '#f7f8fa',
+    surface: '#ffffff',
+    surfaceMuted: '#f3f5f7',
+    border: '#e7ebf0',
+    text: '#111827',
+    textStrong: '#111111',
+    textMuted: '#667085',
+    accent: '#111111',
+    accentSoft: '#eef2f6',
+    danger: '#dc2626',
+    white: '#ffffff',
+  },
+  spacing: {
+    sm: 10,
+    md: 14,
+    lg: 18,
+    xl: 24,
+  },
+  radius: {
+    md: 16,
+    lg: 20,
+    xl: 24,
+    xxl: 28,
+    full: 999,
+  },
+  shadow: {
+    shadowColor: '#0f172a',
+    shadowOpacity: 0.08,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 10,
+  },
+} as const;

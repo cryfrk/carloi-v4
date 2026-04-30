@@ -1,18 +1,19 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { AdminAuthProvider } from '../context/admin-auth-context';
+import { adminMobileTheme } from '../lib/design-system';
 
 export default function RootLayout() {
   return (
     <AdminAuthProvider>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
       <Stack
         screenOptions={{
-          headerStyle: { backgroundColor: '#102030' },
-          headerTintColor: '#f8f2ea',
+          headerStyle: { backgroundColor: adminMobileTheme.colors.surface },
+          headerTintColor: adminMobileTheme.colors.textStrong,
           headerShadowVisible: false,
           headerTitleStyle: { fontWeight: '700' },
-          contentStyle: { backgroundColor: '#08131d' },
+          contentStyle: { backgroundColor: adminMobileTheme.colors.background },
         }}
       />
     </AdminAuthProvider>

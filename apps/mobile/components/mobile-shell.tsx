@@ -4,15 +4,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/auth-context';
+import { mobileTheme } from '../lib/design-system';
 import { mobileNotificationsApi } from '../lib/notifications-api';
-
-const NAV_ITEMS = [
-  { href: '/home', label: 'Anasayfa', icon: 'home-outline', activeIcon: 'home' },
-  { href: '/listings', label: 'Ilanlar', icon: 'car-sport-outline', activeIcon: 'car-sport' },
-  { href: '/loi-ai', label: 'Loi AI', icon: 'sparkles-outline', activeIcon: 'sparkles' },
-  { href: '/garage', label: 'Garajim', icon: 'cube-outline', activeIcon: 'cube' },
-  { href: '/profile', label: 'Profil', icon: 'person-circle-outline', activeIcon: 'person-circle' },
-] as const;
+import { MobileTabBar } from './mobile-tab-bar';
 
 export function MobileShell({
   title,
@@ -113,31 +107,11 @@ export function MobileShell({
 
         <View style={styles.body}>{children}</View>
 
-        <View style={styles.tabBar}>
-          {NAV_ITEMS.map((item) => {
-            const active = pathname === item.href;
-
-            return (
-              <Pressable
-                key={item.href}
-                accessibilityLabel={item.label}
-                accessibilityRole="button"
-                onLongPress={item.href === '/profile' ? () => setSwitcherVisible(true) : undefined}
-                onPress={() => router.push(item.href)}
-                style={styles.tabItem}
-              >
-                <View style={[styles.tabIconWrap, active ? styles.tabIconWrapActive : null]}>
-                  <Ionicons
-                    color={active ? '#111111' : '#54606c'}
-                    name={active ? item.activeIcon : item.icon}
-                    size={22}
-                  />
-                </View>
-                <Text style={[styles.tabLabel, active ? styles.tabLabelActive : null]}>{item.label}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
+        <MobileTabBar
+          onProfileLongPress={() => setSwitcherVisible(true)}
+          pathname={pathname}
+          profileInitial={session.user.username.slice(0, 1).toUpperCase()}
+        />
       </View>
 
       <Modal visible={switcherVisible} transparent animationType="fade" onRequestClose={() => setSwitcherVisible(false)}>
@@ -186,7 +160,7 @@ export function MobileShell({
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#f6f7f8',
+    backgroundColor: mobileTheme.colors.background,
   },
   loadingWrap: {
     flex: 1,
@@ -194,14 +168,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   loadingText: {
-    color: '#111111',
+    color: mobileTheme.colors.text,
   },
   container: {
     flex: 1,
-    paddingHorizontal: 14,
+    paddingHorizontal: mobileTheme.spacing.md,
     paddingTop: 8,
     paddingBottom: 12,
-    backgroundColor: '#f6f7f8',
+    backgroundColor: mobileTheme.colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -216,19 +190,19 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   eyebrow: {
-    color: '#7a7f86',
+    color: mobileTheme.colors.textMuted,
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 1.4,
     textTransform: 'uppercase',
   },
   title: {
-    color: '#111111',
-    fontSize: 28,
-    fontWeight: '800',
+    color: mobileTheme.colors.textStrong,
+    fontSize: 26,
+    fontWeight: '700',
   },
   subtitle: {
-    color: '#717780',
+    color: mobileTheme.colors.textMuted,
     fontSize: 14,
     lineHeight: 20,
   },
@@ -241,25 +215,26 @@ const styles = StyleSheet.create({
     minWidth: 44,
     minHeight: 44,
     paddingHorizontal: 12,
-    borderRadius: 16,
+    borderRadius: mobileTheme.radius.md,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#111111',
+    backgroundColor: mobileTheme.colors.accent,
+    ...mobileTheme.shadow,
   },
   headerGhostButton: {
     minWidth: 44,
     minHeight: 44,
     paddingHorizontal: 12,
-    borderRadius: 16,
+    borderRadius: mobileTheme.radius.md,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#ffffff',
+    backgroundColor: mobileTheme.colors.surface,
     borderWidth: 1,
-    borderColor: '#e8ebee',
+    borderColor: mobileTheme.colors.border,
     position: 'relative',
   },
   iconButtonText: {
-    color: '#ffffff',
+    color: mobileTheme.colors.white,
     fontSize: 12,
     fontWeight: '800',
   },
@@ -270,8 +245,8 @@ const styles = StyleSheet.create({
     minWidth: 16,
     paddingHorizontal: 4,
     borderRadius: 999,
-    backgroundColor: '#111111',
-    color: '#ffffff',
+    backgroundColor: mobileTheme.colors.accent,
+    color: mobileTheme.colors.white,
     fontSize: 10,
     fontWeight: '800',
     textAlign: 'center',
@@ -279,90 +254,51 @@ const styles = StyleSheet.create({
   body: {
     flex: 1,
   },
-  tabBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-    marginTop: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 10,
-    borderRadius: 28,
-    borderWidth: 1,
-    borderColor: '#e8ebee',
-    backgroundColor: 'rgba(255,255,255,0.94)',
-  },
-  tabItem: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    paddingVertical: 4,
-  },
-  tabIconWrap: {
-    width: 42,
-    height: 42,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'transparent',
-  },
-  tabIconWrapActive: {
-    backgroundColor: '#111111',
-  },
-  tabLabel: {
-    color: '#7a7f86',
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  tabLabelActive: {
-    color: '#111111',
-  },
   modalBackdrop: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.24)',
+    backgroundColor: mobileTheme.colors.overlay,
   },
   switcherSheet: {
     gap: 10,
     padding: 22,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    backgroundColor: '#ffffff',
+    borderTopLeftRadius: mobileTheme.radius.xxl,
+    borderTopRightRadius: mobileTheme.radius.xxl,
+    backgroundColor: mobileTheme.colors.surface,
   },
   switcherTitle: {
-    color: '#111111',
+    color: mobileTheme.colors.textStrong,
     fontSize: 20,
-    fontWeight: '900',
+    fontWeight: '800',
   },
   switcherRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 14,
-    borderRadius: 18,
-    backgroundColor: '#f6f7f8',
+    borderRadius: mobileTheme.radius.lg,
+    backgroundColor: mobileTheme.colors.surfaceMuted,
   },
   switcherRowActive: {
     borderWidth: 1,
-    borderColor: '#111111',
+    borderColor: mobileTheme.colors.accent,
   },
   switcherName: {
-    color: '#111111',
+    color: mobileTheme.colors.textStrong,
     fontWeight: '800',
   },
   switcherMeta: {
-    color: '#7a7f86',
+    color: mobileTheme.colors.textMuted,
     fontSize: 12,
   },
   secondaryFullButton: {
     alignItems: 'center',
-    borderRadius: 18,
+    borderRadius: mobileTheme.radius.lg,
     paddingVertical: 14,
-    backgroundColor: '#111111',
+    backgroundColor: mobileTheme.colors.accent,
   },
   secondaryFullButtonLabel: {
-    color: '#ffffff',
+    color: mobileTheme.colors.white,
     fontWeight: '800',
   },
 });

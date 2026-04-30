@@ -51,9 +51,8 @@ export default function LoginScreen() {
 
   return (
     <AuthScreen
-      eyebrow="Carloi Giris"
-      title="Telefon, email veya kullanici adi ile giris yap"
-      description="Carloi hesabinla sosyal akis, ilanlar, garaj ve mesajlasmaya ayni yerden eris."
+      title="Giris yap"
+      description="Telefon, email veya kullanici adi ile devam et."
       footer={<GhostButton label="Hesabin yok mu? Uye ol" onPress={() => router.push('/register')} />}
     >
       <AuthInput

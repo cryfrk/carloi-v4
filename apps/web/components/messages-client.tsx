@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import {
   MediaAssetPurpose,
@@ -15,12 +15,14 @@ import { webMediaApi } from '../lib/media-api';
 import { webMessagesApi } from '../lib/messages-api';
 
 function formatTime(value: string) {
-  return new Date(value).toLocaleString('tr-TR', {
-    day: '2-digit',
-    month: '2-digit',
+  return new Date(value).toLocaleTimeString('tr-TR', {
     hour: '2-digit',
     minute: '2-digit',
   });
+}
+
+function Avatar({ username }: { username: string }) {
+  return <span className="messages-avatar">{username.slice(0, 1).toUpperCase()}</span>;
 }
 
 export function MessagesClient() {
@@ -59,6 +61,14 @@ export function MessagesClient() {
     }
     return [...map.values()];
   }, [friends, searchResults]);
+
+  const activeCounterpart = useMemo(() => {
+    if (!activeThread || !currentUserId) {
+      return null;
+    }
+
+    return activeThread.participants.find((participant) => participant.id !== currentUserId) ?? activeThread.participants[0] ?? null;
+  }, [activeThread, currentUserId]);
 
   useEffect(() => {
     if (!accessToken) {
@@ -262,17 +272,12 @@ export function MessagesClient() {
     }
 
     const files = event.target.files;
-
     if (!files?.length) {
       return;
     }
 
     try {
-      const uploads = await webMediaApi.uploadFiles(
-        accessToken,
-        files,
-        MediaAssetPurpose.MESSAGE_ATTACHMENT,
-      );
+      const uploads = await webMediaApi.uploadFiles(accessToken, files, MediaAssetPurpose.MESSAGE_ATTACHMENT);
       const resolvedType =
         attachmentType === MessageType.IMAGE && uploads[0]?.mimeType.startsWith('video/')
           ? MessageType.VIDEO
@@ -294,12 +299,20 @@ export function MessagesClient() {
     );
   }
 
+  function threadTitle(thread: MessageThreadSummary) {
+    const counterpart = thread.participants.find((participant) => participant.id !== currentUserId) ?? thread.participants[0];
+    return thread.groupName ?? (thread.type === 'LISTING_DEAL' ? thread.listing?.title : `@${counterpart?.username ?? 'direct'}`);
+  }
+
+  function threadPreview(thread: MessageThreadSummary) {
+    return thread.lastMessage?.bodyPreview ?? 'Henuz mesaj yok';
+  }
+
   if (!isReady) {
     return (
       <AppShell>
-        <section className="detail-card gate-card">
-          <h3 className="card-title">Mesajlar hazirlaniyor</h3>
-          <p className="card-copy">Oturum ve thread listesi yukleniyor.</p>
+        <section className="messages-ig-layout">
+          <div className="profile-ig-helper">Mesajlar hazirlaniyor...</div>
         </section>
       </AppShell>
     );
@@ -308,10 +321,12 @@ export function MessagesClient() {
   if (!session) {
     return (
       <AppShell>
-        <section className="detail-card gate-card">
-          <div className="card-label">Auth required</div>
-          <h3 className="card-title">Mesajlasma icin giris yapin</h3>
-          <p className="card-copy">DM, grup ve ilan pazarlik akislarini acmak icin hesabinizla devam edin.</p>
+        <section className="messages-ig-layout">
+          <div className="detail-card gate-card">
+            <div className="card-label">Auth required</div>
+            <h3 className="card-title">Mesajlasma icin giris yapin</h3>
+            <p className="card-copy">DM, grup ve ilan pazarlik akislarini acmak icin hesabinizla devam edin.</p>
+          </div>
         </section>
       </AppShell>
     );
@@ -319,55 +334,59 @@ export function MessagesClient() {
 
   return (
     <AppShell>
-      <section className="messages-layout">
-        <aside className="messages-sidebar detail-card">
-          <div className="messages-sidebar-head">
-            <div>
-              <p className="brand-kicker">Conversation Layer</p>
-              <h2>Messages</h2>
-            </div>
-            <button className="secondary-cta" type="button" onClick={() => setGroupOpen((current) => !current)}>
-              Grup kur
+      <input
+        ref={attachmentInputRef}
+        className="upload-input-hidden"
+        type="file"
+        multiple
+        accept="image/jpeg,image/png,image/webp,video/mp4,audio/mpeg,audio/mp4,application/pdf"
+        onChange={(event) => void handleAttachmentSelection(event)}
+      />
+      <section className="messages-ig-layout">
+        <aside className="messages-ig-sidebar">
+          <div className="messages-ig-search-wrap">
+            <input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Kullanici ara" />
+            <button className="secondary-link button-reset" type="button" onClick={() => setGroupOpen((current) => !current)}>
+              Grup
             </button>
           </div>
 
-          <label className="messages-search">
-            <span>Ara veya direct baslat</span>
-            <input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="username, ad veya soyad" />
-          </label>
-
-          {searchQuery.trim().length >= 2 ? (
-            <div className="messages-result-stack">
-              {searchResults.map((user) => (
-                <button key={user.id} type="button" className="messages-user-card" onClick={() => void openDirect(user.id)}>
-                  <div>
-                    <strong>@{user.username}</strong>
-                    <span>{user.fullName}{user.isPrivate ? ' · Gizli hesap' : ''}</span>
-                  </div>
-                  <small>Direct</small>
-                </button>
-              ))}
-            </div>
-          ) : null}
-
-          <div className="messages-friends-strip">
+          <div className="messages-ig-friends">
             {friends.map((friend) => (
-              <button key={friend.id} type="button" className="messages-friend-pill" onClick={() => void openDirect(friend.id)}>
+              <button key={friend.id} type="button" className="messages-ig-friend" onClick={() => void openDirect(friend.id)}>
+                <Avatar username={friend.username} />
                 <strong>@{friend.username}</strong>
                 <span>{friend.isMutualFollow ? 'Karsilikli' : 'Takip'}</span>
               </button>
             ))}
           </div>
 
+          {searchResults.length > 0 ? (
+            <div className="messages-ig-search-results">
+              {searchResults.map((user) => (
+                <button key={user.id} type="button" className="messages-ig-list-row" onClick={() => void openDirect(user.id)}>
+                  <div className="messages-ig-row-main">
+                    <Avatar username={user.username} />
+                    <div>
+                      <strong>@{user.username}</strong>
+                      <span>{user.fullName}{user.isPrivate ? ' · Gizli hesap' : ''}</span>
+                    </div>
+                  </div>
+                  <small>Mesaj</small>
+                </button>
+              ))}
+            </div>
+          ) : null}
+
           {groupOpen ? (
-            <div className="messages-group-builder">
+            <div className="messages-ig-group-builder">
               <input value={groupName} onChange={(event) => setGroupName(event.target.value)} placeholder="Grup adi" />
-              <div className="messages-selector-grid">
+              <div className="messages-ig-selector-grid">
                 {selectableParticipants.map((user) => (
                   <button
                     key={user.id}
                     type="button"
-                    className="messages-select-pill"
+                    className="messages-ig-select-pill"
                     data-active={selectedParticipants.includes(user.id)}
                     onClick={() => toggleParticipant(user.id)}
                   >
@@ -375,245 +394,160 @@ export function MessagesClient() {
                   </button>
                 ))}
               </div>
-              <button className="primary-cta" type="button" onClick={() => void createGroup()}>
+              <button className="primary-link button-reset" type="button" onClick={() => void createGroup()}>
                 Grubu olustur
               </button>
             </div>
           ) : null}
 
-          <div className="messages-thread-list">
+          <div className="messages-ig-thread-list">
             {threads.map((thread) => {
               const counterpart = thread.participants.find((participant) => participant.id !== currentUserId) ?? thread.participants[0];
+              const active = thread.id === activeThreadId;
               return (
                 <button
                   key={thread.id}
                   type="button"
-                  className="messages-thread-card"
-                  data-active={thread.id === activeThreadId}
+                  className={`messages-ig-thread-row${active ? ' active' : ''}`}
                   onClick={() => {
                     setActiveThreadId(thread.id);
                     router.replace(`/messages?thread=${thread.id}`);
                   }}
                 >
-                  <div className="messages-thread-top">
-                    <strong>
-                      {thread.groupName ?? (thread.type === 'LISTING_DEAL' ? thread.listing?.title : `@${counterpart?.username ?? 'direct'}`)}
-                    </strong>
-                    {thread.unreadCount > 0 ? <span className="messages-unread-badge">{thread.unreadCount}</span> : null}
+                  <div className="messages-ig-row-main">
+                    <Avatar username={counterpart?.username ?? 'D'} />
+                    <div>
+                      <strong>{threadTitle(thread)}</strong>
+                      <span>{threadPreview(thread)}</span>
+                    </div>
                   </div>
-                  <span>{thread.lastMessage?.bodyPreview ?? 'Henuz mesaj yok'}</span>
-                  <small>{thread.lastMessage ? formatTime(thread.lastMessage.createdAt) : formatTime(thread.createdAt)}</small>
+                  <div className="messages-ig-row-side">
+                    <small>{formatTime(thread.lastMessage ? thread.lastMessage.createdAt : thread.createdAt)}</small>
+                    {thread.unreadCount > 0 ? <span className="messages-ig-unread">{thread.unreadCount}</span> : null}
+                  </div>
                 </button>
               );
             })}
           </div>
         </aside>
 
-        <div className="messages-panel detail-card">
-          <input
-            ref={attachmentInputRef}
-            className="upload-input-hidden"
-            type="file"
-            multiple
-            accept="image/jpeg,image/png,image/webp,video/mp4,audio/mpeg,audio/mp4,application/pdf"
-            onChange={(event) => void handleAttachmentSelection(event)}
-          />
+        <main className="messages-ig-chat">
           {notice ? <div className="auth-message success">{notice}</div> : null}
           {errorMessage ? <div className="auth-message error">{errorMessage}</div> : null}
 
-          {loading && !activeThread ? <div className="ai-empty">Thread listesi getiriliyor...</div> : null}
+          {loading && !activeThread ? <div className="profile-ig-helper">Sohbet listesi getiriliyor...</div> : null}
           {!loading && !activeThread ? (
-            <div className="ai-empty">
-              <h3>Sohbet secin</h3>
-              <p>Direct baslatin, grup kurun veya ilan detayi icinden deal thread acin.</p>
-            </div>
+            <div className="profile-ig-helper">Bir sohbet secin veya yeni direct baslatin.</div>
           ) : null}
 
           {activeThread ? (
             <>
-              <header className="messages-thread-header">
-                <div>
-                  <p className="brand-kicker">{activeThread.type.replace('_', ' ')}</p>
-                  <h2>{activeThread.groupName ?? activeThread.listing?.title ?? 'Sohbet'}</h2>
-                  <p>
-                    {activeThread.participants
-                      .filter((participant) => participant.id !== currentUserId)
-                      .map((participant) => `@${participant.username}`)
-                      .join(' · ')}
-                  </p>
+              <header className="messages-ig-chat-head">
+                <div className="messages-ig-row-main">
+                  <Avatar username={activeCounterpart?.username ?? 'D'} />
+                  <div>
+                    <strong>{activeThread.groupName ?? activeCounterpart?.fullName ?? activeThread.listing?.title ?? 'Sohbet'}</strong>
+                    <span>@{activeCounterpart?.username ?? 'direct'}</span>
+                  </div>
                 </div>
               </header>
 
               {activeThread.listing ? (
-                <section className="messages-listing-hero">
-                  <div>
-                    <span className="brand-kicker">Ilan</span>
-                    <h3>{activeThread.listing.title}</h3>
-                    <p>
-                      {activeThread.listing.listingNo} · {activeThread.listing.city}
-                      {activeThread.listing.district ? ` / ${activeThread.listing.district}` : ''}
-                    </p>
-                  </div>
-                  <strong>
-                    {activeThread.listing.price.toLocaleString('tr-TR')} {activeThread.listing.currency}
-                  </strong>
+                <section className="messages-ig-inline-card">
+                  <strong>{activeThread.listing.title}</strong>
+                  <span>{activeThread.listing.listingNo} · {activeThread.listing.city}{activeThread.listing.district ? ` / ${activeThread.listing.district}` : ''}</span>
                 </section>
               ) : null}
 
               {activeThread.dealAgreement ? (
-                <section className="messages-deal-toolbar">
-                  <div className="messages-deal-status">
-                    <span data-active={Boolean(activeThread.dealAgreement.buyerAgreedAt)}>Alici onayi</span>
-                    <span data-active={Boolean(activeThread.dealAgreement.sellerAgreedAt)}>Satici onayi</span>
-                    <span data-active={Boolean(activeThread.dealAgreement.licenseSharedAt)}>Ruhsat paylasimi</span>
-                    <span data-active={Boolean(activeThread.dealAgreement.insuranceRequestId)}>Sigorta talebi</span>
-                  </div>
-                  <div className="messages-deal-actions">
-                    <button className="secondary-cta" type="button" onClick={() => void handleDealAgree()}>
-                      Anlastik
+                <section className="messages-ig-deal-bar">
+                  <button className="secondary-link button-reset" type="button" onClick={() => void handleDealAgree()}>
+                    Anlastik
+                  </button>
+                  {activeThread.dealAgreement.currentUserRole === 'SELLER' && activeThread.dealAgreement.canShareLicenseInfo ? (
+                    <button className="secondary-link button-reset" type="button" onClick={() => void handleShareLicense()}>
+                      Ruhsat
                     </button>
-                    {activeThread.dealAgreement.currentUserRole === 'SELLER' && activeThread.dealAgreement.canShareLicenseInfo ? (
-                      <button className="secondary-cta" type="button" onClick={() => void handleShareLicense()}>
-                        Ruhsati paylas
-                      </button>
-                    ) : null}
-                    {activeThread.dealAgreement.currentUserRole === 'BUYER' && activeThread.dealAgreement.licenseSharedAt ? (
-                      <button className="primary-cta" type="button" onClick={() => void handleRequestInsurance()}>
-                        Sigorta teklifi al
-                      </button>
-                    ) : null}
-                    {activeThread.dealAgreement.insuranceRequestId ? (
-                      <button
-                        className="secondary-cta"
-                        type="button"
-                        onClick={() => router.push(`/insurance/${activeThread.dealAgreement?.insuranceRequestId}`)}
-                      >
-                        Sigorta detayini ac
-                      </button>
-                    ) : null}
-                  </div>
+                  ) : null}
+                  {activeThread.dealAgreement.currentUserRole === 'BUYER' && activeThread.dealAgreement.licenseSharedAt ? (
+                    <button className="primary-link button-reset" type="button" onClick={() => void handleRequestInsurance()}>
+                      Sigorta
+                    </button>
+                  ) : null}
                 </section>
               ) : null}
 
-              <div className="messages-stream">
+              <div className="messages-ig-stream">
                 {activeThread.messages.map((message) => {
                   const systemCard = message.systemCard;
-
                   return (
-                  <article key={message.id} className={`messages-bubble-row ${message.isMine ? 'mine' : 'other'} ${message.messageType === 'SYSTEM_CARD' ? 'system' : ''}`}>
-                    <div className="messages-bubble-meta">
-                      <strong>{message.messageType === 'SYSTEM_CARD' ? 'Sistem' : message.senderUsername}</strong>
-                      <span>{formatTime(message.createdAt)}</span>
-                    </div>
-                    {message.body ? <div className="messages-bubble">{message.body}</div> : null}
-                    {message.attachments.length > 0 ? (
-                      <div className="ai-chip-row">
-                        {message.attachments.map((attachment) => (
-                          <span key={attachment.id} className="ai-chip">
-                            {attachment.attachmentType} {attachment.url.split('/').at(-1)}
-                          </span>
-                        ))}
-                      </div>
-                    ) : null}
-                    {systemCard ? (
-                      <div className="messages-system-card">
-                        <span className="brand-kicker">{systemCard.type}</span>
-                        {systemCard.type === 'LICENSE_INFO_CARD' ? (
-                          <>
-                            <h4>{systemCard.vehicleInfo}</h4>
-                            <p>Ruhsat sahibi: {systemCard.licenseOwnerName}</p>
-                            <p>TC: {systemCard.maskedTcNo ?? '-'}</p>
-                            <p>Plaka: {systemCard.maskedPlate ?? '-'}</p>
-                            {activeThread.dealAgreement?.currentUserRole === 'BUYER' && !activeThread.dealAgreement.insuranceRequestId ? (
-                              <button className="primary-cta" type="button" onClick={() => void handleRequestInsurance()}>
-                                {systemCard.buttonLabel}
-                              </button>
+                    <article key={message.id} className={`messages-ig-message ${message.isMine ? 'mine' : 'other'} ${message.messageType === 'SYSTEM_CARD' ? 'system' : ''}`}>
+                      {!message.isMine && message.messageType !== 'SYSTEM_CARD' ? <Avatar username={message.senderUsername} /> : <span className="messages-ig-avatar-spacer" />}
+                      <div className={`messages-ig-message-col ${message.isMine ? 'mine' : 'other'}`}>
+                        {message.messageType === 'SYSTEM_CARD' ? (
+                          <div className="messages-ig-system-card">
+                            <small>{systemCard?.type ?? 'SYSTEM_CARD'}</small>
+                            {message.body ? <p>{message.body}</p> : null}
+                            {systemCard?.type === 'LICENSE_INFO_CARD' ? (
+                              <>
+                                <p>{systemCard.vehicleInfo}</p>
+                                <p>Ruhsat sahibi: {systemCard.licenseOwnerName}</p>
+                                <p>TC: {systemCard.maskedTcNo ?? '-'}</p>
+                                <p>Plaka: {systemCard.maskedPlate ?? '-'}</p>
+                              </>
                             ) : null}
-                          </>
-                        ) : null}
-                        {systemCard.type === 'INSURANCE_OFFER_CARD' ? (
-                          <>
-                            <h4>
-                              {systemCard.amount.toLocaleString('tr-TR')} {systemCard.currency}
-                            </h4>
-                            <p>Sigorta teklifiniz incelemeye hazir.</p>
-                            <button
-                              className="primary-cta"
-                              type="button"
-                              onClick={() => router.push(`/insurance/${systemCard.requestId}`)}
-                            >
-                              {systemCard.buttonLabel}
-                            </button>
-                          </>
-                        ) : null}
-                        {systemCard.type === 'PAYMENT_STATUS_CARD' ? (
-                          <>
-                            <h4>Odeme durumu: {systemCard.status}</h4>
-                            {systemCard.requestId ? (
-                              <button
-                                className="primary-cta"
-                                type="button"
-                                onClick={() => router.push(`/insurance/${systemCard.requestId}`)}
-                              >
-                                {systemCard.buttonLabel}
-                              </button>
+                            {systemCard?.type === 'INSURANCE_OFFER_CARD' ? <p>{systemCard.amount.toLocaleString('tr-TR')} {systemCard.currency}</p> : null}
+                            {systemCard?.type === 'PAYMENT_STATUS_CARD' ? <p>Odeme durumu: {systemCard.status}</p> : null}
+                            {systemCard?.type === 'POLICY_DOCUMENT_CARD' ? <p>Police ve fatura hazir.</p> : null}
+                          </div>
+                        ) : (
+                          <div className="messages-ig-bubble">
+                            {message.body ? <p>{message.body}</p> : null}
+                            {message.attachments.length > 0 ? (
+                              <div className="messages-ig-chip-row">
+                                {message.attachments.map((attachment) => (
+                                  <span key={attachment.id} className="messages-ig-chip">{attachment.attachmentType}</span>
+                                ))}
+                              </div>
                             ) : null}
-                          </>
-                        ) : null}
-                        {systemCard.type === 'POLICY_DOCUMENT_CARD' ? (
-                          <>
-                            <h4>Belge merkezi hazir</h4>
-                            <p>Police ve fatura dokumanlari talep detayinda acildi.</p>
-                            <button
-                              className="primary-cta"
-                              type="button"
-                              onClick={() => router.push(`/insurance/${systemCard.requestId}`)}
-                            >
-                              {systemCard.buttonLabel}
-                            </button>
-                          </>
-                        ) : null}
+                          </div>
+                        )}
+                        <small className="messages-ig-time">{formatTime(message.createdAt)}{message.isMine ? ` · ${message.seenAt ? 'Goruldu' : 'Gonderildi'}` : ''}</small>
                       </div>
-                    ) : null}
-                    {message.isMine ? <small className="messages-seen-copy">{message.seenAt ? 'Goruldu' : 'Gonderildi'}</small> : null}
-                  </article>
-                )})}
+                    </article>
+                  );
+                })}
+
+                {composer.trim().length > 0 ? (
+                  <div className="messages-ig-typing">
+                    <span className="messages-ig-avatar-spacer" />
+                    <div className="messages-ig-typing-bubble">{sending ? 'Gonderiliyor...' : 'Yaziyor...'}</div>
+                  </div>
+                ) : null}
               </div>
 
-              <footer className="messages-composer">
-                <div className="ai-chip-row">
-                  {attachments.map((attachment, index) => (
-                    <button key={`${attachment.id}-${index}`} type="button" className="ai-chip" onClick={() => setAttachments((current) => current.filter((_, itemIndex) => itemIndex !== index))}>
-                      {(attachment.mimeType.split('/')[0]?.toUpperCase() ?? 'DOSYA')} x
-                    </button>
-                  ))}
-                </div>
-                <textarea
-                  value={composer}
-                  onChange={(event) => setComposer(event.target.value)}
-                  placeholder="Mesaj yazin"
-                  rows={3}
-                />
-                <div className="messages-composer-actions">
-                  <div className="messages-compose-tools">
-                    <button type="button" className="secondary-cta" onClick={() => openAttachmentPicker(MessageType.IMAGE)}>
-                      Medya ekle
-                    </button>
-                    <button type="button" className="secondary-cta" onClick={() => openAttachmentPicker(MessageType.FILE)}>
-                      Dosya ekle
-                    </button>
-                    <button type="button" className="secondary-cta" onClick={() => openAttachmentPicker(MessageType.AUDIO)}>
-                      Sesli not
-                    </button>
+              <footer className="messages-ig-composer">
+                {attachments.length > 0 ? (
+                  <div className="messages-ig-chip-row pending">
+                    {attachments.map((attachment, index) => (
+                      <button key={`${attachment.id}-${index}`} type="button" className="messages-ig-chip button-reset" onClick={() => setAttachments((current) => current.filter((_, itemIndex) => itemIndex !== index))}>
+                        {(attachment.mimeType.split('/')[0]?.toUpperCase() ?? 'DOSYA')} ×
+                      </button>
+                    ))}
                   </div>
-                  <button className="primary-cta" type="button" onClick={() => void sendMessage()} disabled={sending}>
-                    {sending ? 'Gonderiliyor...' : 'Gonder'}
+                ) : null}
+                <div className="messages-ig-composer-row">
+                  <button type="button" className="messages-ig-tool button-reset" onClick={() => openAttachmentPicker(MessageType.IMAGE)}>+</button>
+                  <textarea value={composer} onChange={(event) => setComposer(event.target.value)} placeholder="Mesaj yazin" rows={2} />
+                  <button type="button" className="messages-ig-tool button-reset" onClick={() => openAttachmentPicker(MessageType.AUDIO)}>Ses</button>
+                  <button className="primary-link button-reset" type="button" onClick={() => void sendMessage()} disabled={sending}>
+                    {sending ? '...' : 'Gonder'}
                   </button>
                 </div>
               </footer>
             </>
           ) : null}
-        </div>
+        </main>
       </section>
     </AppShell>
   );

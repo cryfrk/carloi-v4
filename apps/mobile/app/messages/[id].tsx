@@ -1,6 +1,7 @@
+import { Ionicons } from '@expo/vector-icons';
 import { MediaAssetPurpose, MessageType, type MessageThreadDetail } from '@carloi-v4/types';
-import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { Redirect, useLocalSearchParams } from 'expo-router';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -16,9 +17,7 @@ import { mobileMessagesApi } from '../../lib/messages-api';
 import { pickDocumentFiles, pickMediaFiles } from '../../lib/upload-picker';
 
 function formatTime(value: string) {
-  return new Date(value).toLocaleString('tr-TR', {
-    day: '2-digit',
-    month: '2-digit',
+  return new Date(value).toLocaleTimeString('tr-TR', {
     hour: '2-digit',
     minute: '2-digit',
   });
@@ -26,7 +25,6 @@ function formatTime(value: string) {
 
 export default function MessageThreadScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const router = useRouter();
   const { session } = useAuth();
   const [thread, setThread] = useState<MessageThreadDetail | null>(null);
   const [composer, setComposer] = useState('');
@@ -38,6 +36,14 @@ export default function MessageThreadScreen() {
   const [notice, setNotice] = useState<string | null>(null);
 
   const accessToken = session?.accessToken ?? null;
+  const currentUserId = session?.user.id ?? null;
+  const counterpart = useMemo(() => {
+    if (!thread || !currentUserId) {
+      return null;
+    }
+
+    return thread.participants.find((participant) => participant.id !== currentUserId) ?? thread.participants[0] ?? null;
+  }, [currentUserId, thread]);
 
   useEffect(() => {
     if (!accessToken || !id) {
@@ -57,7 +63,7 @@ export default function MessageThreadScreen() {
       .finally(() => setLoading(false));
   }, [accessToken, id]);
 
-  if (!accessToken) {
+  if (!accessToken || !currentUserId) {
     return <Redirect href="/login" />;
   }
 
@@ -162,12 +168,7 @@ export default function MessageThreadScreen() {
         return;
       }
 
-      const uploads = await mobileMediaApi.uploadFiles(
-        token,
-        files,
-        MediaAssetPurpose.MESSAGE_ATTACHMENT,
-      );
-
+      const uploads = await mobileMediaApi.uploadFiles(token, files, MediaAssetPurpose.MESSAGE_ATTACHMENT);
       const resolvedType =
         type === MessageType.IMAGE && uploads[0]?.mimeType.startsWith('video/')
           ? MessageType.VIDEO
@@ -182,180 +183,150 @@ export default function MessageThreadScreen() {
     }
   }
 
-  return (
-    <MobileShell
-      title={thread?.groupName ?? thread?.listing?.title ?? 'Thread'}
-      subtitle="DM, grup ve ilan pazarlik akisini yonet."
-    >
-      <View style={styles.layout}>
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
-          {notice ? (
-            <View style={[styles.banner, styles.noticeBanner]}>
-              <Text style={styles.bannerText}>{notice}</Text>
-            </View>
-          ) : null}
-          {errorMessage ? (
-            <View style={[styles.banner, styles.errorBanner]}>
-              <Text style={styles.bannerText}>{errorMessage}</Text>
-            </View>
-          ) : null}
+  const headerTitle = thread?.groupName ?? thread?.listing?.title ?? counterpart?.fullName ?? `@${counterpart?.username ?? 'thread'}`;
+  const headerSubtitle = counterpart ? `@${counterpart.username}` : 'Sohbet';
 
+  return (
+    <MobileShell title={headerTitle} subtitle={headerSubtitle}>
+      <View style={styles.layout}>
+        <View style={styles.headerCard}>
+          <View style={styles.headerAvatar}>
+            <Text style={styles.headerAvatarLabel}>{(counterpart?.username ?? 'D').slice(0, 1).toUpperCase()}</Text>
+          </View>
+          <View style={styles.headerCopy}>
+            <Text style={styles.headerTitle}>{headerTitle}</Text>
+            <Text style={styles.headerSubtitle}>{headerSubtitle}</Text>
+          </View>
+        </View>
+
+        {thread?.dealAgreement ? (
+          <View style={styles.dealBar}>
+            <Pressable style={styles.dealChip} onPress={() => void handleDealAgree()}>
+              <Text style={styles.dealChipLabel}>Anlastik</Text>
+            </Pressable>
+            {thread.dealAgreement.currentUserRole === 'SELLER' && thread.dealAgreement.canShareLicenseInfo ? (
+              <Pressable style={styles.dealChip} onPress={() => void handleShareLicense()}>
+                <Text style={styles.dealChipLabel}>Ruhsat</Text>
+              </Pressable>
+            ) : null}
+            {thread.dealAgreement.currentUserRole === 'BUYER' && thread.dealAgreement.licenseSharedAt ? (
+              <Pressable style={styles.dealPrimaryChip} onPress={() => void handleRequestInsurance()}>
+                <Text style={styles.dealPrimaryChipLabel}>Sigorta</Text>
+              </Pressable>
+            ) : null}
+          </View>
+        ) : null}
+
+        {notice ? <Text style={styles.noticeText}>{notice}</Text> : null}
+        {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
+
+        <ScrollView style={styles.stream} contentContainerStyle={styles.streamContent} showsVerticalScrollIndicator={false}>
           {loading || !thread ? (
-            <View style={styles.card}>
-              <Text style={styles.infoText}>{loading ? 'Sohbet yukleniyor...' : 'Sohbet bulunamadi.'}</Text>
-            </View>
+            <Text style={styles.helperText}>{loading ? 'Sohbet yukleniyor...' : 'Sohbet bulunamadi.'}</Text>
           ) : (
             <>
-              {thread.listing ? (
-                <View style={styles.card}>
-                  <Text style={styles.kicker}>Ilan karti</Text>
-                  <Text style={styles.title}>{thread.listing.title}</Text>
-                  <Text style={styles.meta}>{thread.listing.listingNo} · {thread.listing.city}{thread.listing.district ? ` / ${thread.listing.district}` : ''}</Text>
-                  <Text style={styles.price}>{thread.listing.price.toLocaleString('tr-TR')} {thread.listing.currency}</Text>
-                </View>
-              ) : null}
-
-              {thread.dealAgreement ? (
-                <View style={styles.card}>
-                  <Text style={styles.kicker}>Deal agreement</Text>
-                  <View style={styles.statusRow}>
-                    <Text style={[styles.statusChip, thread.dealAgreement.buyerAgreedAt ? styles.statusChipActive : null]}>Alici</Text>
-                    <Text style={[styles.statusChip, thread.dealAgreement.sellerAgreedAt ? styles.statusChipActive : null]}>Satici</Text>
-                    <Text style={[styles.statusChip, thread.dealAgreement.licenseSharedAt ? styles.statusChipActive : null]}>Ruhsat</Text>
-                    <Text style={[styles.statusChip, thread.dealAgreement.insuranceRequestId ? styles.statusChipActive : null]}>Sigorta</Text>
-                  </View>
-                  <View style={styles.dealActions}>
-                    <Pressable style={styles.secondaryButton} onPress={() => void handleDealAgree()}>
-                      <Text style={styles.secondaryButtonLabel}>Anlastik</Text>
-                    </Pressable>
-                    {thread.dealAgreement.currentUserRole === 'SELLER' && thread.dealAgreement.canShareLicenseInfo ? (
-                      <Pressable style={styles.secondaryButton} onPress={() => void handleShareLicense()}>
-                        <Text style={styles.secondaryButtonLabel}>Ruhsat paylas</Text>
-                      </Pressable>
-                    ) : null}
-                    {thread.dealAgreement.currentUserRole === 'BUYER' && thread.dealAgreement.licenseSharedAt ? (
-                      <Pressable style={styles.primaryButton} onPress={() => void handleRequestInsurance()}>
-                        <Text style={styles.primaryButtonLabel}>Sigorta teklifi al</Text>
-                      </Pressable>
-                    ) : null}
-                    {thread.dealAgreement.insuranceRequestId ? (
-                      <Pressable
-                        style={styles.secondaryButton}
-                        onPress={() => router.push(`/insurance/${thread.dealAgreement?.insuranceRequestId}`)}
-                      >
-                        <Text style={styles.secondaryButtonLabel}>Sigorta detayi</Text>
-                      </Pressable>
-                    ) : null}
-                  </View>
-                </View>
-              ) : null}
-
               {thread.messages.map((message) => {
                 const systemCard = message.systemCard;
+                const showAvatar = !message.isMine && message.messageType !== 'SYSTEM_CARD';
 
                 return (
-                <View key={message.id} style={[styles.messageWrap, message.isMine ? styles.messageMine : styles.messageOther]}>
-                  <Text style={styles.messageMeta}>{message.messageType === 'SYSTEM_CARD' ? 'Sistem' : `@${message.senderUsername}`} · {formatTime(message.createdAt)}</Text>
-                  {message.body ? <View style={[styles.messageBubble, message.messageType === 'SYSTEM_CARD' ? styles.systemBubble : null]}><Text style={styles.messageText}>{message.body}</Text></View> : null}
-                  {message.attachments.length > 0 ? (
-                    <View style={styles.attachmentRow}>
-                      {message.attachments.map((attachment) => (
-                        <Text key={attachment.id} style={styles.attachmentChip}>{attachment.attachmentType}</Text>
-                      ))}
-                    </View>
-                  ) : null}
-                  {systemCard ? (
-                    <View style={styles.systemCard}>
-                      <Text style={styles.kicker}>{systemCard.type}</Text>
-                      {systemCard.type === 'LICENSE_INFO_CARD' ? (
-                        <>
-                          <Text style={styles.titleSmall}>{systemCard.vehicleInfo}</Text>
-                          <Text style={styles.meta}>Ruhsat sahibi: {systemCard.licenseOwnerName}</Text>
-                          <Text style={styles.meta}>TC: {systemCard.maskedTcNo ?? '-'}</Text>
-                          <Text style={styles.meta}>Plaka: {systemCard.maskedPlate ?? '-'}</Text>
-                          {thread.dealAgreement?.currentUserRole === 'BUYER' && !thread.dealAgreement.insuranceRequestId ? (
-                            <Pressable style={styles.primaryButton} onPress={() => void handleRequestInsurance()}>
-                              <Text style={styles.primaryButtonLabel}>{systemCard.buttonLabel}</Text>
-                            </Pressable>
+                  <View key={message.id} style={[styles.messageRow, message.isMine ? styles.messageRowMine : styles.messageRowOther]}>
+                    {showAvatar ? (
+                      <View style={styles.inlineAvatar}>
+                        <Text style={styles.inlineAvatarLabel}>{message.senderUsername.slice(0, 1).toUpperCase()}</Text>
+                      </View>
+                    ) : (
+                      <View style={styles.inlineAvatarSpacer} />
+                    )}
+                    <View style={[styles.messageColumn, message.isMine ? styles.messageColumnMine : styles.messageColumnOther]}>
+                      {message.messageType === 'SYSTEM_CARD' ? (
+                        <View style={styles.systemCard}>
+                          <Text style={styles.systemCardType}>{systemCard?.type ?? 'SYSTEM_CARD'}</Text>
+                          {message.body ? <Text style={styles.systemCardText}>{message.body}</Text> : null}
+                          {systemCard?.type === 'LICENSE_INFO_CARD' ? (
+                            <>
+                              <Text style={styles.systemCardText}>{systemCard.vehicleInfo}</Text>
+                              <Text style={styles.systemCardMeta}>Ruhsat sahibi: {systemCard.licenseOwnerName}</Text>
+                              <Text style={styles.systemCardMeta}>TC: {systemCard.maskedTcNo ?? '-'}</Text>
+                              <Text style={styles.systemCardMeta}>Plaka: {systemCard.maskedPlate ?? '-'}</Text>
+                            </>
                           ) : null}
-                        </>
-                      ) : null}
-                      {systemCard.type === 'INSURANCE_OFFER_CARD' ? (
-                        <>
-                          <Text style={styles.titleSmall}>
-                            {systemCard.amount.toLocaleString('tr-TR')} {systemCard.currency}
-                          </Text>
-                          <Pressable
-                            style={styles.primaryButton}
-                            onPress={() => router.push(`/insurance/${systemCard.requestId}`)}
-                          >
-                            <Text style={styles.primaryButtonLabel}>{systemCard.buttonLabel}</Text>
-                          </Pressable>
-                        </>
-                      ) : null}
-                      {systemCard.type === 'PAYMENT_STATUS_CARD' && systemCard.requestId ? (
-                        <>
-                          <Text style={styles.titleSmall}>Odeme durumu: {systemCard.status}</Text>
-                          <Pressable
-                            style={styles.primaryButton}
-                            onPress={() => router.push(`/insurance/${systemCard.requestId}`)}
-                          >
-                            <Text style={styles.primaryButtonLabel}>{systemCard.buttonLabel}</Text>
-                          </Pressable>
-                        </>
-                      ) : null}
-                      {systemCard.type === 'POLICY_DOCUMENT_CARD' ? (
-                        <Pressable
-                          style={styles.primaryButton}
-                          onPress={() => router.push(`/insurance/${systemCard.requestId}`)}
-                        >
-                          <Text style={styles.primaryButtonLabel}>{systemCard.buttonLabel}</Text>
-                        </Pressable>
-                      ) : null}
+                          {systemCard?.type === 'INSURANCE_OFFER_CARD' ? (
+                            <Text style={styles.systemCardText}>{systemCard.amount.toLocaleString('tr-TR')} {systemCard.currency}</Text>
+                          ) : null}
+                          {systemCard?.type === 'PAYMENT_STATUS_CARD' ? (
+                            <Text style={styles.systemCardText}>Odeme durumu: {systemCard.status}</Text>
+                          ) : null}
+                        </View>
+                      ) : (
+                        <View style={[styles.bubble, message.isMine ? styles.bubbleMine : styles.bubbleOther]}>
+                          {message.body ? <Text style={[styles.messageText, message.isMine ? styles.messageTextMine : null]}>{message.body}</Text> : null}
+                          {message.attachments.length > 0 ? (
+                            <View style={styles.attachmentRow}>
+                              {message.attachments.map((attachment) => (
+                                <Text key={attachment.id} style={[styles.attachmentChip, message.isMine ? styles.attachmentChipMine : null]}>
+                                  {attachment.attachmentType}
+                                </Text>
+                              ))}
+                            </View>
+                          ) : null}
+                        </View>
+                      )}
+                      <Text style={styles.timestampText}>
+                        {formatTime(message.createdAt)}{message.isMine ? ` | ${message.seenAt ? 'Goruldu' : 'Gonderildi'}` : ''}
+                      </Text>
                     </View>
-                  ) : null}
-                  {message.isMine ? <Text style={styles.seenCopy}>{message.seenAt ? 'Goruldu' : 'Gonderildi'}</Text> : null}
+                  </View>
+                );
+              })}
+
+              {composer.trim().length > 0 ? (
+                <View style={styles.messageRow}>
+                  <View style={styles.inlineAvatarSpacer} />
+                  <View style={styles.typingBubble}>
+                    <Text style={styles.typingText}>{sending ? 'Gonderiliyor...' : 'Yaziyor...'}</Text>
+                  </View>
                 </View>
-              )})}
+              ) : null}
             </>
           )}
         </ScrollView>
 
-        {thread ? (
-          <View style={styles.composer}>
-            <View style={styles.attachmentRow}>
+        <View style={styles.composerShell}>
+          {attachments.length > 0 ? (
+            <View style={styles.pendingAttachments}>
               {attachments.map((attachment, index) => (
-                <Pressable key={`${attachment.id}-${index}`} style={styles.attachmentChipWrap} onPress={() => setAttachments((current) => current.filter((_, itemIndex) => itemIndex !== index))}>
-                  <Text style={styles.attachmentChip}>{attachment.mimeType.split('/')[0].toUpperCase()} x</Text>
+                <Pressable
+                  key={`${attachment.id}-${index}`}
+                  style={styles.pendingChip}
+                  onPress={() => setAttachments((current) => current.filter((_, itemIndex) => itemIndex !== index))}
+                >
+                  <Text style={styles.pendingChipLabel}>{attachment.mimeType.split('/')[0].toUpperCase()} x</Text>
                 </Pressable>
               ))}
             </View>
+          ) : null}
+
+          <View style={styles.composerRow}>
+            <Pressable style={styles.toolButton} onPress={() => void pickAttachments(MessageType.IMAGE)}>
+              <Ionicons color="#6b7280" name="add" size={18} />
+            </Pressable>
             <TextInput
               value={composer}
               onChangeText={setComposer}
               placeholder="Mesaj yazin"
-              placeholderTextColor="#7f92a1"
+              placeholderTextColor="#9aa3af"
               style={styles.input}
               multiline
             />
-            <View style={styles.composerActions}>
-              <View style={styles.toolRow}>
-                <Pressable style={styles.secondaryButton} onPress={() => void pickAttachments(MessageType.IMAGE)}>
-                  <Text style={styles.secondaryButtonLabel}>Medya</Text>
-                </Pressable>
-                <Pressable style={styles.secondaryButton} onPress={() => void pickAttachments(MessageType.FILE)}>
-                  <Text style={styles.secondaryButtonLabel}>Dosya</Text>
-                </Pressable>
-                <Pressable style={styles.secondaryButton} onPress={() => void pickAttachments(MessageType.AUDIO)}>
-                  <Text style={styles.secondaryButtonLabel}>Ses</Text>
-                </Pressable>
-              </View>
-              <Pressable style={styles.primaryButton} onPress={() => void sendMessage()}>
-                <Text style={styles.primaryButtonLabel}>{sending ? 'Gonderiliyor...' : 'Gonder'}</Text>
-              </Pressable>
-            </View>
+            <Pressable style={styles.toolButton} onPress={() => void pickAttachments(MessageType.AUDIO)}>
+              <Ionicons color="#6b7280" name="mic-outline" size={16} />
+            </Pressable>
+            <Pressable style={styles.sendButton} onPress={() => void sendMessage()}>
+              {sending ? <Text style={styles.sendButtonLabel}>...</Text> : <Ionicons color="#ffffff" name="arrow-up" size={16} />}
+            </Pressable>
           </View>
-        ) : null}
+        </View>
       </View>
     </MobileShell>
   );
@@ -364,186 +335,272 @@ export default function MessageThreadScreen() {
 const styles = StyleSheet.create({
   layout: {
     flex: 1,
+    backgroundColor: '#ffffff',
   },
-  scroll: {
-    flex: 1,
-  },
-  content: {
-    gap: 14,
-    paddingBottom: 10,
-  },
-  banner: {
-    borderRadius: 18,
-    padding: 14,
-  },
-  noticeBanner: {
-    backgroundColor: 'rgba(255,255,255,0.07)',
-  },
-  errorBanner: {
-    backgroundColor: 'rgba(216,82,82,0.2)',
-  },
-  bannerText: {
-    color: '#f8f2ea',
-  },
-  card: {
+  headerCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 10,
-    padding: 18,
-    borderRadius: 24,
-    backgroundColor: '#0d1d2a',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    paddingHorizontal: 14,
+    paddingBottom: 8,
   },
-  kicker: {
-    color: '#ffd6c2',
+  headerAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#111111',
+  },
+  headerAvatarLabel: {
+    color: '#ffffff',
     fontSize: 11,
     fontWeight: '800',
-    letterSpacing: 1.2,
   },
-  title: {
-    color: '#f8f2ea',
-    fontSize: 20,
-    fontWeight: '800',
+  headerCopy: {
+    flex: 1,
+    gap: 3,
   },
-  titleSmall: {
-    color: '#f8f2ea',
-    fontSize: 16,
-    fontWeight: '800',
+  headerTitle: {
+    color: '#111111',
+    fontSize: 15,
+    fontWeight: '700',
   },
-  meta: {
-    color: '#9eb0be',
+  headerSubtitle: {
+    color: '#6b7280',
+    fontSize: 11.5,
   },
-  price: {
-    color: '#f8f2ea',
-    fontSize: 18,
-    fontWeight: '800',
-  },
-  statusRow: {
+  dealBar: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 8,
-  },
-  statusChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 999,
-    backgroundColor: '#122334',
-    color: '#9eb0be',
-    overflow: 'hidden',
-  },
-  statusChipActive: {
-    backgroundColor: '#ef8354',
-    color: '#08131d',
-  },
-  dealActions: {
-    flexDirection: 'row',
+    paddingHorizontal: 14,
+    paddingBottom: 8,
     flexWrap: 'wrap',
-    gap: 10,
   },
-  messageWrap: {
+  dealChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: 999,
+    backgroundColor: '#f3f4f6',
+  },
+  dealChipLabel: {
+    color: '#111111',
+    fontSize: 11.5,
+    fontWeight: '700',
+  },
+  dealPrimaryChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: 999,
+    backgroundColor: '#111111',
+  },
+  dealPrimaryChipLabel: {
+    color: '#ffffff',
+    fontSize: 11.5,
+    fontWeight: '700',
+  },
+  noticeText: {
+    color: '#2563eb',
+    paddingHorizontal: 14,
+    paddingBottom: 8,
+  },
+  errorText: {
+    color: '#dc2626',
+    paddingHorizontal: 14,
+    paddingBottom: 8,
+  },
+  stream: {
+    flex: 1,
+  },
+  streamContent: {
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingBottom: 16,
+  },
+  helperText: {
+    color: '#6b7280',
+    textAlign: 'center',
+    paddingVertical: 24,
+  },
+  messageRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
     gap: 6,
   },
-  messageMine: {
+  messageRowMine: {
+    justifyContent: 'flex-end',
+  },
+  messageRowOther: {
+    justifyContent: 'flex-start',
+  },
+  inlineAvatar: {
+    width: 24,
+    height: 24,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#111111',
+  },
+  inlineAvatarLabel: {
+    color: '#ffffff',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  inlineAvatarSpacer: {
+    width: 24,
+  },
+  messageColumn: {
+    maxWidth: '82%',
+    gap: 3,
+  },
+  messageColumnMine: {
     alignItems: 'flex-end',
   },
-  messageOther: {
+  messageColumnOther: {
     alignItems: 'flex-start',
   },
-  messageMeta: {
-    color: '#8da0af',
-    fontSize: 12,
-  },
-  messageBubble: {
-    maxWidth: '88%',
-    borderRadius: 22,
+  bubble: {
+    borderRadius: 28,
     paddingHorizontal: 14,
-    paddingVertical: 12,
-    backgroundColor: '#132534',
+    paddingVertical: 9,
   },
-  systemBubble: {
-    backgroundColor: '#1f3547',
+  bubbleMine: {
+    backgroundColor: '#111111',
+    borderBottomRightRadius: 14,
+  },
+  bubbleOther: {
+    backgroundColor: '#f3f4f6',
+    borderBottomLeftRadius: 14,
   },
   messageText: {
-    color: '#f8f2ea',
-    lineHeight: 20,
+    color: '#111111',
+    lineHeight: 19,
+  },
+  messageTextMine: {
+    color: '#ffffff',
   },
   attachmentRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
-  },
-  attachmentChipWrap: {
-    borderRadius: 999,
-    backgroundColor: '#102030',
+    gap: 6,
+    marginTop: 8,
   },
   attachmentChip: {
-    color: '#ffd6c2',
-    fontSize: 12,
-    fontWeight: '800',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: 'rgba(17,17,17,0.06)',
+    color: '#111111',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  attachmentChipMine: {
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    color: '#ffffff',
   },
   systemCard: {
-    gap: 8,
-    maxWidth: '88%',
+    gap: 6,
     borderRadius: 22,
-    padding: 16,
-    backgroundColor: '#152c3d',
-  },
-  seenCopy: {
-    color: '#8da0af',
-    fontSize: 11,
-  },
-  composer: {
-    gap: 10,
-    marginTop: 12,
-    padding: 14,
-    borderRadius: 22,
-    backgroundColor: 'rgba(11,24,34,0.96)',
+    padding: 13,
+    backgroundColor: '#f8fafc',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: '#e5e7eb',
   },
-  input: {
-    minHeight: 56,
-    maxHeight: 140,
-    borderRadius: 18,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    backgroundColor: '#102030',
-    color: '#f8f2ea',
-    textAlignVertical: 'top',
+  systemCardType: {
+    color: '#6b7280',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.1,
   },
-  composerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 10,
+  systemCardText: {
+    color: '#111111',
+    fontWeight: '600',
+    lineHeight: 19,
   },
-  toolRow: {
+  systemCardMeta: {
+    color: '#4b5563',
+    lineHeight: 19,
+  },
+  timestampText: {
+    color: '#9aa3af',
+    fontSize: 9.5,
+  },
+  typingBubble: {
+    borderRadius: 22,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: '#f3f4f6',
+  },
+  typingText: {
+    color: '#6b7280',
+    fontSize: 11.5,
+  },
+  composerShell: {
+    gap: 8,
+    paddingHorizontal: 10,
+    paddingTop: 8,
+    paddingBottom: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#eceff3',
+    backgroundColor: 'rgba(255,255,255,0.98)',
+  },
+  pendingAttachments: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
   },
-  secondaryButton: {
-    borderRadius: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    backgroundColor: '#132534',
+  pendingChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 999,
+    backgroundColor: '#f3f4f6',
   },
-  secondaryButtonLabel: {
-    color: '#f8f2ea',
-    fontWeight: '800',
+  pendingChipLabel: {
+    color: '#111111',
+    fontSize: 11,
+    fontWeight: '700',
   },
-  primaryButton: {
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#ef8354',
+  composerRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 6,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 26,
+    paddingHorizontal: 6,
+    paddingVertical: 6,
+    backgroundColor: '#f8fafc',
   },
-  primaryButtonLabel: {
-    color: '#08131d',
-    fontWeight: '900',
+  toolButton: {
+    width: 30,
+    height: 30,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
   },
-  infoText: {
-    color: '#d1dce5',
+  input: {
+    flex: 1,
+    minHeight: 34,
+    maxHeight: 120,
+    borderRadius: 20,
+    paddingHorizontal: 8,
+    paddingVertical: 7,
+    backgroundColor: 'transparent',
+    color: '#111111',
+    textAlignVertical: 'top',
+  },
+  sendButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#111111',
+  },
+  sendButtonLabel: {
+    color: '#ffffff',
+    fontSize: 11.5,
+    fontWeight: '700',
   },
 });

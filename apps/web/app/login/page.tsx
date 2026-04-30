@@ -50,9 +50,10 @@ export default function LoginPage() {
 
   return (
     <AuthPageShell
-      eyebrow="Carloi Giris"
-      title="Telefon, email veya kullanici adi ile giris yap"
-      description="Carloi hesabinizla sosyal akis, ilanlar, garaj ve mesajlasma alanlarini ayni yerden yonetin."
+      title="Giris yap"
+      description="Telefon, email veya kullanici adi ile devam et."
+      backLabel="Ana ekrana don"
+      backHref="/"
     >
       <div className="form-grid">
         <TextField
@@ -68,6 +69,7 @@ export default function LoginPage() {
           onChange={setPassword}
           placeholder="********"
         />
+        <SecondaryCta label="Sifremi unuttum" href="/forgot-password" />
         {errorMessage ? <FormMessage tone="error" message={errorMessage} /> : null}
         <PrimaryCta
           label={loading ? 'Giris yapiliyor...' : 'Giris yap'}
@@ -76,7 +78,6 @@ export default function LoginPage() {
             void handleSubmit();
           }}
         />
-        <SecondaryCta label="Sifremi unuttum" href="/forgot-password" />
         <SecondaryCta label="Uye ol" href="/register" />
       </div>
     </AuthPageShell>

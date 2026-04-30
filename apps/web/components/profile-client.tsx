@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -15,6 +15,8 @@ import { webMessagesApi } from '../lib/messages-api';
 import { webProfileApi } from '../lib/profile-api';
 import { webSocialApi } from '../lib/social-api';
 
+type TabKey = 'posts' | 'listings' | 'vehicles';
+
 export function ProfileClient({ identifier }: { identifier?: string }) {
   const router = useRouter();
   const { session, isReady } = useAuth();
@@ -22,13 +24,17 @@ export function ProfileClient({ identifier }: { identifier?: string }) {
   const [posts, setPosts] = useState<ProfilePostGridItem[]>([]);
   const [listings, setListings] = useState<ProfileListingItem[]>([]);
   const [vehicles, setVehicles] = useState<ProfileVehicleItem[]>([]);
-  const [activeTab, setActiveTab] = useState<'posts' | 'listings' | 'vehicles'>('posts');
+  const [activeTab, setActiveTab] = useState<TabKey>('posts');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [selectedVehicle, setSelectedVehicle] = useState<ProfileVehicleItem | null>(null);
 
   useEffect(() => {
     if (!session?.accessToken) {
       return;
     }
+
+    setLoading(true);
 
     const profilePromise = identifier
       ? webProfileApi.getProfile(session.accessToken, identifier)
@@ -49,7 +55,8 @@ export function ProfileClient({ identifier }: { identifier?: string }) {
       })
       .catch((error) => {
         setErrorMessage(error instanceof Error ? error.message : 'Profil yuklenemedi.');
-      });
+      })
+      .finally(() => setLoading(false));
   }, [identifier, session?.accessToken, session?.user.username]);
 
   async function handleFollowToggle() {
@@ -86,49 +93,47 @@ export function ProfileClient({ identifier }: { identifier?: string }) {
     }
   }
 
+  const profileUsername = profile?.username ?? session?.user.username ?? '-';
+  const profileInitial = (profile?.firstName?.[0] ?? session?.user.firstName?.[0] ?? '?').toUpperCase();
+  const canViewContent = profile?.canViewContent ?? true;
+
   return (
     <AppShell>
-      <section className="profile-layout">
+      <section className="profile-ig-shell">
         {errorMessage ? <div className="auth-message error">{errorMessage}</div> : null}
         {!isReady ? <div className="detail-card">Oturum hazirlaniyor...</div> : null}
         {session ? (
           <>
-            <article className="profile-hero-card">
-              <div className="profile-header-row">
-                <div className="profile-avatar-lg">{(profile?.firstName?.[0] ?? session.user.firstName[0] ?? '?').toUpperCase()}</div>
-                <div className="profile-intro-block">
-                  <div className="card-label">Profile</div>
-                  <h2>{profile ? `${profile.firstName} ${profile.lastName}` : 'Profil yukleniyor...'}</h2>
-                  <div className="profile-handle-row">
-                    <span>@{profile?.username ?? session.user.username}</span>
-                    {profile?.blueVerified ? <span className="tiny-pill">Blue</span> : null}
-                    {profile?.goldVerified ? <span className="tiny-pill gold">Gold</span> : null}
-                  </div>
-                  {profile?.bio ? <p className="card-copy">{profile.bio}</p> : null}
-                  {profile?.websiteUrl ? (
-                    <a className="inline-link" href={profile.websiteUrl} rel="noreferrer" target="_blank">
-                      {profile.websiteUrl}
-                    </a>
-                  ) : null}
-                  <p className="card-copy">{profile?.locationText ?? 'Konum bilgisi yok'}</p>
-                  <p className="card-copy">
-                    {profile?.followerCount ?? 0} takipci · {profile?.followingCount ?? 0} takip edilen
-                  </p>
-                  {profile?.mutualFollowers.length ? (
-                    <p className="card-copy">
-                      Ortak baglanti: {profile.mutualFollowers.map((item) => `@${item.username}`).join(', ')}
-                    </p>
-                  ) : null}
-                </div>
+            <section className="profile-ig-top">
+              <div className="profile-ig-avatar-wrap">
+                {profile?.avatarUrl ? (
+                  <img alt={profileUsername} className="profile-ig-avatar" src={profile.avatarUrl} />
+                ) : (
+                  <div className="profile-ig-avatar fallback">{profileInitial}</div>
+                )}
               </div>
 
-              <div className="profile-stats-grid">
-                <StatCard label="Gonderi" value={profile?.postCount ?? posts.length} />
-                <StatCard label="Ilan" value={profile?.listingCount ?? listings.length} />
-                <StatCard label="Arac" value={profile?.vehicleCount ?? vehicles.length} />
+              <h1 className="profile-ig-username">@{profileUsername}</h1>
+              {profile ? <p className="profile-ig-name">{profile.firstName} {profile.lastName}</p> : null}
+
+              <div className="profile-ig-stats">
+                <StatChip label="posts" value={profile?.postCount ?? posts.length} />
+                <StatChip label="listings" value={profile?.listingCount ?? listings.length} />
+                <StatChip label="vehicles" value={profile?.vehicleCount ?? vehicles.length} />
               </div>
 
-              <div className="profile-action-row">
+              <div className="profile-ig-meta">
+                {profile?.bio ? <p>{profile.bio}</p> : null}
+                {profile?.websiteUrl ? (
+                  <a className="inline-link" href={profile.websiteUrl} rel="noreferrer" target="_blank">
+                    {profile.websiteUrl}
+                  </a>
+                ) : null}
+                {profile?.locationText ? <p>{profile.locationText}</p> : null}
+                <p>{profile?.followerCount ?? 0} takipci · {profile?.followingCount ?? 0} takip edilen</p>
+              </div>
+
+              <div className="profile-ig-actions">
                 {profile?.isOwnProfile ? (
                   <>
                     <Link className="secondary-link" href="/settings">Profili duzenle</Link>
@@ -137,7 +142,7 @@ export function ProfileClient({ identifier }: { identifier?: string }) {
                 ) : (
                   <>
                     <button className="primary-link button-reset" type="button" onClick={() => void handleFollowToggle()}>
-                      {profile?.isFollowing ? 'Takip ediliyor' : 'Takip et'}
+                      {profile?.isFollowing ? 'Takiptesin' : 'Takip et'}
                     </button>
                     <button className="secondary-link button-reset" type="button" onClick={() => void handleMessageStart()}>
                       Mesaj
@@ -145,74 +150,103 @@ export function ProfileClient({ identifier }: { identifier?: string }) {
                   </>
                 )}
               </div>
+            </section>
 
-              {!profile?.canViewContent && !profile?.isOwnProfile ? (
-                <div className="detail-card compact-note">
-                  <div className="card-label">Private</div>
-                  <p className="card-copy">Bu hesap gizli. Takip etmeden gonderi, ilan ve arac icerikleri acilmaz.</p>
-                </div>
-              ) : null}
-            </article>
+            <nav className="profile-ig-tabs" aria-label="Profile tabs">
+              <button className={`profile-ig-tab ${activeTab === 'posts' ? 'active' : ''}`} type="button" onClick={() => setActiveTab('posts')}>Gonderiler</button>
+              <button className={`profile-ig-tab ${activeTab === 'listings' ? 'active' : ''}`} type="button" onClick={() => setActiveTab('listings')}>Ilanlar</button>
+              <button className={`profile-ig-tab ${activeTab === 'vehicles' ? 'active' : ''}`} type="button" onClick={() => setActiveTab('vehicles')}>Araclar</button>
+            </nav>
 
-            <div className="profile-tab-row">
-              <button className={`pill-toggle ${activeTab === 'posts' ? 'active' : ''}`} type="button" onClick={() => setActiveTab('posts')}>Gonderiler</button>
-              <button className={`pill-toggle ${activeTab === 'listings' ? 'active' : ''}`} type="button" onClick={() => setActiveTab('listings')}>Ilanlar</button>
-              <button className={`pill-toggle ${activeTab === 'vehicles' ? 'active' : ''}`} type="button" onClick={() => setActiveTab('vehicles')}>Araclar</button>
-            </div>
+            {!canViewContent && !profile?.isOwnProfile ? (
+              <div className="profile-ig-private">
+                <strong>Bu hesap gizli</strong>
+                <p>Takip etmeden gonderi, ilan ve araclar gorunmez.</p>
+              </div>
+            ) : null}
 
-            {activeTab === 'posts' ? (
-              <section className="profile-grid-section">
+            {loading ? <div className="profile-ig-helper">Profil yukleniyor...</div> : null}
+
+            {!loading && activeTab === 'posts' ? (
+              <section className="profile-post-grid">
                 {posts.map((post) => (
-                  <Link key={post.id} className="profile-grid-card" href={`/posts/${post.id}`}>
-                    <strong>{post.thumbnailUrl ?? 'Medya yok'}</strong>
-                    <span>{post.likeCount} begeni · {post.commentCount} yorum</span>
+                  <Link key={post.id} className="profile-post-tile" href={`/posts/${post.id}`}>
+                    {post.thumbnailUrl ? (
+                      <img alt="Post" loading="lazy" src={post.thumbnailUrl} />
+                    ) : (
+                      <div className="profile-tile-fallback">POST</div>
+                    )}
                   </Link>
                 ))}
-                {!posts.length ? <div className="detail-card">Bu sekmede gosterilecek gonderi yok.</div> : null}
+                {!posts.length ? <div className="profile-ig-helper">Bu sekmede gosterilecek gonderi yok.</div> : null}
               </section>
             ) : null}
 
-            {activeTab === 'listings' ? (
-              <section className="cards-grid profile-cards-grid">
+            {!loading && activeTab === 'listings' ? (
+              <section className="profile-visual-grid">
                 {listings.map((listing) => (
-                  <Link key={listing.listingId} className="bullet-card" href={`/listings/${listing.listingId}`}>
-                    <div className="card-label">Listing</div>
-                    <h3 className="card-title">{listing.title}</h3>
-                    <p className="card-copy">{[listing.brand, listing.model, listing.package].filter(Boolean).join(' · ')}</p>
-                    <p className="card-copy">{listing.city}{listing.district ? ` / ${listing.district}` : ''}</p>
-                    <strong>{listing.price.toLocaleString('tr-TR')} TL</strong>
+                  <Link key={listing.listingId} className="profile-visual-tile" href={`/listings/${listing.listingId}`}>
+                    <div className="profile-visual-media">
+                      {listing.firstMediaUrl ? (
+                        <img alt={listing.title} loading="lazy" src={listing.firstMediaUrl} />
+                      ) : (
+                        <div className="profile-tile-fallback">ILAN</div>
+                      )}
+                    </div>
+                    <strong>{listing.title}</strong>
+                    <span>{[listing.brand, listing.model, listing.package].filter(Boolean).join(' · ')}</span>
                   </Link>
                 ))}
-                {!listings.length ? <div className="detail-card">Bu sekmede gosterilecek ilan yok.</div> : null}
+                {!listings.length ? <div className="profile-ig-helper">Bu sekmede gosterilecek ilan yok.</div> : null}
               </section>
             ) : null}
 
-            {activeTab === 'vehicles' ? (
-              <section className="cards-grid profile-cards-grid">
+            {!loading && activeTab === 'vehicles' ? (
+              <section className="profile-visual-grid">
                 {vehicles.map((vehicle) => (
-                  <article key={vehicle.id} className="bullet-card">
-                    <div className="card-label">Garage</div>
-                    <h3 className="card-title">{vehicle.brand} {vehicle.model}</h3>
-                    <p className="card-copy">{vehicle.package ?? 'Paket bilgisi yok'}</p>
-                    <p className="card-copy">{vehicle.year} · {vehicle.km.toLocaleString('tr-TR')} km · {vehicle.plateNumberMasked}</p>
-                    {vehicle.latestObdReport ? <strong>Expertiz skoru: {vehicle.latestObdReport.overallScore ?? '-'} / 100</strong> : null}
-                  </article>
+                  <button key={vehicle.id} className="profile-visual-tile button-reset" type="button" onClick={() => setSelectedVehicle(vehicle)}>
+                    <div className="profile-visual-media">
+                      {vehicle.firstMediaUrl ? (
+                        <img alt={`${vehicle.brand} ${vehicle.model}`} loading="lazy" src={vehicle.firstMediaUrl} />
+                      ) : (
+                        <div className="profile-tile-fallback">ARAC</div>
+                      )}
+                    </div>
+                    <strong>{vehicle.brand} {vehicle.model}</strong>
+                    <span>{vehicle.package ?? vehicle.plateNumberMasked}</span>
+                  </button>
                 ))}
-                {!vehicles.length ? <div className="detail-card">Bu sekmede gosterilecek arac yok.</div> : null}
+                {!vehicles.length ? <div className="profile-ig-helper">Bu sekmede gosterilecek arac yok.</div> : null}
               </section>
             ) : null}
           </>
         ) : (
           <div className="detail-card">Bu alani gormek icin giris yapin.</div>
         )}
+
+        {selectedVehicle ? (
+          <div className="profile-vehicle-overlay" role="dialog">
+            <div className="profile-vehicle-modal">
+              <div className="profile-vehicle-modal-head">
+                <strong>{selectedVehicle.brand} {selectedVehicle.model}</strong>
+                <button className="secondary-link button-reset" type="button" onClick={() => setSelectedVehicle(null)}>Kapat</button>
+              </div>
+              <p>{selectedVehicle.package ?? 'Paket bilgisi yok'}</p>
+              <p>{selectedVehicle.year} · {selectedVehicle.km.toLocaleString('tr-TR')} km</p>
+              <p>{selectedVehicle.fuelType} · {selectedVehicle.transmissionType}</p>
+              <p>Plaka: {selectedVehicle.plateNumberMasked}</p>
+              {selectedVehicle.latestObdReport ? <p>Expertiz skoru: {selectedVehicle.latestObdReport.overallScore ?? '-'} / 100</p> : null}
+            </div>
+          </div>
+        ) : null}
       </section>
     </AppShell>
   );
 }
 
-function StatCard({ label, value }: { label: string; value: number }) {
+function StatChip({ label, value }: { label: string; value: number }) {
   return (
-    <div className="profile-stat-card">
+    <div className="profile-ig-stat">
       <strong>{value}</strong>
       <span>{label}</span>
     </div>

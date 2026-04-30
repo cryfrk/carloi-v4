@@ -20,6 +20,21 @@ type StoryStripProps = {
   refreshKey?: number;
 };
 
+function StorySkeleton() {
+  return (
+    <>
+      {Array.from({ length: 5 }).map((_, index) => (
+        <View key={index} style={styles.storyBubble}>
+          <View style={[styles.storyRing, styles.storyRingSkeleton]}>
+            <View style={styles.storyAvatarSkeleton} />
+          </View>
+          <View style={styles.storyLabelSkeleton} />
+        </View>
+      ))}
+    </>
+  );
+}
+
 export function StoryStrip({
   accessToken,
   currentUserId,
@@ -73,6 +88,7 @@ export function StoryStrip({
         ),
       })),
     );
+
     setProgress(0);
     const durationMs = 15000;
     const stepMs = 250;
@@ -166,46 +182,40 @@ export function StoryStrip({
 
   return (
     <>
-      <View style={styles.card}>
-        <View style={styles.headerRow}>
-          <View>
-            <Text style={styles.kicker}>Stories</Text>
-            <Text style={styles.title}>24 saatlik akista neler oluyor?</Text>
-          </View>
-          <Pressable onPress={onCreateStory} style={styles.createButton}>
-            <Text style={styles.createButtonLabel}>{hasOwnStories ? 'Yeni story' : 'Story ekle'}</Text>
-          </Pressable>
-        </View>
-
-        {loading ? (
-          <View style={styles.loadingRow}>
-            <ActivityIndicator color="#ef8354" />
-            <Text style={styles.loadingText}>Story akisi yukleniyor...</Text>
-          </View>
-        ) : (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.stripRow}>
-            <Pressable onPress={onCreateStory} style={styles.storyBubble}>
-              <View style={[styles.storyAvatar, styles.storyAvatarAdd]}>
-                <Text style={styles.storyAvatarAddLabel}>+</Text>
+      <View style={styles.container}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.stripRow}>
+          <Pressable onPress={onCreateStory} style={styles.storyBubble}>
+            <View style={[styles.storyRing, styles.ownStoryRing]}>
+              <View style={styles.ownStoryInner}>
+                <Text style={styles.plusLabel}>+</Text>
               </View>
-              <Text style={styles.storyLabel}>{hasOwnStories ? 'Paylas' : 'Ilk story'}</Text>
-            </Pressable>
-            {groups.map((group, index) => (
+            </View>
+            <Text numberOfLines={1} style={styles.storyLabel}>
+              {hasOwnStories ? 'Hikayen' : 'Ekle'}
+            </Text>
+          </Pressable>
+
+          {loading ? (
+            <StorySkeleton />
+          ) : (
+            groups.map((group, index) => (
               <Pressable key={group.owner.id} onPress={() => openGroup(index)} style={styles.storyBubble}>
-                <View style={[styles.storyAvatar, group.hasUnviewed ? styles.storyAvatarActive : styles.storyAvatarViewed]}>
+                <View style={[styles.storyRing, group.hasUnviewed ? styles.storyRingActive : styles.storyRingViewed]}>
                   {group.owner.avatarUrl ? (
                     <Image source={{ uri: group.owner.avatarUrl }} style={styles.storyAvatarImage} />
                   ) : (
-                    <View style={styles.storyAvatarFallback}>
-                      <Text style={styles.storyAvatarFallbackLabel}>{group.owner.username.slice(0, 1).toUpperCase()}</Text>
+                    <View style={styles.storyFallback}>
+                      <Text style={styles.storyFallbackLabel}>{group.owner.username.slice(0, 1).toUpperCase()}</Text>
                     </View>
                   )}
                 </View>
-                <Text style={styles.storyLabel}>@{group.owner.username}</Text>
+                <Text numberOfLines={1} style={styles.storyLabel}>
+                  @{group.owner.username}
+                </Text>
               </Pressable>
-            ))}
-          </ScrollView>
-        )}
+            ))
+          )}
+        </ScrollView>
       </View>
 
       <Modal visible={Boolean(activeStory)} transparent animationType="fade" onRequestClose={closeViewer}>
@@ -234,7 +244,12 @@ export function StoryStrip({
                 <View style={styles.viewerHeader}>
                   <View style={styles.viewerOwner}>
                     <Text style={styles.viewerOwnerName}>@{activeStory.owner.username}</Text>
-                    <Text style={styles.viewerMeta}>{new Date(activeStory.createdAt).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}</Text>
+                    <Text style={styles.viewerMeta}>
+                      {new Date(activeStory.createdAt).toLocaleTimeString('tr-TR', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </Text>
                   </View>
                   <Pressable onPress={closeViewer}>
                     <Text style={styles.closeLabel}>Kapat</Text>
@@ -264,7 +279,9 @@ export function StoryStrip({
                   {activeStory.owner.id === currentUserId ? (
                     <View style={styles.viewerActions}>
                       <Pressable style={styles.inlineButton} onPress={() => void loadViewers(activeStory)}>
-                        <Text style={styles.inlineButtonLabel}>{loadingViewers ? 'Izleyenler...' : `Izleyenler (${activeStory.viewerCount ?? 0})`}</Text>
+                        <Text style={styles.inlineButtonLabel}>
+                          {loadingViewers ? 'Izleyenler...' : `Izleyenler (${activeStory.viewerCount ?? 0})`}
+                        </Text>
                       </Pressable>
                       <Pressable style={styles.inlineButton} onPress={() => void deleteActiveStory()}>
                         <Text style={styles.inlineButtonLabel}>Sil</Text>
@@ -278,7 +295,12 @@ export function StoryStrip({
                     {viewerItems.map((item) => (
                       <View key={item.id} style={styles.viewerRow}>
                         <Text style={styles.viewerRowName}>@{item.viewer.username}</Text>
-                        <Text style={styles.viewerRowMeta}>{new Date(item.viewedAt).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}</Text>
+                        <Text style={styles.viewerRowMeta}>
+                          {new Date(item.viewedAt).toLocaleTimeString('tr-TR', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </Text>
                       </View>
                     ))}
                   </View>
@@ -293,106 +315,99 @@ export function StoryStrip({
 }
 
 const styles = StyleSheet.create({
-  card: {
-    gap: 14,
-    padding: 18,
-    borderRadius: 26,
-    backgroundColor: '#0d1d2a',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  kicker: {
-    color: '#ffd6c2',
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1.6,
-    textTransform: 'uppercase',
-  },
-  title: {
-    color: '#f8f2ea',
-    fontSize: 18,
-    fontWeight: '800',
-  },
-  createButton: {
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    backgroundColor: 'rgba(239,131,84,0.14)',
-  },
-  createButtonLabel: {
-    color: '#ffd6c2',
-    fontWeight: '800',
-    fontSize: 12,
-  },
-  loadingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  loadingText: {
-    color: '#c7d5de',
+  container: {
+    paddingTop: 4,
+    paddingBottom: 12,
+    backgroundColor: '#ffffff',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#eceff3',
   },
   stripRow: {
     gap: 12,
+    paddingHorizontal: 14,
   },
   storyBubble: {
-    width: 82,
-    gap: 8,
+    width: 74,
     alignItems: 'center',
+    gap: 6,
   },
-  storyAvatar: {
+  storyRing: {
     width: 72,
     height: 72,
-    borderRadius: 36,
+    borderRadius: 999,
     padding: 3,
-  },
-  storyAvatarActive: {
-    backgroundColor: '#ef8354',
-  },
-  storyAvatarViewed: {
-    backgroundColor: 'rgba(255,255,255,0.16)',
-  },
-  storyAvatarAdd: {
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(239,131,84,0.22)',
   },
-  storyAvatarAddLabel: {
-    color: '#ffd6c2',
+  storyRingActive: {
+    backgroundColor: '#f97316',
+  },
+  storyRingViewed: {
+    backgroundColor: '#d7dde4',
+  },
+  ownStoryRing: {
+    backgroundColor: '#e8eef4',
+  },
+  ownStoryInner: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 999,
+    backgroundColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#e7eaee',
+  },
+  plusLabel: {
+    color: '#111111',
     fontSize: 28,
-    fontWeight: '800',
+    fontWeight: '700',
+    lineHeight: 30,
   },
   storyAvatarImage: {
     width: '100%',
     height: '100%',
     borderRadius: 999,
-    borderWidth: 3,
-    borderColor: '#0d1d2a',
+    borderWidth: 2,
+    borderColor: '#ffffff',
   },
-  storyAvatarFallback: {
-    flex: 1,
+  storyFallback: {
+    width: '100%',
+    height: '100%',
     borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#f6ddcf',
-    borderWidth: 3,
-    borderColor: '#0d1d2a',
+    backgroundColor: '#ffffff',
+    borderWidth: 2,
+    borderColor: '#ffffff',
   },
-  storyAvatarFallbackLabel: {
-    color: '#08131d',
-    fontSize: 24,
+  storyFallbackLabel: {
+    color: '#111111',
+    fontSize: 22,
     fontWeight: '800',
   },
   storyLabel: {
-    color: '#f8f2ea',
-    fontSize: 12,
-    fontWeight: '700',
+    width: '100%',
+    color: '#111111',
+    fontSize: 11,
+    textAlign: 'center',
+  },
+  storyRingSkeleton: {
+    backgroundColor: '#ebeff3',
+  },
+  storyAvatarSkeleton: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 999,
+    backgroundColor: '#f5f7fa',
+    borderWidth: 2,
+    borderColor: '#ffffff',
+  },
+  storyLabelSkeleton: {
+    width: 48,
+    height: 10,
+    borderRadius: 999,
+    backgroundColor: '#eceff3',
   },
   modalBackdrop: {
     flex: 1,

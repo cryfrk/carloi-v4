@@ -24,9 +24,55 @@ function StoryAvatar({ group }: { group: StoryFeedGroup }) {
   const firstLetter = group.owner.username.slice(0, 1).toUpperCase();
 
   return group.owner.avatarUrl ? (
-    <img alt={group.owner.username} className="story-avatar-image" src={group.owner.avatarUrl} />
+    <img alt={group.owner.username} className="story-avatar-image" loading="lazy" src={group.owner.avatarUrl} />
   ) : (
     <span className="story-avatar-fallback">{firstLetter}</span>
+  );
+}
+
+function StoryStripSkeleton() {
+  return (
+    <>
+      {Array.from({ length: 5 }).map((_, index) => (
+        <div key={index} className="story-bubble">
+          <span className="story-avatar-shell skeleton">
+            <span className="story-avatar-skeleton" />
+          </span>
+          <span className="story-bubble-label skeleton-label" />
+        </div>
+      ))}
+    </>
+  );
+}
+
+function FeedSkeleton() {
+  return (
+    <div className="feed-skeleton-stack">
+      {Array.from({ length: 2 }).map((_, index) => (
+        <article key={index} className="feed-post-card skeleton-post">
+          <div className="feed-post-header">
+            <div className="feed-owner-block">
+              <div className="feed-avatar skeleton-avatar" />
+              <div className="feed-owner-copy">
+                <div className="skeleton-line short" />
+                <div className="skeleton-line tiny" />
+              </div>
+            </div>
+          </div>
+          <div className="post-media-frame skeleton-media" />
+          <div className="instagram-action-row skeleton-actions">
+            <div className="instagram-action-group">
+              <span className="skeleton-action-dot" />
+              <span className="skeleton-action-dot" />
+              <span className="skeleton-action-dot" />
+            </div>
+          </div>
+          <div className="skeleton-line medium" />
+          <div className="skeleton-line long" />
+          <div className="skeleton-line medium" />
+        </article>
+      ))}
+    </div>
   );
 }
 
@@ -400,24 +446,15 @@ export function SocialHomeClient() {
 
   return (
     <AppShell>
-      <div className="feed-page-shell">
+      <div className="feed-page-shell instagram-feed-shell">
       <section className="story-strip-card instagram-story-row">
-        <div className="story-strip-head">
-          <div>
-            <div className="card-label">Stories</div>
-            <h3 className="card-title">Gunun halkalari</h3>
-          </div>
-          <Link className="secondary-link" href="/stories/create">
-            Ekle
-          </Link>
-        </div>
         <div className="story-strip-row">
           <Link className="story-bubble own-story" href="/stories/create">
             <span className="story-avatar-shell own">+</span>
-            <span className="story-bubble-label">Senin hikayen</span>
+            <span className="story-bubble-label">Hikayen</span>
           </Link>
           {loadingStories ? (
-            <div className="story-loading-copy">Story halkalari yukleniyor...</div>
+            <StoryStripSkeleton />
           ) : stories.length === 0 ? (
             <div className="story-loading-copy">Henuz aktif hikaye yok.</div>
           ) : (
@@ -445,11 +482,7 @@ export function SocialHomeClient() {
       ) : null}
 
       {loading ? (
-        <section className="detail-card gate-card">
-          <div className="card-label">Feed</div>
-          <h3 className="card-title">Akis yukleniyor</h3>
-          <p className="card-copy">Postlar ve etkilesim istatistikleri getiriliyor.</p>
-        </section>
+        <FeedSkeleton />
       ) : feed.length === 0 ? (
         <section className="detail-card gate-card">
           <div className="card-label">First post</div>
@@ -491,7 +524,7 @@ export function SocialHomeClient() {
                 {post.media.map((item) => (
                   <div key={item.id} className="post-media-frame">
                     {item.mediaType === 'IMAGE' ? (
-                      <img alt="Post medyasi" className="post-media-image" src={item.url} />
+                      <img alt="Post medyasi" className="post-media-image" loading="lazy" src={item.url} />
                     ) : (
                       <video className="post-media-image" controls preload="metadata" src={item.url} />
                     )}

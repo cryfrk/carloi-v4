@@ -17,9 +17,8 @@ export default function RegisterPage() {
 
   return (
     <AuthPageShell
-      eyebrow="Uyelik Secimi"
-      title="Carloi hesabini olustur"
-      description="Bireysel veya ticari uyelik secimiyle kayit akisina basla. Ticari secim sonrasi ek firma bilgileri istenecek."
+      title="Hesap olustur"
+      description="Bireysel veya ticari hesap secerek devam et."
       backHref="/login"
     >
       <div className="form-grid">

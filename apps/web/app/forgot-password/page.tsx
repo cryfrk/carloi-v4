@@ -41,9 +41,8 @@ export default function ForgotPasswordPage() {
 
   return (
     <AuthPageShell
-      eyebrow="Sifre Kurtarma"
-      title="Yeni sifre icin kod iste"
-      description="Email ya da telefon numarani gir. Hesap uygunsa sana 15 dakika gecerlilikli sifirlama kodu gonderilecek."
+      title="Sifremi unuttum"
+      description="Email veya telefonunu gir, sifirlama kodunu gonderelim."
       backHref="/login"
     >
       <div className="form-grid">

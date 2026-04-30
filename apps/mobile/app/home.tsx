@@ -1,9 +1,10 @@
-import { Ionicons } from '@expo/vector-icons';
+﻿import { Ionicons } from '@expo/vector-icons';
 import type { FeedPost, SocialComment } from '@carloi-v4/types';
 import { Redirect, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  FlatList,
   Image,
   Pressable,
   RefreshControl,
@@ -24,6 +25,37 @@ type DraftState = Record<string, string>;
 type ExpandedState = Record<string, boolean>;
 type LoadingCommentsState = Record<string, boolean>;
 type OpenCommentsState = Record<string, boolean>;
+
+type PostSkeletonProps = {
+  mediaWidth: number;
+};
+
+function FeedSkeleton({ mediaWidth }: PostSkeletonProps) {
+  return (
+    <View style={styles.skeletonStack}>
+      {Array.from({ length: 2 }).map((_, index) => (
+        <View key={index} style={styles.skeletonPost}>
+          <View style={styles.skeletonHeader}>
+            <View style={styles.skeletonAvatar} />
+            <View style={styles.skeletonHeaderCopy}>
+              <View style={styles.skeletonLineShort} />
+              <View style={styles.skeletonLineTiny} />
+            </View>
+          </View>
+          <View style={[styles.skeletonMedia, { width: mediaWidth }]} />
+          <View style={styles.skeletonActions}>
+            <View style={styles.skeletonActionDot} />
+            <View style={styles.skeletonActionDot} />
+            <View style={styles.skeletonActionDot} />
+          </View>
+          <View style={styles.skeletonLineMedium} />
+          <View style={styles.skeletonLineLong} />
+          <View style={styles.skeletonLineMedium} />
+        </View>
+      ))}
+    </View>
+  );
+}
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -220,13 +252,20 @@ export default function HomeScreen() {
       <ScrollView
         horizontal
         pagingEnabled
+        removeClippedSubviews
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.mediaTrack}
       >
-        {post.media.map((item) => (
+        {post.media.map((item, index) => (
           <View key={item.id} style={[styles.mediaFrame, { width: mediaWidth }]}>
             {item.mediaType === 'IMAGE' ? (
-              <Image source={{ uri: item.url }} style={styles.mediaImage} resizeMode="cover" />
+              <Image
+                source={{ uri: item.url }}
+                style={styles.mediaImage}
+                resizeMode="cover"
+                progressiveRenderingEnabled
+                fadeDuration={120}
+              />
             ) : (
               <View style={styles.videoPlaceholder}>
                 <Text style={styles.videoBadge}>VIDEO</Text>
@@ -235,26 +274,178 @@ export default function HomeScreen() {
                 </Text>
               </View>
             )}
+            {post.media.length > 1 ? (
+              <View style={styles.mediaCounter}>
+                <Text style={styles.mediaCounterLabel}>{index + 1}/{post.media.length}</Text>
+              </View>
+            ) : null}
           </View>
         ))}
       </ScrollView>
     );
   }
 
+  function renderPost({ item: post }: { item: FeedPost }) {
+    const comments = commentsByPost[post.id] ?? [];
+    const isCaptionExpanded = expandedCaptions[post.id] ?? false;
+    const isOwnPost = currentUserId === post.owner.id;
+
+    return (
+      <View style={styles.postCard}>
+        <View style={styles.postHeader}>
+          <View style={styles.ownerBlock}>
+            <View style={styles.avatar}>
+              {post.owner.avatarUrl ? (
+                <Image source={{ uri: post.owner.avatarUrl }} style={styles.avatarImage} />
+              ) : (
+                <Text style={styles.avatarLabel}>{post.owner.username.slice(0, 1).toUpperCase()}</Text>
+              )}
+            </View>
+            <View style={styles.ownerCopy}>
+              <View style={styles.ownerRow}>
+                <Text style={styles.ownerName}>@{post.owner.username}</Text>
+                {post.owner.blueVerified ? <Text style={styles.tickBlue}>Blue</Text> : null}
+                {post.owner.goldVerified ? <Text style={styles.tickGold}>Gold</Text> : null}
+              </View>
+              <Text style={styles.ownerMeta}>{post.locationText || 'Konum eklenmedi'}</Text>
+            </View>
+          </View>
+
+          {!isOwnPost ? (
+            <Pressable onPress={() => void handleFollow(post)} style={styles.followButton}>
+              <Text style={styles.followLabel}>{post.owner.isFollowing ? 'Takiptesin' : 'Takip et'}</Text>
+            </Pressable>
+          ) : null}
+        </View>
+
+        {renderMedia(post)}
+
+        <View style={styles.actionsRow}>
+          <View style={styles.actionCluster}>
+            <Pressable onPress={() => void handleLike(post)} style={styles.iconActionButton}>
+              <Ionicons
+                color={post.isLiked ? '#ef4444' : '#111111'}
+                name={post.isLiked ? 'heart' : 'heart-outline'}
+                size={24}
+              />
+            </Pressable>
+            <Pressable onPress={() => void toggleComments(post.id)} style={styles.iconActionButton}>
+              <Ionicons color="#111111" name="chatbubble-outline" size={22} />
+            </Pressable>
+            <Pressable
+              onPress={() => setNotice('Paylasim kisayiolu bir sonraki asamada eklenecek.')}
+              style={styles.iconActionButton}
+            >
+              <Ionicons color="#111111" name="paper-plane-outline" size={22} />
+            </Pressable>
+          </View>
+          <Pressable onPress={() => void handleSave(post)} style={styles.iconActionButton}>
+            <Ionicons color="#111111" name={post.isSaved ? 'bookmark' : 'bookmark-outline'} size={22} />
+          </Pressable>
+        </View>
+
+        <View style={styles.metaColumn}>
+          <Text style={styles.likeCountText}>{post.likeCount} begeni</Text>
+          <View style={styles.captionBlock}>
+            {post.caption ? (
+              <>
+                <Text numberOfLines={isCaptionExpanded ? undefined : 3} style={styles.captionText}>
+                  <Text style={styles.captionOwner}>@{post.owner.username} </Text>
+                  {post.caption}
+                </Text>
+                {post.caption.length > 120 ? (
+                  <Pressable
+                    onPress={() =>
+                      setExpandedCaptions((current) => ({
+                        ...current,
+                        [post.id]: !isCaptionExpanded,
+                      }))
+                    }
+                  >
+                    <Text style={styles.moreLabel}>{isCaptionExpanded ? 'Daha az goster' : 'Devamini oku'}</Text>
+                  </Pressable>
+                ) : null}
+              </>
+            ) : null}
+          </View>
+          <Pressable onPress={() => void toggleComments(post.id)}>
+            <Text style={styles.commentSummary}>{post.commentCount > 0 ? `${post.commentCount} yorumu gor` : 'Ilk yorumu yap'}</Text>
+          </Pressable>
+          <Text style={styles.postTime}>{new Date(post.createdAt).toLocaleDateString('tr-TR')}</Text>
+        </View>
+
+        {openComments[post.id] ? (
+          <View style={styles.commentsPanel}>
+            {loadingComments[post.id] ? (
+              <ActivityIndicator color="#111111" />
+            ) : comments.length === 0 ? (
+              <Text style={styles.commentEmpty}>Henuz yorum yok.</Text>
+            ) : (
+              comments.map((comment) => (
+                <View key={comment.id} style={styles.commentRow}>
+                  <View style={styles.commentContent}>
+                    <Text style={styles.commentBody}>
+                      <Text style={styles.commentOwner}>@{comment.owner.username} </Text>
+                      {comment.body}
+                    </Text>
+                    <Text style={styles.commentMeta}>{comment.likeCount} begeni</Text>
+                  </View>
+                  <Pressable onPress={() => void handleCommentLike(post.id, comment)} style={styles.commentLikeButton}>
+                    <Ionicons
+                      color={comment.isLiked ? '#ef4444' : '#6b7280'}
+                      name={comment.isLiked ? 'heart' : 'heart-outline'}
+                      size={16}
+                    />
+                  </Pressable>
+                </View>
+              ))
+            )}
+
+            <View style={styles.commentComposer}>
+              <TextInput
+                style={styles.commentInput}
+                value={commentDrafts[post.id] ?? ''}
+                onChangeText={(value) =>
+                  setCommentDrafts((current) => ({
+                    ...current,
+                    [post.id]: value,
+                  }))
+                }
+                placeholder="Yorum ekle"
+                placeholderTextColor="#9aa3af"
+              />
+              <Pressable onPress={() => void handleCreateComment(post.id)} style={styles.commentSendButton}>
+                <Text style={styles.commentSendLabel}>Paylas</Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : null}
+      </View>
+    );
+  }
+
   return (
     <MobileShell
       title="Anasayfa"
-      subtitle="Takip ettiklerin once gelir, kesif akisi araya karisir ve sosyal akis sade kalir."
+      subtitle="Takip ettiklerin ve senin ilgine gore secilen postlar burada akar."
       actionLabel="Olustur"
       onActionPress={() => router.push('/create-post')}
     >
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
+      <FlatList
+        data={loading ? [] : feed}
+        keyExtractor={(item) => item.id}
+        renderItem={renderPost}
+        style={styles.list}
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+        initialNumToRender={4}
+        maxToRenderPerBatch={4}
+        windowSize={7}
+        removeClippedSubviews
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            tintColor="#ef8354"
+            tintColor="#111111"
             onRefresh={() => {
               setRefreshing(true);
               setStoryRefreshKey((current) => current + 1);
@@ -262,309 +453,199 @@ export default function HomeScreen() {
             }}
           />
         }
-      >
-        {notice ? (
-          <View style={[styles.banner, styles.bannerInfo]}>
-            <Text style={styles.bannerText}>{notice}</Text>
-          </View>
-        ) : null}
-        {errorMessage ? (
-          <View style={[styles.banner, styles.bannerError]}>
-            <Text style={styles.bannerText}>{errorMessage}</Text>
-          </View>
-        ) : null}
-
-        <StoryStrip
-          accessToken={accessToken}
-          currentUserId={currentUserId}
-          onCreateStory={() => router.push('/create-story')}
-          onError={(message) => setErrorMessage(message)}
-          refreshKey={storyRefreshKey}
-        />
-
-        {loading ? (
-          <View style={styles.loadingCard}>
-            <ActivityIndicator color="#ef8354" />
-            <Text style={styles.loadingText}>Feed hazirlaniyor...</Text>
-          </View>
-        ) : null}
-
-        {!loading && feed.length === 0 ? (
-          <View style={styles.emptyCard}>
-            <Text style={styles.emptyTitle}>Heniz post yok</Text>
-            <Text style={styles.emptyCopy}>
-              Ilk postu paylasip feed akisini baslat. Artik galeriden secip gercek medya upload ile coklu icerik olusturabilirsin.
-            </Text>
-          </View>
-        ) : null}
-
-        {feed.map((post) => {
-          const comments = commentsByPost[post.id] ?? [];
-          const isCaptionExpanded = expandedCaptions[post.id] ?? false;
-          const isOwnPost = currentUserId === post.owner.id;
-
-          return (
-            <View key={post.id} style={styles.postCard}>
-              <View style={styles.postHeader}>
-                <View style={styles.ownerBlock}>
-                  <View style={styles.avatar}>
-                    <Text style={styles.avatarLabel}>{post.owner.username.slice(0, 1).toUpperCase()}</Text>
-                  </View>
-                  <View style={styles.ownerCopy}>
-                    <View style={styles.ownerRow}>
-                      <Text style={styles.ownerName}>@{post.owner.username}</Text>
-                      {post.owner.blueVerified ? <Text style={styles.tickBlue}>Blue</Text> : null}
-                      {post.owner.goldVerified ? <Text style={styles.tickGold}>Gold</Text> : null}
-                    </View>
-                    <Text style={styles.ownerMeta}>
-                      {post.locationText || 'Konum eklenmedi'}   Â·   {new Date(post.createdAt).toLocaleDateString('tr-TR')}
-                    </Text>
-                  </View>
-                </View>
-                {!isOwnPost ? (
-                  <Pressable
-                    onPress={() => {
-                      void handleFollow(post);
-                    }}
-                    style={styles.followButton}
-                  >
-                    <Text style={styles.followLabel}>
-                      {post.owner.isFollowing ? 'Takibi birak' : 'Takip et'}
-                    </Text>
-                  </Pressable>
-                ) : null}
+        ListHeaderComponent={
+          <View>
+            {notice ? (
+              <View style={[styles.banner, styles.bannerInfo]}>
+                <Text style={styles.bannerText}>{notice}</Text>
               </View>
-
-              {renderMedia(post)}
-
-              <View style={styles.actionsRow}>
-                <View style={styles.actionCluster}>
-                  <Pressable onPress={() => void handleLike(post)} style={styles.iconActionButton}>
-                    <Ionicons
-                      color={post.isLiked ? '#e11d48' : '#111111'}
-                      name={post.isLiked ? 'heart' : 'heart-outline'}
-                      size={24}
-                    />
-                  </Pressable>
-                  <Pressable onPress={() => void toggleComments(post.id)} style={styles.iconActionButton}>
-                    <Ionicons color="#111111" name="chatbubble-outline" size={22} />
-                  </Pressable>
-                  <Pressable
-                    onPress={() => setNotice('Paylasim kisayiolu bir sonraki asamada eklenecek.')}
-                    style={styles.iconActionButton}
-                  >
-                    <Ionicons color="#111111" name="paper-plane-outline" size={22} />
-                  </Pressable>
-                </View>
-                <Pressable onPress={() => void handleSave(post)} style={styles.iconActionButton}>
-                  <Ionicons
-                    color="#111111"
-                    name={post.isSaved ? 'bookmark' : 'bookmark-outline'}
-                    size={22}
-                  />
-                </Pressable>
+            ) : null}
+            {errorMessage ? (
+              <View style={[styles.banner, styles.bannerError]}>
+                <Text style={styles.bannerText}>{errorMessage}</Text>
               </View>
+            ) : null}
 
-              <View style={styles.metricRow}>
-                <Text style={styles.metricText}>{post.likeCount} begeni</Text>
-                <Text style={styles.metricText}>{post.commentCount} yorum</Text>
+            <StoryStrip
+              accessToken={accessToken}
+              currentUserId={currentUserId}
+              onCreateStory={() => router.push('/create-story')}
+              onError={(message) => setErrorMessage(message)}
+              refreshKey={storyRefreshKey}
+            />
+
+            {loading ? <FeedSkeleton mediaWidth={mediaWidth} /> : null}
+            {!loading && feed.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyTitle}>Heniz post yok</Text>
+                <Text style={styles.emptyCopy}>Ilk postu paylas ve akisi baslat.</Text>
               </View>
-
-              {post.caption ? (
-                <View style={styles.captionBlock}>
-                  <Text numberOfLines={isCaptionExpanded ? undefined : 3} style={styles.captionText}>
-                    <Text style={styles.captionOwner}>@{post.owner.username} </Text>
-                    {post.caption}
-                  </Text>
-                  {post.caption.length > 120 ? (
-                    <Pressable
-                      onPress={() =>
-                        setExpandedCaptions((current) => ({
-                          ...current,
-                          [post.id]: !isCaptionExpanded,
-                        }))
-                      }
-                    >
-                      <Text style={styles.moreLabel}>
-                        {isCaptionExpanded ? 'Kapat' : 'Devamini oku'}
-                      </Text>
-                    </Pressable>
-                  ) : null}
-                </View>
-              ) : null}
-
-              {openComments[post.id] ? (
-                <View style={styles.commentsPanel}>
-                  {loadingComments[post.id] ? (
-                    <ActivityIndicator color="#ef8354" />
-                  ) : comments.length === 0 ? (
-                    <Text style={styles.commentEmpty}>Henuz yorum yok.</Text>
-                  ) : (
-                    comments.map((comment) => (
-                      <View key={comment.id} style={styles.commentRow}>
-                        <View style={styles.commentContent}>
-                          <Text style={styles.commentBody}>
-                            <Text style={styles.commentOwner}>@{comment.owner.username} </Text>
-                            {comment.body}
-                          </Text>
-                          <Text style={styles.commentMeta}>
-                            {comment.likeCount} begeni · {comment.replyCount} yanit
-                          </Text>
-                        </View>
-                        <Pressable
-                          onPress={() => {
-                            void handleCommentLike(post.id, comment);
-                          }}
-                          style={styles.commentLikeButton}
-                        >
-                          <Ionicons
-                            color={comment.isLiked ? '#e11d48' : '#6b7280'}
-                            name={comment.isLiked ? 'heart' : 'heart-outline'}
-                            size={18}
-                          />
-                        </Pressable>
-                      </View>
-                    ))
-                  )}
-
-                  <View style={styles.commentComposer}>
-                    <TextInput
-                      style={styles.commentInput}
-                      value={commentDrafts[post.id] ?? ''}
-                      onChangeText={(value) =>
-                        setCommentDrafts((current) => ({
-                          ...current,
-                          [post.id]: value,
-                        }))
-                      }
-                      placeholder="Yorum yaz"
-                      placeholderTextColor="#6d8090"
-                    />
-                    <Pressable
-                      onPress={() => {
-                        void handleCreateComment(post.id);
-                      }}
-                      style={styles.commentSendButton}
-                    >
-                      <Text style={styles.commentSendLabel}>Gonder</Text>
-                    </Pressable>
-                  </View>
-                </View>
-              ) : null}
-            </View>
-          );
-        })}
-
-        {!loading && nextCursor ? (
-          <Pressable
-            onPress={() => {
-              void loadFeed(false);
-            }}
-            disabled={loadingMore}
-            style={styles.loadMoreButton}
-          >
-            <Text style={styles.loadMoreLabel}>{loadingMore ? 'Yukleniyor...' : 'Daha fazla goster'}</Text>
-          </Pressable>
-        ) : null}
-      </ScrollView>
+            ) : null}
+          </View>
+        }
+        ListFooterComponent={
+          !loading && nextCursor ? (
+            <Pressable onPress={() => void loadFeed(false)} disabled={loadingMore} style={styles.loadMoreButton}>
+              <Text style={styles.loadMoreLabel}>{loadingMore ? 'Yukleniyor...' : 'Daha fazla goster'}</Text>
+            </Pressable>
+          ) : (
+            <View style={styles.footerGap} />
+          )
+        }
+      />
     </MobileShell>
   );
 }
 
 const styles = StyleSheet.create({
-  scroll: {
+  list: {
     flex: 1,
+    backgroundColor: '#ffffff',
   },
-  scrollContent: {
-    gap: 0,
-    paddingBottom: 18,
-    backgroundColor: '#f5f6f7',
+  listContent: {
+    paddingBottom: 20,
+    backgroundColor: '#ffffff',
   },
   banner: {
-    borderRadius: 18,
-    padding: 14,
+    marginBottom: 8,
+    marginHorizontal: 14,
+    borderRadius: 12,
+    padding: 12,
   },
   bannerInfo: {
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#e8ebee',
+    backgroundColor: '#f5f7fa',
   },
   bannerError: {
     backgroundColor: '#fff1f2',
-    borderWidth: 1,
-    borderColor: '#fecdd3',
   },
   bannerText: {
     color: '#374151',
     lineHeight: 20,
   },
-  loadingCard: {
-    paddingVertical: 28,
+  skeletonStack: {
+    backgroundColor: '#ffffff',
+  },
+  skeletonPost: {
+    gap: 10,
+    marginHorizontal: -14,
+    paddingTop: 12,
+    paddingBottom: 16,
+    backgroundColor: '#ffffff',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#eceff3',
+  },
+  skeletonHeader: {
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    borderRadius: 24,
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#e8ebee',
+    paddingHorizontal: 14,
   },
-  loadingText: {
-    color: '#6b7280',
+  skeletonAvatar: {
+    width: 34,
+    height: 34,
+    borderRadius: 999,
+    backgroundColor: '#eceff3',
   },
-  emptyCard: {
+  skeletonHeaderCopy: {
+    gap: 6,
+  },
+  skeletonLineShort: {
+    width: 92,
+    height: 10,
+    borderRadius: 999,
+    backgroundColor: '#eceff3',
+  },
+  skeletonLineTiny: {
+    width: 68,
+    height: 9,
+    borderRadius: 999,
+    backgroundColor: '#f1f3f6',
+  },
+  skeletonMedia: {
+    aspectRatio: 4 / 5,
+    backgroundColor: '#eef1f4',
+  },
+  skeletonActions: {
+    flexDirection: 'row',
+    gap: 10,
+    paddingHorizontal: 12,
+  },
+  skeletonActionDot: {
+    width: 24,
+    height: 24,
+    borderRadius: 999,
+    backgroundColor: '#eceff3',
+  },
+  skeletonLineMedium: {
+    width: 132,
+    height: 10,
+    marginHorizontal: 14,
+    borderRadius: 999,
+    backgroundColor: '#eceff3',
+  },
+  skeletonLineLong: {
+    width: '72%',
+    height: 10,
+    marginHorizontal: 14,
+    borderRadius: 999,
+    backgroundColor: '#f1f3f6',
+  },
+  emptyState: {
+    alignItems: 'center',
     gap: 8,
-    padding: 22,
-    borderRadius: 24,
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#e8ebee',
+    paddingVertical: 40,
+    paddingHorizontal: 20,
   },
   emptyTitle: {
-    color: '#f8f2ea',
-    fontSize: 20,
-    fontWeight: '800',
+    color: '#111111',
+    fontSize: 18,
+    fontWeight: '700',
   },
   emptyCopy: {
     color: '#6b7280',
-    lineHeight: 22,
   },
   postCard: {
-    gap: 14,
+    gap: 8,
     marginHorizontal: -14,
-    paddingTop: 14,
-    paddingHorizontal: 14,
-    paddingBottom: 18,
+    paddingTop: 12,
+    paddingBottom: 14,
     backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#eceff3',
   },
   postHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 12,
+    gap: 10,
+    paddingHorizontal: 14,
   },
   ownerBlock: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 9,
   },
   avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 34,
+    height: 34,
+    borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#111111',
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
   },
   avatarLabel: {
     color: '#ffffff',
-    fontSize: 18,
     fontWeight: '800',
   },
   ownerCopy: {
     flex: 1,
-    gap: 4,
+    gap: 1,
   },
   ownerRow: {
     flexDirection: 'row',
@@ -574,114 +655,135 @@ const styles = StyleSheet.create({
   },
   ownerName: {
     color: '#111111',
-    fontWeight: '800',
-    fontSize: 15,
+    fontSize: 13.5,
+    fontWeight: '700',
   },
   tickBlue: {
-    color: '#77c7ff',
+    color: '#38bdf8',
     fontSize: 11,
     fontWeight: '800',
   },
   tickGold: {
-    color: '#ffd166',
+    color: '#f59e0b',
     fontSize: 11,
     fontWeight: '800',
   },
   ownerMeta: {
     color: '#6b7280',
-    fontSize: 12,
+    fontSize: 11.5,
   },
   followButton: {
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    backgroundColor: '#f3f4f6',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
   },
   followLabel: {
     color: '#111111',
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   mediaTrack: {
-    gap: 10,
+    gap: 0,
   },
   mediaFrame: {
+    aspectRatio: 4 / 5,
+    backgroundColor: '#eef1f4',
     overflow: 'hidden',
-    backgroundColor: '#e5e7eb',
-    aspectRatio: 1,
   },
   mediaImage: {
     width: '100%',
     height: '100%',
   },
+  mediaCounter: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+    backgroundColor: 'rgba(17,17,17,0.58)',
+  },
+  mediaCounterLabel: {
+    color: '#ffffff',
+    fontSize: 11,
+    fontWeight: '700',
+  },
   videoPlaceholder: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
-    padding: 20,
-    backgroundColor: '#f3f4f6',
+    gap: 8,
+    paddingHorizontal: 20,
+    backgroundColor: '#eef1f4',
   },
   videoBadge: {
     color: '#6b7280',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '800',
-    letterSpacing: 1.6,
+    letterSpacing: 1.2,
   },
   videoUrl: {
     color: '#6b7280',
     textAlign: 'center',
-    lineHeight: 20,
   },
   actionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 12,
+    paddingHorizontal: 6,
   },
   actionCluster: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    flexWrap: 'wrap',
+    gap: 0,
   },
   iconActionButton: {
-    width: 36,
-    height: 36,
+    width: 34,
+    height: 34,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  metricRow: {
-    flexDirection: 'row',
-    gap: 12,
+  metaColumn: {
+    gap: 4,
+    paddingHorizontal: 14,
   },
-  metricText: {
+  likeCountText: {
     color: '#111111',
+    fontSize: 12.5,
     fontWeight: '700',
-    fontSize: 13,
   },
   captionBlock: {
-    gap: 6,
+    gap: 4,
   },
   captionText: {
     color: '#111111',
-    lineHeight: 21,
+    fontSize: 13.5,
+    lineHeight: 18,
   },
   captionOwner: {
-    color: '#111111',
-    fontWeight: '800',
+    fontWeight: '700',
   },
   moreLabel: {
     color: '#6b7280',
+    fontSize: 11.5,
+    fontWeight: '600',
+  },
+  commentSummary: {
+    color: '#6b7280',
     fontSize: 12,
-    fontWeight: '700',
+  },
+  postTime: {
+    color: '#9aa3af',
+    fontSize: 10.5,
+    textTransform: 'uppercase',
   },
   commentsPanel: {
-    gap: 12,
-    paddingTop: 4,
+    gap: 10,
+    paddingTop: 2,
+    paddingHorizontal: 14,
   },
   commentEmpty: {
     color: '#6b7280',
+    fontSize: 13,
   },
   commentRow: {
     flexDirection: 'row',
@@ -695,56 +797,58 @@ const styles = StyleSheet.create({
   },
   commentBody: {
     color: '#111111',
-    lineHeight: 20,
+    lineHeight: 19,
   },
   commentOwner: {
-    color: '#111111',
-    fontWeight: '800',
+    fontWeight: '700',
   },
   commentMeta: {
     color: '#6b7280',
     fontSize: 12,
   },
   commentLikeButton: {
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-
   commentComposer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
+    paddingTop: 4,
   },
   commentInput: {
     flex: 1,
+    minHeight: 36,
     borderRadius: 18,
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingVertical: 8,
+    backgroundColor: '#f3f4f6',
     color: '#111111',
-    backgroundColor: '#fafafa',
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
   },
   commentSendButton: {
-    borderRadius: 16,
     paddingHorizontal: 14,
-    paddingVertical: 12,
-    backgroundColor: '#111111',
+    paddingVertical: 10,
   },
   commentSendLabel: {
-    color: '#ffffff',
-    fontWeight: '800',
+    color: '#111111',
+    fontWeight: '700',
   },
   loadMoreButton: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
+    marginHorizontal: 14,
+    marginTop: 16,
+    paddingVertical: 14,
     borderRadius: 20,
     backgroundColor: '#111111',
-    marginBottom: 8,
   },
   loadMoreLabel: {
     color: '#ffffff',
-    fontWeight: '800',
+    fontWeight: '700',
+  },
+  footerGap: {
+    height: 8,
   },
 });

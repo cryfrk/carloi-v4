@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useAdminAuth } from '../context/admin-auth-context';
 import { adminMobileApi } from '../lib/admin-api';
+import { adminMobileTheme } from '../lib/design-system';
 
 export default function DashboardScreen() {
   const router = useRouter();
@@ -96,21 +97,21 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   kicker: {
-    color: '#ffd6c2',
+    color: adminMobileTheme.colors.textMuted,
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 1.2,
   },
   title: {
-    color: '#f8f2ea',
+    color: adminMobileTheme.colors.textStrong,
     fontSize: 24,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   copy: {
-    color: '#9eb0be',
+    color: adminMobileTheme.colors.textMuted,
   },
   error: {
-    color: '#ffb4b4',
+    color: adminMobileTheme.colors.danger,
   },
   metricGrid: {
     gap: 10,
@@ -118,62 +119,63 @@ const styles = StyleSheet.create({
   metricCard: {
     gap: 6,
     padding: 16,
-    borderRadius: 20,
-    backgroundColor: '#0d1d2a',
+    borderRadius: adminMobileTheme.radius.lg,
+    backgroundColor: adminMobileTheme.colors.surface,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: adminMobileTheme.colors.border,
+    ...adminMobileTheme.shadow,
   },
   metricLabel: {
-    color: '#9eb0be',
+    color: adminMobileTheme.colors.textMuted,
     fontSize: 13,
   },
   metricValue: {
-    color: '#f8f2ea',
+    color: adminMobileTheme.colors.textStrong,
     fontSize: 24,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   card: {
     gap: 10,
     padding: 18,
-    borderRadius: 22,
-    backgroundColor: '#0d1d2a',
+    borderRadius: adminMobileTheme.radius.xl,
+    backgroundColor: adminMobileTheme.colors.surface,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: adminMobileTheme.colors.border,
   },
   sectionTitle: {
-    color: '#f8f2ea',
+    color: adminMobileTheme.colors.textStrong,
     fontSize: 18,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   linkCard: {
     gap: 6,
     padding: 14,
-    borderRadius: 18,
-    backgroundColor: '#102030',
+    borderRadius: adminMobileTheme.radius.lg,
+    backgroundColor: adminMobileTheme.colors.surfaceMuted,
   },
   linkTitle: {
-    color: '#f8f2ea',
-    fontWeight: '800',
+    color: adminMobileTheme.colors.textStrong,
+    fontWeight: '700',
   },
   logRow: {
     gap: 4,
     paddingVertical: 6,
   },
   logTitle: {
-    color: '#ffd6c2',
-    fontWeight: '800',
+    color: adminMobileTheme.colors.textStrong,
+    fontWeight: '700',
   },
   secondaryButton: {
-    borderRadius: 18,
+    borderRadius: adminMobileTheme.radius.lg,
     paddingHorizontal: 16,
     paddingVertical: 14,
     alignItems: 'center',
-    backgroundColor: '#102030',
+    backgroundColor: adminMobileTheme.colors.surface,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: adminMobileTheme.colors.border,
   },
   secondaryButtonLabel: {
-    color: '#f8f2ea',
-    fontWeight: '800',
+    color: adminMobileTheme.colors.textStrong,
+    fontWeight: '700',
   },
 });

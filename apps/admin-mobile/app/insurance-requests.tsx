@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useAdminAuth } from '../context/admin-auth-context';
 import { adminMobileApi } from '../lib/admin-api';
+import { adminMobileTheme } from '../lib/design-system';
 
 export default function Screen() {
   const router = useRouter();
@@ -65,37 +66,38 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   kicker: {
-    color: '#ffd6c2',
+    color: adminMobileTheme.colors.textMuted,
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 1.2,
   },
   title: {
-    color: '#f8f2ea',
+    color: adminMobileTheme.colors.textStrong,
     fontSize: 24,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   copy: {
-    color: '#9eb0be',
+    color: adminMobileTheme.colors.textMuted,
   },
   error: {
-    color: '#ffb4b4',
+    color: adminMobileTheme.colors.danger,
   },
   card: {
     gap: 6,
     padding: 18,
-    borderRadius: 22,
-    backgroundColor: '#0d1d2a',
+    borderRadius: adminMobileTheme.radius.xl,
+    backgroundColor: adminMobileTheme.colors.surface,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: adminMobileTheme.colors.border,
+    ...adminMobileTheme.shadow,
   },
   cardStatus: {
-    color: '#ffd6c2',
-    fontWeight: '800',
+    color: adminMobileTheme.colors.textMuted,
+    fontWeight: '700',
   },
   cardTitle: {
-    color: '#f8f2ea',
+    color: adminMobileTheme.colors.textStrong,
     fontSize: 18,
-    fontWeight: '800',
+    fontWeight: '700',
   },
 });

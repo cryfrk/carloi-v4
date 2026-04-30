@@ -7,9 +7,9 @@ export function AuthScreen({
   children,
   footer,
 }: {
-  eyebrow: string;
+  eyebrow?: string;
   title: string;
-  description: string;
+  description?: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
 }) {
@@ -20,12 +20,11 @@ export function AuthScreen({
           <Text style={styles.brandMarkLabel}>C</Text>
         </View>
         <Text style={styles.brandName}>Carloi</Text>
-        <Text style={styles.brandTagline}>Araclar, ilanlar ve sosyal akis tek yerde.</Text>
       </View>
-      <View style={styles.hero}>
-        <Text style={styles.eyebrow}>{eyebrow}</Text>
+      <View style={styles.headingBlock}>
+        {eyebrow ? <Text style={styles.eyebrow}>{eyebrow}</Text> : null}
         <Text style={styles.title}>{title}</Text>
-        <Text style={styles.description}>{description}</Text>
+        {description ? <Text style={styles.description}>{description}</Text> : null}
       </View>
       <View style={styles.card}>{children}</View>
       {footer ? <View style={styles.footer}>{footer}</View> : null}
@@ -155,41 +154,35 @@ const styles = StyleSheet.create({
     minHeight: '100%',
     justifyContent: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 28,
-    gap: 16,
-    backgroundColor: '#f5f6f7',
+    paddingVertical: 24,
+    gap: 14,
+    backgroundColor: '#f7f8fa',
   },
   brandBlock: {
     alignItems: 'center',
-    gap: 8,
-    paddingTop: 28,
+    gap: 10,
   },
   brandMark: {
-    width: 68,
-    height: 68,
-    borderRadius: 22,
+    width: 60,
+    height: 60,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#111111',
   },
   brandMarkLabel: {
     color: '#ffffff',
-    fontSize: 32,
-    fontWeight: '900',
+    fontSize: 28,
+    fontWeight: '800',
   },
   brandName: {
     color: '#111111',
-    fontSize: 28,
-    fontWeight: '900',
+    fontSize: 26,
+    fontWeight: '800',
   },
-  brandTagline: {
-    color: '#6b7280',
-    fontSize: 14,
-  },
-  hero: {
-    gap: 8,
-    paddingHorizontal: 6,
-    paddingTop: 6,
+  headingBlock: {
+    gap: 6,
+    paddingHorizontal: 8,
     alignItems: 'center',
   },
   eyebrow: {
@@ -201,31 +194,31 @@ const styles = StyleSheet.create({
   },
   title: {
     color: '#111111',
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: '800',
     textAlign: 'center',
   },
   description: {
     color: '#6b7280',
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 14,
+    lineHeight: 20,
     textAlign: 'center',
   },
   card: {
     padding: 18,
-    borderRadius: 28,
+    borderRadius: 24,
     borderWidth: 1,
     borderColor: '#e8ebee',
     backgroundColor: '#ffffff',
-    gap: 14,
+    gap: 12,
     shadowColor: '#000000',
-    shadowOpacity: 0.05,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.04,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 4 },
     elevation: 2,
   },
   footer: {
-    paddingBottom: 12,
+    paddingBottom: 6,
   },
   field: {
     gap: 8,
@@ -260,13 +253,13 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   ghostButton: {
-    paddingVertical: 10,
+    paddingVertical: 8,
     alignItems: 'center',
   },
   ghostButtonLabel: {
-    color: '#111111',
+    color: '#475467',
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   choiceButton: {
     flex: 1,

@@ -1,0 +1,7 @@
+builds/
+.codex-runtime/
+uploads-test/
+apps/admin-desktop/release/
+apps/mobile/credentials/
+apps/mobile/credentials.json
+*.log

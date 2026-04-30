@@ -1,4 +1,5 @@
-﻿import {
+import { Ionicons } from '@expo/vector-icons';
+import {
   AttachmentType,
   type LoiAiAttachmentInput,
   type LoiAiCard,
@@ -242,7 +243,7 @@ export default function LoiAiScreen() {
   return (
     <MobileShell
       title="Loi AI"
-      subtitle="Arac uzmanı, ilan bulucu ve uygulama ici arama asistani"
+      subtitle="Arac uzmanin ve uygulama ici arama asistani"
       actionLabel="Gecmis"
       onActionPress={() => setHistoryOpen((current) => !current)}
     >
@@ -274,19 +275,24 @@ export default function LoiAiScreen() {
         ) : null}
 
         {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
-        {loading && !activeConversation ? <Text style={styles.emptyCopy}>Sohbet yukleniyor...</Text> : null}
-        {!loading && !activeConversation ? (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyTitle}>Loi AI hazir</Text>
-            <Text style={styles.emptyCopy}>"800 bin TL civari Egea bul" veya "Golf kronik arizalari" ile baslayabiliriz.</Text>
-          </View>
-        ) : null}
 
-        <ScrollView style={styles.stream} contentContainerStyle={styles.streamContent}>
+        <ScrollView
+          style={styles.stream}
+          contentContainerStyle={[styles.streamContent, !activeConversation ? styles.streamContentEmpty : null]}
+          showsVerticalScrollIndicator={false}
+        >
+          {loading && !activeConversation ? <Text style={styles.emptyCopy}>Sohbet yukleniyor...</Text> : null}
+          {!loading && !activeConversation ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyTitle}>Loi AI hazir</Text>
+              <Text style={styles.emptyCopy}>"800 bin TL civari Egea bul" veya "Golf kronik arizalari" yazarak baslayin.</Text>
+            </View>
+          ) : null}
+
           {activeConversation?.messages.map((message) => (
             <View key={message.id} style={styles.messageBlock}>
               <Text style={styles.messageMeta}>
-                {message.role === 'USER' ? 'Siz' : 'Loi AI'} · {formatTime(message.createdAt)}
+                {message.role === 'USER' ? 'Siz' : 'Loi AI'} | {formatTime(message.createdAt)}
               </Text>
               <View style={message.role === 'USER' ? styles.userBubble : styles.assistantCopyWrap}>
                 <Text style={message.role === 'USER' ? styles.userBubbleText : styles.assistantCopy}>
@@ -319,8 +325,11 @@ export default function LoiAiScreen() {
         </View>
 
         <View style={styles.composer}>
-          <Pressable style={styles.secondaryButton} onPress={() => pushAttachment(ATTACHMENT_SEQUENCE[attachments.length % ATTACHMENT_SEQUENCE.length] ?? AttachmentType.IMAGE)}>
-            <Text style={styles.secondaryButtonLabel}>Dosya</Text>
+          <Pressable
+            style={styles.composerIconButton}
+            onPress={() => pushAttachment(ATTACHMENT_SEQUENCE[attachments.length % ATTACHMENT_SEQUENCE.length] ?? AttachmentType.IMAGE)}
+          >
+            <Ionicons color="#6b7280" name="add" size={18} />
           </Pressable>
           <TextInput
             style={styles.input}
@@ -331,11 +340,11 @@ export default function LoiAiScreen() {
             value={input}
             onChangeText={setInput}
           />
-          <Pressable style={styles.secondaryButton} onPress={() => pushAttachment(AttachmentType.AUDIO)}>
-            <Text style={styles.secondaryButtonLabel}>Ses</Text>
+          <Pressable style={styles.composerIconButton} onPress={() => pushAttachment(AttachmentType.AUDIO)}>
+            <Ionicons color="#6b7280" name="mic-outline" size={17} />
           </Pressable>
-          <Pressable style={styles.primaryButton} onPress={() => void handleSend()}>
-            <Text style={styles.primaryButtonLabel}>{sending ? '...' : 'Gonder'}</Text>
+          <Pressable style={styles.composerSendButton} onPress={() => void handleSend()}>
+            {sending ? <Text style={styles.primaryButtonLabel}>...</Text> : <Ionicons color="#ffffff" name="arrow-up" size={16} />}
           </Pressable>
         </View>
         {activeSummary ? <Text style={styles.footerHint}>Aktif sohbet: {activeSummary.title}</Text> : null}
@@ -345,13 +354,13 @@ export default function LoiAiScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, gap: 12 },
+  container: { flex: 1, gap: 10, backgroundColor: '#ffffff' },
   historyPanel: {
-    borderRadius: 22,
+    borderRadius: 18,
     padding: 14,
-    backgroundColor: 'rgba(13,29,41,0.95)',
+    backgroundColor: '#f8fafc',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: '#e5e7eb',
   },
   historyActions: { flexDirection: 'row', gap: 10, marginBottom: 12 },
   historyList: { maxHeight: 220 },
@@ -360,93 +369,121 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 10,
-    borderRadius: 18,
+    borderRadius: 16,
     padding: 12,
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: '#ffffff',
     marginBottom: 8,
   },
-  historyItemActive: { borderWidth: 1, borderColor: 'rgba(239,131,84,0.4)' },
+  historyItemActive: { borderWidth: 1, borderColor: '#d0d7e2' },
   historyMain: { flex: 1, gap: 6 },
-  historyTitle: { color: '#f7efe7', fontWeight: '800' },
-  historyPreview: { color: '#90a4b6', fontSize: 12 },
-  deleteText: { color: '#f3b39d', fontWeight: '700' },
+  historyTitle: { color: '#111111', fontWeight: '700' },
+  historyPreview: { color: '#6b7280', fontSize: 12 },
+  deleteText: { color: '#9aa3af', fontWeight: '700' },
   errorText: {
-    borderRadius: 18,
+    borderRadius: 16,
     padding: 12,
-    color: '#ffd5d5',
-    backgroundColor: 'rgba(216,82,82,0.18)',
+    color: '#b42318',
+    backgroundColor: '#fef3f2',
   },
   emptyState: {
-    borderRadius: 24,
-    padding: 18,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    minHeight: 280,
+    alignItems: 'center',
+    justifyContent: 'center',
     gap: 8,
+    paddingHorizontal: 24,
   },
-  emptyTitle: { color: '#f7efe7', fontSize: 18, fontWeight: '800' },
-  emptyCopy: { color: '#9bb0c0', lineHeight: 20 },
+  emptyTitle: { color: '#111111', fontSize: 18, fontWeight: '700', textAlign: 'center' },
+  emptyCopy: { color: '#6b7280', lineHeight: 20, textAlign: 'center' },
   stream: { flex: 1 },
-  streamContent: { gap: 16, paddingBottom: 16 },
+  streamContent: { gap: 14, paddingBottom: 12 },
+  streamContentEmpty: { flexGrow: 1, justifyContent: 'center' },
   messageBlock: { gap: 8 },
-  messageMeta: { color: '#8ea4b6', fontSize: 12 },
+  messageMeta: { color: '#98a2b3', fontSize: 11.5 },
   userBubble: {
     alignSelf: 'flex-end',
-    maxWidth: '88%',
-    borderRadius: 20,
-    padding: 14,
-    backgroundColor: '#ef8354',
+    maxWidth: '86%',
+    borderRadius: 24,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: '#111111',
   },
-  userBubbleText: { color: '#08131d', lineHeight: 20, fontWeight: '600' },
-  assistantCopyWrap: { paddingHorizontal: 4 },
-  assistantCopy: { color: '#eef4f8', lineHeight: 22 },
+  userBubbleText: { color: '#ffffff', lineHeight: 20, fontWeight: '600' },
+  assistantCopyWrap: { maxWidth: '92%', paddingHorizontal: 2 },
+  assistantCopy: { color: '#111111', lineHeight: 21 },
   cardRow: { marginTop: 4 },
   card: {
     width: 240,
     marginRight: 10,
-    borderRadius: 22,
+    borderRadius: 18,
     padding: 14,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: '#ffffff',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: '#e5e7eb',
     gap: 6,
   },
-  cardKicker: { color: '#f2b6a1', fontSize: 11, fontWeight: '800' },
-  cardTitle: { color: '#f7efe7', fontWeight: '800', fontSize: 16 },
-  cardSubtitle: { color: '#d5dee6' },
-  cardDescription: { color: '#90a4b6', lineHeight: 18 },
-  cardPrice: { color: '#8fd694', fontWeight: '800' },
+  cardKicker: { color: '#6b7280', fontSize: 11, fontWeight: '800' },
+  cardTitle: { color: '#111111', fontWeight: '700', fontSize: 15 },
+  cardSubtitle: { color: '#4b5563' },
+  cardDescription: { color: '#6b7280', lineHeight: 18 },
+  cardPrice: { color: '#15803d', fontWeight: '800' },
   attachmentRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   attachmentChip: {
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 6,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: '#f3f4f6',
   },
-  attachmentChipText: { color: '#f0e4d7', fontSize: 12 },
-  composer: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
+  attachmentChipText: { color: '#111111', fontSize: 12 },
+  composer: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 6,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 26,
+    paddingHorizontal: 6,
+    paddingVertical: 6,
+    backgroundColor: '#f8fafc',
+  },
   input: {
     flex: 1,
-    minHeight: 48,
+    minHeight: 36,
     maxHeight: 132,
-    borderRadius: 18,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    color: '#f7efe7',
+    borderRadius: 20,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    backgroundColor: 'transparent',
+    color: '#111111',
     textAlignVertical: 'top',
   },
   secondaryButton: {
-    borderRadius: 16,
+    borderRadius: 14,
     paddingHorizontal: 12,
-    paddingVertical: 12,
-    backgroundColor: 'rgba(255,255,255,0.07)',
+    paddingVertical: 10,
+    backgroundColor: '#f3f4f6',
   },
-  secondaryButtonLabel: { color: '#f7efe7', fontWeight: '700', fontSize: 12 },
+  secondaryButtonLabel: { color: '#111111', fontWeight: '700', fontSize: 12 },
   primaryButton: {
-    borderRadius: 16,
+    borderRadius: 14,
     paddingHorizontal: 14,
-    paddingVertical: 12,
-    backgroundColor: '#ef8354',
+    paddingVertical: 10,
+    backgroundColor: '#111111',
   },
-  primaryButtonLabel: { color: '#08131d', fontWeight: '800' },
-  footerHint: { color: '#7f96a8', fontSize: 12 },
+  primaryButtonLabel: { color: '#ffffff', fontWeight: '800' },
+  composerIconButton: {
+    width: 30,
+    height: 30,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  composerSendButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#111111',
+  },
+  footerHint: { color: '#98a2b3', fontSize: 11.5 },
 });

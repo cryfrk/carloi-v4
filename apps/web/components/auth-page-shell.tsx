@@ -8,11 +8,11 @@ export function AuthPageShell({
   description,
   children,
   backHref = '/login',
-  backLabel = 'Giris ekranina don',
+  backLabel = 'Geri don',
 }: {
-  eyebrow: string;
+  eyebrow?: string;
   title: string;
-  description: string;
+  description?: string;
   children: React.ReactNode;
   backHref?: string;
   backLabel?: string;
@@ -29,14 +29,14 @@ export function AuthPageShell({
         </div>
 
         <div className="auth-heading-block">
-          <div className="auth-eyebrow">{eyebrow}</div>
+          {eyebrow ? <div className="auth-eyebrow">{eyebrow}</div> : null}
           <h1 className="auth-title">{title}</h1>
-          <p className="auth-description">{description}</p>
+          {description ? <p className="auth-description">{description}</p> : null}
         </div>
 
         <div className="auth-form-stack">{children}</div>
 
-        <Link className="secondary-cta center-link" href={backHref}>
+        <Link className="secondary-cta auth-text-link center-link" href={backHref}>
           {backLabel}
         </Link>
       </section>
@@ -95,7 +95,7 @@ export function SecondaryCta({
   href: string;
 }) {
   return (
-    <Link className="secondary-cta" href={href}>
+    <Link className="secondary-cta auth-text-link" href={href}>
       {label}
     </Link>
   );

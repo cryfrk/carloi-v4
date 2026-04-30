@@ -1,4 +1,4 @@
-import type {
+ï»¿import type {
   ProfileDetailResponse,
   ProfileListingItem,
   ProfilePostGridItem,
@@ -7,6 +7,7 @@ import type {
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
+  Image,
   Linking,
   Modal,
   Pressable,
@@ -14,6 +15,7 @@ import {
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { useAuth } from '../context/auth-context';
 import { mobileMessagesApi } from '../lib/messages-api';
@@ -25,6 +27,7 @@ type TabKey = 'posts' | 'listings' | 'vehicles';
 
 export function MobileProfileScreen({ identifier }: { identifier?: string }) {
   const router = useRouter();
+  const { width } = useWindowDimensions();
   const { session } = useAuth();
   const [profile, setProfile] = useState<ProfileDetailResponse | null>(null);
   const [posts, setPosts] = useState<ProfilePostGridItem[]>([]);
@@ -35,6 +38,8 @@ export function MobileProfileScreen({ identifier }: { identifier?: string }) {
   const [selectedVehicle, setSelectedVehicle] = useState<ProfileVehicleItem | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const postTileSize = useMemo(() => Math.floor((width - 32) / 3), [width]);
+  const visualTileWidth = useMemo(() => Math.floor((width - 42) / 2), [width]);
   const profileKey = identifier ?? 'me';
 
   useEffect(() => {
@@ -111,48 +116,50 @@ export function MobileProfileScreen({ identifier }: { identifier?: string }) {
     }
   }
 
+  const profileUsername = profile?.username ?? session?.user.username ?? '-';
+  const displayInitial = (profile?.firstName?.[0] ?? session?.user.firstName?.[0] ?? '?').toUpperCase();
+  const canViewContent = profile?.canViewContent ?? true;
+
   return (
     <MobileShell
-      title={profile?.isOwnProfile ? 'Profilin' : `@${profile?.username ?? identifier ?? 'profil'}`}
-      subtitle="Kimligini, ilanlarini, araclarini ve sosyal baglantilarini tek bir yerde yonet."
+      title={profile?.isOwnProfile ? 'Profil' : `@${profileUsername}`}
+      subtitle="Gonderiler, ilanlar ve araclar ayni profil akisi icinde toplanir."
     >
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
         {errorMessage ? <Text style={styles.error}>{errorMessage}</Text> : null}
-        <View style={styles.heroCard}>
-          <View style={styles.heroTop}>
-            <View style={styles.avatarCircle}>
-              <Text style={styles.avatarText}>
-                {(profile?.firstName?.[0] ?? session?.user.firstName?.[0] ?? '?').toUpperCase()}
-              </Text>
-            </View>
-            <View style={styles.statsRow}>
-              <StatPill label="Gonderi" value={tabCounts.posts} />
-              <StatPill label="Ilan" value={tabCounts.listings} />
-              <StatPill label="Arac" value={tabCounts.vehicles} />
-            </View>
+
+        <View style={styles.topSection}>
+          <View style={styles.avatarShell}>
+            {profile?.avatarUrl ? (
+              <Image source={{ uri: profile.avatarUrl }} style={styles.avatarImage} />
+            ) : (
+              <Text style={styles.avatarText}>{displayInitial}</Text>
+            )}
           </View>
 
-          <Text style={styles.nameText}>{profile ? `${profile.firstName} ${profile.lastName}` : 'Profil yukleniyor...'}</Text>
-          <View style={styles.handleRow}>
-            <Text style={styles.usernameText}>@{profile?.username ?? session?.user.username ?? '-'}</Text>
-            {profile?.blueVerified ? <Badge label="Blue" /> : null}
-            {profile?.goldVerified ? <Badge label="Gold" tone="gold" /> : null}
+          <Text style={styles.username}>@{profileUsername}</Text>
+          {profile ? <Text style={styles.nameText}>{profile.firstName} {profile.lastName}</Text> : null}
+
+          <View style={styles.statsRow}>
+            <StatItem label="posts" value={tabCounts.posts} />
+            <Text style={styles.statsDivider}>|</Text>
+            <StatItem label="listings" value={tabCounts.listings} />
+            <Text style={styles.statsDivider}>|</Text>
+            <StatItem label="vehicles" value={tabCounts.vehicles} />
           </View>
-          {profile?.bio ? <Text style={styles.bioText}>{profile.bio}</Text> : null}
-          {profile?.locationText ? <Text style={styles.metaText}>{profile.locationText}</Text> : null}
-          {profile?.websiteUrl ? (
-            <Pressable onPress={() => void Linking.openURL(profile.websiteUrl!)}>
-              <Text style={styles.linkText}>{profile.websiteUrl}</Text>
-            </Pressable>
-          ) : null}
-          <Text style={styles.metaText}>
-            {profile?.followerCount ?? 0} takipci · {profile?.followingCount ?? 0} takip edilen
-          </Text>
-          {profile?.mutualFollowers.length ? (
+
+          <View style={styles.metaStack}>
+            {profile?.bio ? <Text style={styles.bioText}>{profile.bio}</Text> : null}
+            {profile?.websiteUrl ? (
+              <Pressable onPress={() => void Linking.openURL(profile.websiteUrl!)}>
+                <Text style={styles.linkText}>{profile.websiteUrl}</Text>
+              </Pressable>
+            ) : null}
+            {profile?.locationText ? <Text style={styles.metaText}>{profile.locationText}</Text> : null}
             <Text style={styles.metaText}>
-              Ortak baglanti: {profile.mutualFollowers.map((item) => `@${item.username}`).join(', ')}
+              {profile?.followerCount ?? 0} takipci Â· {profile?.followingCount ?? 0} takip edilen
             </Text>
-          ) : null}
+          </View>
 
           <View style={styles.actionRow}>
             {profile?.isOwnProfile ? (
@@ -167,9 +174,7 @@ export function MobileProfileScreen({ identifier }: { identifier?: string }) {
             ) : (
               <>
                 <Pressable style={styles.primaryButton} onPress={() => void handleFollowToggle()}>
-                  <Text style={styles.primaryButtonLabel}>
-                    {profile?.isFollowing ? 'Takip ediliyor' : 'Takip et'}
-                  </Text>
+                  <Text style={styles.primaryButtonLabel}>{profile?.isFollowing ? 'Takiptesin' : 'Takip et'}</Text>
                 </Pressable>
                 <Pressable style={styles.secondaryButton} onPress={() => void handleMessageStart()}>
                   <Text style={styles.secondaryButtonLabel}>Mesaj</Text>
@@ -177,13 +182,6 @@ export function MobileProfileScreen({ identifier }: { identifier?: string }) {
               </>
             )}
           </View>
-
-          {!profile?.canViewContent && !profile?.isOwnProfile ? (
-            <View style={styles.privateNotice}>
-              <Text style={styles.privateNoticeTitle}>Bu hesap gizli</Text>
-              <Text style={styles.privateNoticeCopy}>Takip etmeden gonderi, ilan ve arac detaylari gosterilmez.</Text>
-            </View>
-          ) : null}
         </View>
 
         <View style={styles.tabsRow}>
@@ -192,13 +190,30 @@ export function MobileProfileScreen({ identifier }: { identifier?: string }) {
           <TabButton label="Araclar" active={activeTab === 'vehicles'} onPress={() => setActiveTab('vehicles')} />
         </View>
 
-        {loading ? <Text style={styles.metaText}>Profil verileri yukleniyor...</Text> : null}
+        {!canViewContent && !profile?.isOwnProfile ? (
+          <View style={styles.privateNotice}>
+            <Text style={styles.privateTitle}>Bu hesap gizli</Text>
+            <Text style={styles.privateCopy}>Takip etmeden gonderi, ilan ve araclar gorunmez.</Text>
+          </View>
+        ) : null}
+
+        {loading ? <Text style={styles.helperText}>Profil yukleniyor...</Text> : null}
+
         {!loading && activeTab === 'posts' ? (
-          <View style={styles.grid}>
+          <View style={styles.postsGrid}>
             {posts.map((post) => (
-              <Pressable key={post.id} style={styles.gridCard} onPress={() => router.push(`/posts/${post.id}`)}>
-                <Text style={styles.gridUrl} numberOfLines={3}>{post.thumbnailUrl ?? 'Medya yok'}</Text>
-                <Text style={styles.gridMeta}>{post.likeCount} begeni · {post.commentCount} yorum</Text>
+              <Pressable
+                key={post.id}
+                style={[styles.postTile, { width: postTileSize, height: postTileSize }]}
+                onPress={() => router.push(`/posts/${post.id}`)}
+              >
+                {post.thumbnailUrl ? (
+                  <Image source={{ uri: post.thumbnailUrl }} style={styles.tileImage} />
+                ) : (
+                  <View style={styles.tileFallback}>
+                    <Text style={styles.tileFallbackLabel}>POST</Text>
+                  </View>
+                )}
               </Pressable>
             ))}
             {!posts.length ? <EmptyState text="Bu sekmede gosterilecek gonderi yok." /> : null}
@@ -206,13 +221,26 @@ export function MobileProfileScreen({ identifier }: { identifier?: string }) {
         ) : null}
 
         {!loading && activeTab === 'listings' ? (
-          <View style={styles.stack}>
+          <View style={styles.visualGrid}>
             {listings.map((listing) => (
-              <Pressable key={listing.listingId} style={styles.card} onPress={() => router.push(`/listings/${listing.listingId}`)}>
-                <Text style={styles.cardTitle}>{listing.title}</Text>
-                <Text style={styles.metaText}>{[listing.brand, listing.model, listing.package].filter(Boolean).join(' · ')}</Text>
-                <Text style={styles.metaText}>{listing.city}{listing.district ? ` / ${listing.district}` : ''}</Text>
-                <Text style={styles.priceText}>{listing.price.toLocaleString('tr-TR')} {listing.sellerType}</Text>
+              <Pressable
+                key={listing.listingId}
+                style={[styles.visualTile, { width: visualTileWidth }]}
+                onPress={() => router.push(`/listings/${listing.listingId}`)}
+              >
+                <View style={styles.visualMedia}>
+                  {listing.firstMediaUrl ? (
+                    <Image source={{ uri: listing.firstMediaUrl }} style={styles.tileImage} />
+                  ) : (
+                    <View style={styles.tileFallback}>
+                      <Text style={styles.tileFallbackLabel}>ILAN</Text>
+                    </View>
+                  )}
+                </View>
+                <Text numberOfLines={1} style={styles.visualTitle}>{listing.title}</Text>
+                <Text numberOfLines={1} style={styles.visualMeta}>
+                  {[listing.brand, listing.model, listing.package].filter(Boolean).join(' Â· ')}
+                </Text>
               </Pressable>
             ))}
             {!listings.length ? <EmptyState text="Bu sekmede gosterilecek ilan yok." /> : null}
@@ -220,12 +248,24 @@ export function MobileProfileScreen({ identifier }: { identifier?: string }) {
         ) : null}
 
         {!loading && activeTab === 'vehicles' ? (
-          <View style={styles.stack}>
+          <View style={styles.visualGrid}>
             {vehicles.map((vehicle) => (
-              <Pressable key={vehicle.id} style={styles.card} onPress={() => setSelectedVehicle(vehicle)}>
-                <Text style={styles.cardTitle}>{vehicle.brand} {vehicle.model}</Text>
-                <Text style={styles.metaText}>{vehicle.package ?? 'Paket bilgisi yok'}</Text>
-                <Text style={styles.metaText}>{vehicle.year} · {vehicle.km.toLocaleString('tr-TR')} km · {vehicle.plateNumberMasked}</Text>
+              <Pressable
+                key={vehicle.id}
+                style={[styles.visualTile, { width: visualTileWidth }]}
+                onPress={() => setSelectedVehicle(vehicle)}
+              >
+                <View style={styles.visualMedia}>
+                  {vehicle.firstMediaUrl ? (
+                    <Image source={{ uri: vehicle.firstMediaUrl }} style={styles.tileImage} />
+                  ) : (
+                    <View style={styles.tileFallback}>
+                      <Text style={styles.tileFallbackLabel}>ARAC</Text>
+                    </View>
+                  )}
+                </View>
+                <Text numberOfLines={1} style={styles.visualTitle}>{vehicle.brand} {vehicle.model}</Text>
+                <Text numberOfLines={1} style={styles.visualMeta}>{vehicle.package ?? vehicle.plateNumberMasked}</Text>
               </Pressable>
             ))}
             {!vehicles.length ? <EmptyState text="Bu sekmede gosterilecek arac yok." /> : null}
@@ -236,13 +276,13 @@ export function MobileProfileScreen({ identifier }: { identifier?: string }) {
       <Modal visible={Boolean(selectedVehicle)} animationType="slide" transparent onRequestClose={() => setSelectedVehicle(null)}>
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
-            <Text style={styles.cardTitle}>{selectedVehicle?.brand} {selectedVehicle?.model}</Text>
-            <Text style={styles.metaText}>{selectedVehicle?.package ?? 'Paket bilgisi yok'}</Text>
-            <Text style={styles.metaText}>{selectedVehicle?.year} · {selectedVehicle?.km.toLocaleString('tr-TR')} km</Text>
-            <Text style={styles.metaText}>{selectedVehicle?.fuelType} · {selectedVehicle?.transmissionType}</Text>
-            <Text style={styles.metaText}>Plaka: {selectedVehicle?.plateNumberMasked}</Text>
+            <Text style={styles.modalTitle}>{selectedVehicle?.brand} {selectedVehicle?.model}</Text>
+            <Text style={styles.modalMeta}>{selectedVehicle?.package ?? 'Paket bilgisi yok'}</Text>
+            <Text style={styles.modalMeta}>{selectedVehicle?.year} Â· {selectedVehicle?.km.toLocaleString('tr-TR')} km</Text>
+            <Text style={styles.modalMeta}>{selectedVehicle?.fuelType} Â· {selectedVehicle?.transmissionType}</Text>
+            <Text style={styles.modalMeta}>Plaka: {selectedVehicle?.plateNumberMasked}</Text>
             {selectedVehicle?.latestObdReport ? (
-              <Text style={styles.metaText}>Carloi Expertiz skoru: {selectedVehicle.latestObdReport.overallScore ?? '-'} / 100</Text>
+              <Text style={styles.modalMeta}>Expertiz skoru: {selectedVehicle.latestObdReport.overallScore ?? '-'} / 100</Text>
             ) : null}
             <Pressable style={styles.primaryButton} onPress={() => setSelectedVehicle(null)}>
               <Text style={styles.primaryButtonLabel}>Kapat</Text>
@@ -254,27 +294,20 @@ export function MobileProfileScreen({ identifier }: { identifier?: string }) {
   );
 }
 
-function StatPill({ label, value }: { label: string; value: number }) {
+function StatItem({ label, value }: { label: string; value: number }) {
   return (
-    <View style={styles.statPill}>
+    <View style={styles.statItem}>
       <Text style={styles.statValue}>{value}</Text>
       <Text style={styles.statLabel}>{label}</Text>
     </View>
   );
 }
 
-function Badge({ label, tone = 'blue' }: { label: string; tone?: 'blue' | 'gold' }) {
-  return (
-    <View style={[styles.badge, tone === 'gold' ? styles.badgeGold : null]}>
-      <Text style={styles.badgeText}>{label}</Text>
-    </View>
-  );
-}
-
 function TabButton({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
   return (
-    <Pressable style={[styles.tabButton, active ? styles.tabButtonActive : null]} onPress={onPress}>
-      <Text style={[styles.tabButtonLabel, active ? styles.tabButtonLabelActive : null]}>{label}</Text>
+    <Pressable style={styles.tabButton} onPress={onPress}>
+      <Text style={[styles.tabLabel, active ? styles.tabLabelActive : null]}>{label}</Text>
+      <View style={[styles.tabUnderline, active ? styles.tabUnderlineActive : null]} />
     </Pressable>
   );
 }
@@ -282,229 +315,262 @@ function TabButton({ label, active, onPress }: { label: string; active: boolean;
 function EmptyState({ text }: { text: string }) {
   return (
     <View style={styles.emptyState}>
-      <Text style={styles.metaText}>{text}</Text>
+      <Text style={styles.helperText}>{text}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  scroll: {
+    flex: 1,
+    backgroundColor: '#ffffff',
+  },
   content: {
-    gap: 14,
-    paddingBottom: 18,
+    paddingBottom: 24,
+    backgroundColor: '#ffffff',
   },
-  heroCard: {
-    gap: 10,
-    padding: 20,
-    borderRadius: 28,
-    backgroundColor: '#0d1d2a',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-  },
-  heroTop: {
-    flexDirection: 'row',
+  topSection: {
     alignItems: 'center',
-    gap: 16,
+    gap: 10,
+    paddingHorizontal: 18,
+    paddingTop: 8,
+    paddingBottom: 16,
   },
-  avatarCircle: {
-    width: 78,
-    height: 78,
-    borderRadius: 39,
+  avatarShell: {
+    width: 88,
+    height: 88,
+    borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#ef8354',
+    backgroundColor: '#111111',
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
   },
   avatarText: {
-    color: '#08131d',
-    fontSize: 28,
-    fontWeight: '900',
+    color: '#ffffff',
+    fontSize: 30,
+    fontWeight: '800',
   },
-  statsRow: {
-    flex: 1,
-    flexDirection: 'row',
-    gap: 10,
-  },
-  statPill: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 18,
-    backgroundColor: '#102030',
-    alignItems: 'center',
-    gap: 2,
-  },
-  statValue: {
-    color: '#f8f2ea',
-    fontWeight: '900',
+  username: {
+    color: '#111111',
     fontSize: 18,
-  },
-  statLabel: {
-    color: '#8fa4b5',
-    fontSize: 11,
     fontWeight: '700',
   },
   nameText: {
-    color: '#f8f2ea',
-    fontSize: 24,
-    fontWeight: '900',
+    color: '#4b5563',
+    fontSize: 13,
   },
-  handleRow: {
+  statsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 8,
+    justifyContent: 'center',
+    gap: 10,
+    paddingTop: 2,
   },
-  usernameText: {
-    color: '#ffd6c2',
-    fontWeight: '800',
+  statsDivider: {
+    color: '#c6cbd4',
+    fontSize: 12,
+    fontWeight: '600',
   },
-  badge: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 999,
-    backgroundColor: 'rgba(92,180,255,0.16)',
+  statItem: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 4,
   },
-  badgeGold: {
-    backgroundColor: 'rgba(255,210,122,0.18)',
+  statValue: {
+    color: '#111111',
+    fontSize: 16,
+    fontWeight: '700',
   },
-  badgeText: {
-    color: '#f8f2ea',
-    fontSize: 11,
-    fontWeight: '800',
+  statLabel: {
+    color: '#6b7280',
+    fontSize: 12,
+  },
+  metaStack: {
+    alignItems: 'center',
+    gap: 4,
+    maxWidth: 320,
   },
   bioText: {
-    color: '#dce7ef',
-    lineHeight: 21,
+    color: '#111111',
+    textAlign: 'center',
+    lineHeight: 19,
   },
   metaText: {
-    color: '#9fb0be',
-    lineHeight: 20,
+    color: '#6b7280',
+    textAlign: 'center',
   },
   linkText: {
-    color: '#8fd7ff',
+    color: '#2563eb',
     textDecorationLine: 'underline',
   },
   actionRow: {
     flexDirection: 'row',
-    gap: 10,
-    marginTop: 4,
+    gap: 8,
+    width: '100%',
+    marginTop: 2,
   },
   primaryButton: {
     flex: 1,
     alignItems: 'center',
-    borderRadius: 18,
-    paddingVertical: 13,
-    backgroundColor: '#ef8354',
+    justifyContent: 'center',
+    minHeight: 40,
+    borderRadius: 12,
+    backgroundColor: '#111111',
   },
   primaryButtonLabel: {
-    color: '#08131d',
-    fontWeight: '900',
+    color: '#ffffff',
+    fontWeight: '700',
   },
   secondaryButton: {
     flex: 1,
     alignItems: 'center',
-    borderRadius: 18,
-    paddingVertical: 13,
+    justifyContent: 'center',
+    minHeight: 40,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
-    backgroundColor: '#102030',
+    borderColor: '#d1d5db',
+    backgroundColor: '#ffffff',
   },
   secondaryButtonLabel: {
-    color: '#f8f2ea',
-    fontWeight: '800',
-  },
-  privateNotice: {
-    marginTop: 4,
-    gap: 6,
-    borderRadius: 18,
-    padding: 14,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-  },
-  privateNoticeTitle: {
-    color: '#f8f2ea',
-    fontWeight: '800',
-  },
-  privateNoticeCopy: {
-    color: '#9fb0be',
-    lineHeight: 20,
+    color: '#111111',
+    fontWeight: '700',
   },
   tabsRow: {
     flexDirection: 'row',
-    gap: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#eceff3',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#eceff3',
   },
   tabButton: {
     flex: 1,
     alignItems: 'center',
-    borderRadius: 18,
-    paddingVertical: 12,
-    backgroundColor: '#102030',
+    gap: 8,
+    paddingVertical: 11,
   },
-  tabButtonActive: {
-    backgroundColor: '#ef8354',
+  tabLabel: {
+    color: '#6b7280',
+    fontSize: 13,
+    fontWeight: '600',
   },
-  tabButtonLabel: {
-    color: '#9fb0be',
-    fontWeight: '800',
+  tabLabelActive: {
+    color: '#111111',
+    fontWeight: '700',
   },
-  tabButtonLabelActive: {
-    color: '#08131d',
+  tabUnderline: {
+    width: 28,
+    height: 2,
+    borderRadius: 999,
+    backgroundColor: 'transparent',
   },
-  grid: {
+  tabUnderlineActive: {
+    backgroundColor: '#111111',
+  },
+  privateNotice: {
+    marginHorizontal: 18,
+    marginTop: 16,
+    borderRadius: 14,
+    padding: 16,
+    backgroundColor: '#f5f7fa',
+  },
+  privateTitle: {
+    color: '#111111',
+    fontWeight: '700',
+    marginBottom: 6,
+  },
+  privateCopy: {
+    color: '#6b7280',
+    lineHeight: 20,
+  },
+  helperText: {
+    color: '#6b7280',
+    textAlign: 'center',
+    paddingVertical: 24,
+  },
+  postsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: 2,
+    paddingTop: 2,
   },
-  gridCard: {
-    width: '31%',
-    minHeight: 120,
-    borderRadius: 20,
-    padding: 12,
-    backgroundColor: '#102030',
-    justifyContent: 'space-between',
+  postTile: {
+    backgroundColor: '#eef1f4',
+    overflow: 'hidden',
   },
-  gridUrl: {
-    color: '#f8f2ea',
+  tileImage: {
+    width: '100%',
+    height: '100%',
+  },
+  tileFallback: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#eef1f4',
+  },
+  tileFallbackLabel: {
+    color: '#9aa3af',
     fontSize: 11,
-    lineHeight: 16,
+    fontWeight: '700',
+    letterSpacing: 1.1,
   },
-  gridMeta: {
-    color: '#8fa4b5',
-    fontSize: 10,
+  visualGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingTop: 14,
   },
-  stack: {
-    gap: 10,
+  visualTile: {
+    gap: 8,
   },
-  card: {
-    gap: 6,
-    padding: 16,
-    borderRadius: 22,
-    backgroundColor: '#102030',
+  visualMedia: {
+    aspectRatio: 1,
+    overflow: 'hidden',
+    borderRadius: 12,
+    backgroundColor: '#eef1f4',
   },
-  cardTitle: {
-    color: '#f8f2ea',
-    fontSize: 17,
-    fontWeight: '800',
+  visualTitle: {
+    color: '#111111',
+    fontSize: 13,
+    fontWeight: '700',
   },
-  priceText: {
-    color: '#ffd6c2',
-    fontWeight: '800',
+  visualMeta: {
+    color: '#6b7280',
+    fontSize: 12,
   },
   emptyState: {
-    padding: 22,
-    borderRadius: 22,
-    backgroundColor: '#102030',
+    width: '100%',
+    paddingVertical: 32,
   },
   error: {
-    color: '#ffb4b4',
+    color: '#dc2626',
+    textAlign: 'center',
+    paddingHorizontal: 18,
+    paddingBottom: 10,
   },
   modalBackdrop: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.35)',
+    backgroundColor: 'rgba(15,23,42,0.2)',
   },
   modalCard: {
     gap: 10,
-    padding: 22,
-    borderTopLeftRadius: 26,
-    borderTopRightRadius: 26,
-    backgroundColor: '#0d1d2a',
+    padding: 20,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    backgroundColor: '#ffffff',
+  },
+  modalTitle: {
+    color: '#111111',
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  modalMeta: {
+    color: '#4b5563',
+    lineHeight: 20,
   },
 });

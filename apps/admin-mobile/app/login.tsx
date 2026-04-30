@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAdminAuth } from '../context/admin-auth-context';
+import { adminMobileTheme } from '../lib/design-system';
 import { adminMobileApi } from '../lib/admin-api';
 
 const ROLE_PRESETS = {
@@ -97,7 +98,7 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#08131d',
+    backgroundColor: adminMobileTheme.colors.background,
   },
   container: {
     flex: 1,
@@ -106,18 +107,18 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   kicker: {
-    color: '#ffd6c2',
+    color: adminMobileTheme.colors.textMuted,
     fontSize: 12,
     fontWeight: '800',
     letterSpacing: 1.2,
   },
   title: {
-    color: '#f8f2ea',
+    color: adminMobileTheme.colors.textStrong,
     fontSize: 28,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   copy: {
-    color: '#9eb0be',
+    color: adminMobileTheme.colors.textMuted,
     lineHeight: 22,
   },
   roleRow: {
@@ -126,43 +127,46 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   roleChip: {
-    borderRadius: 18,
+    borderRadius: adminMobileTheme.radius.lg,
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    backgroundColor: '#102030',
+    borderColor: adminMobileTheme.colors.border,
+    backgroundColor: adminMobileTheme.colors.surfaceMuted,
   },
   roleChipActive: {
-    borderColor: 'rgba(239,131,84,0.32)',
-    backgroundColor: 'rgba(239,131,84,0.14)',
+    borderColor: adminMobileTheme.colors.textStrong,
+    backgroundColor: adminMobileTheme.colors.surface,
   },
   roleChipLabel: {
-    color: '#b7c4ce',
+    color: adminMobileTheme.colors.textMuted,
     fontWeight: '700',
   },
   roleChipLabelActive: {
-    color: '#f8f2ea',
+    color: adminMobileTheme.colors.textStrong,
   },
   input: {
-    borderRadius: 18,
+    borderRadius: adminMobileTheme.radius.lg,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    backgroundColor: '#102030',
-    color: '#f8f2ea',
+    backgroundColor: adminMobileTheme.colors.surface,
+    color: adminMobileTheme.colors.textStrong,
+    borderWidth: 1,
+    borderColor: adminMobileTheme.colors.border,
   },
   button: {
-    borderRadius: 18,
+    borderRadius: adminMobileTheme.radius.lg,
     paddingHorizontal: 16,
     paddingVertical: 14,
     alignItems: 'center',
-    backgroundColor: '#ef8354',
+    backgroundColor: adminMobileTheme.colors.accent,
+    ...adminMobileTheme.shadow,
   },
   buttonLabel: {
-    color: '#08131d',
-    fontWeight: '900',
+    color: adminMobileTheme.colors.white,
+    fontWeight: '800',
   },
   error: {
-    color: '#ffb4b4',
+    color: adminMobileTheme.colors.danger,
   },
 });

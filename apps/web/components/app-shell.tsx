@@ -20,26 +20,80 @@ import {
 type NavItem = {
   href: string;
   label: string;
+  matchPrefixes: string[];
+  special?: boolean;
   renderIcon: (active: boolean) => ReactNode;
 };
 
 const NAV_ITEMS: NavItem[] = [
-  { href: '/', label: 'Anasayfa', renderIcon: (active) => <HomeIcon className={`dock-icon${active ? ' active' : ''}`} /> },
-  { href: '/listings', label: 'Ilanlar', renderIcon: (active) => <CarIcon className={`dock-icon${active ? ' active' : ''}`} /> },
-  { href: '/messages', label: 'Mesajlar', renderIcon: (active) => <MessageIcon className={`dock-icon${active ? ' active' : ''}`} /> },
-  { href: '/loi-ai', label: 'Loi AI', renderIcon: (active) => <SparkIcon className={`dock-icon${active ? ' active' : ''}`} /> },
-  { href: '/create', label: 'Olustur', renderIcon: (active) => <PlusIcon className={`dock-icon${active ? ' active' : ''}`} /> },
-  { href: '/notifications', label: 'Bildirimler', renderIcon: (active) => <BellIcon className={`dock-icon${active ? ' active' : ''}`} /> },
-  { href: '/garage', label: 'Garajim', renderIcon: (active) => <GarageIcon className={`dock-icon${active ? ' active' : ''}`} /> },
+  {
+    href: '/',
+    label: 'Anasayfa',
+    matchPrefixes: ['/', '/posts'],
+    renderIcon: (active) => <HomeIcon className={`dock-icon${active ? ' active' : ''}`} filled={active} />,
+  },
+  {
+    href: '/listings',
+    label: 'Ilanlar',
+    matchPrefixes: ['/listings'],
+    renderIcon: (active) => <CarIcon className={`dock-icon${active ? ' active' : ''}`} filled={active} />,
+  },
+  {
+    href: '/messages',
+    label: 'Mesajlar',
+    matchPrefixes: ['/messages'],
+    renderIcon: (active) => <MessageIcon className={`dock-icon${active ? ' active' : ''}`} filled={active} />,
+  },
+  {
+    href: '/loi-ai',
+    label: 'Loi AI',
+    matchPrefixes: ['/loi-ai'],
+    special: true,
+    renderIcon: (active) => <SparkIcon className={`dock-icon${active ? ' active' : ''}`} filled={active} />,
+  },
+  {
+    href: '/create',
+    label: 'Olustur',
+    matchPrefixes: ['/create'],
+    renderIcon: (active) => <PlusIcon className={`dock-icon${active ? ' active' : ''}`} filled={active} />,
+  },
+  {
+    href: '/notifications',
+    label: 'Bildirimler',
+    matchPrefixes: ['/notifications'],
+    renderIcon: (active) => <BellIcon className={`dock-icon${active ? ' active' : ''}`} filled={active} />,
+  },
+  {
+    href: '/garage',
+    label: 'Garajim',
+    matchPrefixes: ['/garage'],
+    renderIcon: (active) => <GarageIcon className={`dock-icon${active ? ' active' : ''}`} filled={active} />,
+  },
   {
     href: '/profile',
     label: 'Profil',
+    matchPrefixes: ['/profile', '/saved'],
     renderIcon: (active) => (
       <span className={`dock-profile-dot${active ? ' active' : ''}`}>P</span>
     ),
   },
-  { href: '/settings', label: 'Ayarlar', renderIcon: (active) => <SettingsIcon className={`dock-icon${active ? ' active' : ''}`} /> },
+  {
+    href: '/settings',
+    label: 'Ayarlar',
+    matchPrefixes: ['/settings'],
+    renderIcon: (active) => <SettingsIcon className={`dock-icon${active ? ' active' : ''}`} filled={active} />,
+  },
 ];
+
+function isNavActive(pathname: string, item: NavItem) {
+  return item.matchPrefixes.some((prefix) => {
+    if (prefix === '/') {
+      return pathname === '/';
+    }
+
+    return pathname === prefix || pathname.startsWith(`${prefix}/`);
+  });
+}
 
 function AvatarInitial({ username }: { username: string }) {
   return <span className="session-avatar">{username.slice(0, 1).toUpperCase()}</span>;
@@ -132,13 +186,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       <nav className="dock-nav compact" aria-label="Primary navigation">
         {NAV_ITEMS.map((item) => {
-          const isActive = pathname === item.href;
+          const isActive = isNavActive(pathname, item);
 
           return (
             <Link
               key={item.href}
               aria-label={item.label}
-              className="dock-link compact"
+              className={`dock-link compact${item.special ? ' special' : ''}`}
               data-active={isActive}
               href={item.href}
               title={item.label}

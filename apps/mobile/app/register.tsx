@@ -16,9 +16,8 @@ export default function RegisterScreen() {
 
   return (
     <AuthScreen
-      eyebrow="Uyelik"
-      title="Hesap turunu sec"
-      description="Bireysel hesapla sosyal akis ve ilan deneyimine hemen basla. Ticari hesapta ek firma ve vergi bilgileri gerekir."
+      title="Hesap olustur"
+      description="Bireysel veya ticari hesap secerek devam et."
       footer={<GhostButton label="Zaten hesabim var" onPress={() => router.push('/login')} />}
     >
       <View style={{ flexDirection: 'row', gap: 12 }}>
