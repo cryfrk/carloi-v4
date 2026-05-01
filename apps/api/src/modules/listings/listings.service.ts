@@ -1,4 +1,4 @@
-﻿import {
+import {
   BadRequestException,
   ForbiddenException,
   Injectable,
@@ -15,6 +15,7 @@ import {
   SellerType,
   UserType,
 } from '@prisma/client';
+import { isObdEnabled } from '../../common/feature-flags';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { LegalComplianceService } from '../legal-compliance/legal-compliance.service';
 import { getUserOwnedMediaAssetMap } from '../media/media-asset.helpers';
@@ -68,6 +69,7 @@ export class ListingsService {
   ) {}
 
   async createListing(userId: string, dto: CreateListingDto) {
+    const obdEnabled = isObdEnabled();
     const user = await this.getActiveUser(userId);
     const garageVehicle = await this.getOwnedGarageVehicle(userId, dto.garageVehicleId);
     const contactPhone = trimNullable(dto.contactPhone) ?? user.phone ?? null;
@@ -164,11 +166,13 @@ export class ListingsService {
     const licenseOwnerName = normalizeHumanName(
       `${dto.licenseInfo.ownerFirstName} ${dto.licenseInfo.ownerLastName}`,
     );
-    const expertiseReport = await this.resolveOwnedExpertiseReport(
-      userId,
-      garageVehicle.id,
-      dto.obdExpertiseReportId,
-    );
+    const expertiseReport = obdEnabled
+      ? await this.resolveOwnedExpertiseReport(
+          userId,
+          garageVehicle.id,
+          dto.obdExpertiseReportId,
+        )
+      : null;
     const assetMap = await getUserOwnedMediaAssetMap(
       this.prisma,
       userId,
@@ -198,8 +202,8 @@ export class ListingsService {
           licenseOwnerName,
           licenseOwnerTcNo: trimNullable(dto.licenseInfo.ownerTcIdentityNo),
           isLicenseVerified,
-          hasExpertiseReport: Boolean(expertiseReport),
-          obdExpertiseReportId: expertiseReport?.id ?? null,
+          hasExpertiseReport: obdEnabled ? Boolean(expertiseReport) : false,
+          obdExpertiseReportId: obdEnabled ? expertiseReport?.id ?? null : null,
           ownerAuthorizationRequired,
           media: {
             create: dto.media.map((item, index) => {
@@ -441,16 +445,17 @@ export class ListingsService {
   }
 
   async updateListing(userId: string, listingId: string, dto: UpdateListingDto) {
+    const obdEnabled = isObdEnabled();
     const existingListing = await this.findOwnedListing(userId, listingId);
     const seller = await this.getActiveUser(userId);
-    const expertiseReport =
-      dto.obdExpertiseReportId !== undefined
-        ? await this.resolveOwnedExpertiseReport(
-            userId,
-            existingListing.garageVehicleId,
-            dto.obdExpertiseReportId,
-          )
-        : undefined;
+    const shouldUpdateExpertise = obdEnabled && dto.obdExpertiseReportId !== undefined;
+    const expertiseReport = shouldUpdateExpertise
+      ? await this.resolveOwnedExpertiseReport(
+          userId,
+          existingListing.garageVehicleId,
+          dto.obdExpertiseReportId,
+        )
+      : undefined;
     const nextContactPhone =
       dto.contactPhone !== undefined
         ? trimNullable(dto.contactPhone)
@@ -493,9 +498,9 @@ export class ListingsService {
           contactPhone: nextContactPhone,
           showPhone: nextShowPhone,
           obdExpertiseReportId:
-            dto.obdExpertiseReportId !== undefined ? expertiseReport?.id ?? null : undefined,
+            shouldUpdateExpertise ? expertiseReport?.id ?? null : undefined,
           hasExpertiseReport:
-            dto.obdExpertiseReportId !== undefined ? Boolean(expertiseReport) : undefined,
+            shouldUpdateExpertise ? Boolean(expertiseReport) : undefined,
           media: dto.media
             ? {
                 create: dto.media.map((item, index) => ({
@@ -903,6 +908,7 @@ export class ListingsService {
     userId: string,
     listing: Awaited<ReturnType<typeof this.prisma.listing.findUnique>> & NonNullable<unknown>,
   ) {
+    const obdEnabled = isObdEnabled();
     const typedListing = listing as NonNullable<typeof listing> & {
       seller: {
         id: string;
@@ -988,8 +994,9 @@ export class ListingsService {
       } | null;
     };
     const spec = typedListing.garageVehicle?.vehiclePackage?.spec ?? null;
-    const selectedExpertiseReport =
-      typedListing.obdExpertiseReport ?? typedListing.garageVehicle?.obdExpertiseReports[0] ?? null;
+    const selectedExpertiseReport = obdEnabled
+      ? typedListing.obdExpertiseReport ?? typedListing.garageVehicle?.obdExpertiseReports[0] ?? null
+      : null;
 
     return {
       id: typedListing.id,
@@ -1059,8 +1066,8 @@ export class ListingsService {
       multimediaSummary: spec?.multimediaSummary ?? null,
       interiorSummary: spec?.interiorSummary ?? null,
       exteriorSummary: spec?.exteriorSummary ?? null,
-      expertiseSummary: selectedExpertiseReport?.summaryText ?? null,
-      expertiseReport: serializeObdReport(selectedExpertiseReport),
+      expertiseSummary: obdEnabled ? selectedExpertiseReport?.summaryText ?? null : null,
+      expertiseReport: obdEnabled ? serializeObdReport(selectedExpertiseReport) : null,
       contactActions: {
         canCall:
           typedListing.sellerId !== userId && typedListing.showPhone && Boolean(typedListing.contactPhone),
@@ -1141,3 +1148,5 @@ export class ListingsService {
     }
   }
 }
+
+

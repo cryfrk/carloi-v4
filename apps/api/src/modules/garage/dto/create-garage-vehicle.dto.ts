@@ -9,6 +9,7 @@ import {
   IsOptional,
   IsString,
   Max,
+  MaxLength,
   Min,
   ValidateNested,
 } from 'class-validator';
@@ -71,6 +72,24 @@ export class CreateGarageVehicleDto {
   @IsOptional()
   @IsBoolean()
   isPublic?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(600)
+  description?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(600)
+  equipmentNotes?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  showInExplore?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  openToOffers?: boolean;
 
   @IsOptional()
   @IsArray()

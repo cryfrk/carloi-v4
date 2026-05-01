@@ -18,6 +18,7 @@ import { CommercialAccountsModule } from './commercial-accounts/commercial-accou
 import { LegalComplianceModule } from './legal-compliance/legal-compliance.module';
 import { ObdModule } from './obd/obd.module';
 import { AuditLogModule } from './audit-log/audit-log.module';
+import { ExploreModule } from './explore/explore.module';
 
 export const DOMAIN_MODULES = [
   AuthModule,
@@ -28,6 +29,7 @@ export const DOMAIN_MODULES = [
   ListingsModule,
   VehiclesModule,
   GarageModule,
+  ExploreModule,
   MessagesModule,
   NotificationsModule,
   FollowsModule,

@@ -23,7 +23,7 @@ export const sellerTypeLabels: Record<SellerType, string> = {
 
 export const damageStatusLabels: Record<DamageStatus, string> = {
   [DamageStatus.NONE]: 'Temiz',
-  [DamageStatus.PAINTED]: 'BoyalÄ±',
+  [DamageStatus.PAINTED]: 'Boyali',
   [DamageStatus.REPLACED]: 'Degisen',
 };
 
@@ -55,3 +55,4 @@ export function damageStatusColor(status: DamageStatus) {
       return 'var(--muted)';
   }
 }
+

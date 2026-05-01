@@ -9,7 +9,7 @@ import { webNotificationsApi } from '../lib/notifications-api';
 import {
   BellIcon,
   CarIcon,
-  GarageIcon,
+  ExploreIcon,
   HomeIcon,
   MessageIcon,
   PlusIcon,
@@ -39,49 +39,25 @@ const NAV_ITEMS: NavItem[] = [
     renderIcon: (active) => <CarIcon className={`dock-icon${active ? ' active' : ''}`} filled={active} />,
   },
   {
-    href: '/messages',
-    label: 'Mesajlar',
-    matchPrefixes: ['/messages'],
-    renderIcon: (active) => <MessageIcon className={`dock-icon${active ? ' active' : ''}`} filled={active} />,
+    href: '/explore',
+    label: 'Kesfet',
+    matchPrefixes: ['/explore', '/vehicles'],
+    special: true,
+    renderIcon: (active) => <ExploreIcon className={`dock-icon${active ? ' active' : ''}`} filled={active} />,
   },
   {
     href: '/loi-ai',
     label: 'Loi AI',
     matchPrefixes: ['/loi-ai'],
-    special: true,
     renderIcon: (active) => <SparkIcon className={`dock-icon${active ? ' active' : ''}`} filled={active} />,
-  },
-  {
-    href: '/create',
-    label: 'Olustur',
-    matchPrefixes: ['/create'],
-    renderIcon: (active) => <PlusIcon className={`dock-icon${active ? ' active' : ''}`} filled={active} />,
-  },
-  {
-    href: '/notifications',
-    label: 'Bildirimler',
-    matchPrefixes: ['/notifications'],
-    renderIcon: (active) => <BellIcon className={`dock-icon${active ? ' active' : ''}`} filled={active} />,
-  },
-  {
-    href: '/garage',
-    label: 'Garajim',
-    matchPrefixes: ['/garage'],
-    renderIcon: (active) => <GarageIcon className={`dock-icon${active ? ' active' : ''}`} filled={active} />,
   },
   {
     href: '/profile',
     label: 'Profil',
-    matchPrefixes: ['/profile', '/saved'],
+    matchPrefixes: ['/profile', '/saved', '/vehicles'],
     renderIcon: (active) => (
       <span className={`dock-profile-dot${active ? ' active' : ''}`}>P</span>
     ),
-  },
-  {
-    href: '/settings',
-    label: 'Ayarlar',
-    matchPrefixes: ['/settings'],
-    renderIcon: (active) => <SettingsIcon className={`dock-icon${active ? ' active' : ''}`} filled={active} />,
   },
 ];
 

@@ -17,17 +17,27 @@ import { webSocialApi } from '../lib/social-api';
 
 type TabKey = 'posts' | 'listings' | 'vehicles';
 
-export function ProfileClient({ identifier }: { identifier?: string }) {
+export function ProfileClient({
+  identifier,
+  initialTab,
+}: {
+  identifier?: string;
+  initialTab?: TabKey;
+}) {
   const router = useRouter();
   const { session, isReady } = useAuth();
+  const defaultTab = initialTab ?? (identifier ? 'posts' : 'vehicles');
   const [profile, setProfile] = useState<ProfileDetailResponse | null>(null);
   const [posts, setPosts] = useState<ProfilePostGridItem[]>([]);
   const [listings, setListings] = useState<ProfileListingItem[]>([]);
   const [vehicles, setVehicles] = useState<ProfileVehicleItem[]>([]);
-  const [activeTab, setActiveTab] = useState<TabKey>('posts');
+  const [activeTab, setActiveTab] = useState<TabKey>(defaultTab);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [selectedVehicle, setSelectedVehicle] = useState<ProfileVehicleItem | null>(null);
+
+  useEffect(() => {
+    setActiveTab(defaultTab);
+  }, [defaultTab]);
 
   useEffect(() => {
     if (!session?.accessToken) {
@@ -96,15 +106,16 @@ export function ProfileClient({ identifier }: { identifier?: string }) {
   const profileUsername = profile?.username ?? session?.user.username ?? '-';
   const profileInitial = (profile?.firstName?.[0] ?? session?.user.firstName?.[0] ?? '?').toUpperCase();
   const canViewContent = profile?.canViewContent ?? true;
+  const isOwnProfile = profile?.isOwnProfile ?? !identifier;
 
   return (
     <AppShell>
-      <section className="profile-ig-shell">
+      <section className="profile-ig-shell vehicle-profile-shell">
         {errorMessage ? <div className="auth-message error">{errorMessage}</div> : null}
         {!isReady ? <div className="detail-card">Oturum hazirlaniyor...</div> : null}
         {session ? (
           <>
-            <section className="profile-ig-top">
+            <section className="profile-ig-top vehicle-profile-top">
               <div className="profile-ig-avatar-wrap">
                 {profile?.avatarUrl ? (
                   <img alt={profileUsername} className="profile-ig-avatar" src={profile.avatarUrl} />
@@ -116,7 +127,7 @@ export function ProfileClient({ identifier }: { identifier?: string }) {
               <h1 className="profile-ig-username">@{profileUsername}</h1>
               {profile ? <p className="profile-ig-name">{profile.firstName} {profile.lastName}</p> : null}
 
-              <div className="profile-ig-stats">
+              <div className="profile-ig-stats compact-stats">
                 <StatChip label="posts" value={profile?.postCount ?? posts.length} />
                 <StatChip label="listings" value={profile?.listingCount ?? listings.length} />
                 <StatChip label="vehicles" value={profile?.vehicleCount ?? vehicles.length} />
@@ -133,8 +144,8 @@ export function ProfileClient({ identifier }: { identifier?: string }) {
                 <p>{profile?.followerCount ?? 0} takipci · {profile?.followingCount ?? 0} takip edilen</p>
               </div>
 
-              <div className="profile-ig-actions">
-                {profile?.isOwnProfile ? (
+              <div className="profile-ig-actions compact-actions">
+                {isOwnProfile ? (
                   <>
                     <Link className="secondary-link" href="/settings">Profili duzenle</Link>
                     <Link className="secondary-link" href="/settings">Ayarlar</Link>
@@ -158,7 +169,14 @@ export function ProfileClient({ identifier }: { identifier?: string }) {
               <button className={`profile-ig-tab ${activeTab === 'vehicles' ? 'active' : ''}`} type="button" onClick={() => setActiveTab('vehicles')}>Araclar</button>
             </nav>
 
-            {!canViewContent && !profile?.isOwnProfile ? (
+            {isOwnProfile && activeTab === 'vehicles' ? (
+              <div className="profile-inline-toolbar">
+                <strong>Arac koleksiyonun</strong>
+                <Link className="secondary-link" href="/vehicles/create">+ Arac ekle</Link>
+              </div>
+            ) : null}
+
+            {!canViewContent && !isOwnProfile ? (
               <div className="profile-ig-private">
                 <strong>Bu hesap gizli</strong>
                 <p>Takip etmeden gonderi, ilan ve araclar gorunmez.</p>
@@ -183,18 +201,18 @@ export function ProfileClient({ identifier }: { identifier?: string }) {
             ) : null}
 
             {!loading && activeTab === 'listings' ? (
-              <section className="profile-visual-grid">
+              <section className="profile-post-grid vehicle-grid">
                 {listings.map((listing) => (
-                  <Link key={listing.listingId} className="profile-visual-tile" href={`/listings/${listing.listingId}`}>
-                    <div className="profile-visual-media">
-                      {listing.firstMediaUrl ? (
-                        <img alt={listing.title} loading="lazy" src={listing.firstMediaUrl} />
-                      ) : (
-                        <div className="profile-tile-fallback">ILAN</div>
-                      )}
-                    </div>
-                    <strong>{listing.title}</strong>
-                    <span>{[listing.brand, listing.model, listing.package].filter(Boolean).join(' · ')}</span>
+                  <Link key={listing.listingId} className="profile-post-tile" href={`/listings/${listing.listingId}`}>
+                    {listing.firstMediaUrl ? (
+                      <img alt={listing.title} loading="lazy" src={listing.firstMediaUrl} />
+                    ) : (
+                      <div className="profile-tile-fallback">ILAN</div>
+                    )}
+                    <span className="tile-overlay-copy">
+                      <strong>{listing.brand} {listing.model}</strong>
+                      <small>{listing.price.toLocaleString('tr-TR')} TL</small>
+                    </span>
                   </Link>
                 ))}
                 {!listings.length ? <div className="profile-ig-helper">Bu sekmede gosterilecek ilan yok.</div> : null}
@@ -202,19 +220,19 @@ export function ProfileClient({ identifier }: { identifier?: string }) {
             ) : null}
 
             {!loading && activeTab === 'vehicles' ? (
-              <section className="profile-visual-grid">
+              <section className="profile-post-grid vehicle-grid">
                 {vehicles.map((vehicle) => (
-                  <button key={vehicle.id} className="profile-visual-tile button-reset" type="button" onClick={() => setSelectedVehicle(vehicle)}>
-                    <div className="profile-visual-media">
-                      {vehicle.firstMediaUrl ? (
-                        <img alt={`${vehicle.brand} ${vehicle.model}`} loading="lazy" src={vehicle.firstMediaUrl} />
-                      ) : (
-                        <div className="profile-tile-fallback">ARAC</div>
-                      )}
-                    </div>
-                    <strong>{vehicle.brand} {vehicle.model}</strong>
-                    <span>{vehicle.package ?? vehicle.plateNumberMasked}</span>
-                  </button>
+                  <Link key={vehicle.id} className="profile-post-tile" href={`/vehicles/${vehicle.id}`}>
+                    {vehicle.firstMediaUrl ? (
+                      <img alt={`${vehicle.brand} ${vehicle.model}`} loading="lazy" src={vehicle.firstMediaUrl} />
+                    ) : (
+                      <div className="profile-tile-fallback">ARAC</div>
+                    )}
+                    <span className="tile-overlay-copy">
+                      <strong>{vehicle.brand} {vehicle.model}</strong>
+                      <small>{vehicle.package ?? vehicle.plateNumberMasked}</small>
+                    </span>
+                  </Link>
                 ))}
                 {!vehicles.length ? <div className="profile-ig-helper">Bu sekmede gosterilecek arac yok.</div> : null}
               </section>
@@ -223,22 +241,6 @@ export function ProfileClient({ identifier }: { identifier?: string }) {
         ) : (
           <div className="detail-card">Bu alani gormek icin giris yapin.</div>
         )}
-
-        {selectedVehicle ? (
-          <div className="profile-vehicle-overlay" role="dialog">
-            <div className="profile-vehicle-modal">
-              <div className="profile-vehicle-modal-head">
-                <strong>{selectedVehicle.brand} {selectedVehicle.model}</strong>
-                <button className="secondary-link button-reset" type="button" onClick={() => setSelectedVehicle(null)}>Kapat</button>
-              </div>
-              <p>{selectedVehicle.package ?? 'Paket bilgisi yok'}</p>
-              <p>{selectedVehicle.year} · {selectedVehicle.km.toLocaleString('tr-TR')} km</p>
-              <p>{selectedVehicle.fuelType} · {selectedVehicle.transmissionType}</p>
-              <p>Plaka: {selectedVehicle.plateNumberMasked}</p>
-              {selectedVehicle.latestObdReport ? <p>Expertiz skoru: {selectedVehicle.latestObdReport.overallScore ?? '-'} / 100</p> : null}
-            </div>
-          </div>
-        ) : null}
       </section>
     </AppShell>
   );
@@ -252,3 +254,4 @@ function StatChip({ label, value }: { label: string; value: number }) {
     </div>
   );
 }
+

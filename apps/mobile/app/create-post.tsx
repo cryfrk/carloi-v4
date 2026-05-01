@@ -1,4 +1,4 @@
-﻿import { MediaAssetPurpose, type CreatePostMediaInput, type MediaAssetUploadResponse } from '@carloi-v4/types';
+import { MediaAssetPurpose, type CreatePostMediaInput, type MediaAssetUploadResponse } from '@carloi-v4/types';
 import { Redirect, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import {
@@ -12,9 +12,10 @@ import {
 } from 'react-native';
 import { MobileShell } from '../components/mobile-shell';
 import { useAuth } from '../context/auth-context';
+import { mobileTheme } from '../lib/design-system';
 import { mobileMediaApi } from '../lib/media-api';
-import { pickMediaFiles } from '../lib/upload-picker';
 import { SocialApiError, mobileSocialApi } from '../lib/social-api';
+import { pickMediaFiles } from '../lib/upload-picker';
 
 function inferMediaType(mimeType: string): CreatePostMediaInput['mediaType'] {
   return mimeType.startsWith('video/') ? 'VIDEO' : 'IMAGE';
@@ -99,16 +100,16 @@ export default function CreatePostScreen() {
   return (
     <MobileShell
       title="Post olustur"
-      subtitle="Galeriden sec, sirala, onizle ve dogrudan Carloi medya upload hattina gonder."
+      subtitle="Temiz bir composer ile medya sec, sirala ve feed'e gonder."
     >
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.card}>
+        <View style={styles.section}>
           <Text style={styles.label}>Caption</Text>
           <TextInput
             value={caption}
             onChangeText={setCaption}
             placeholder="Maksimum 600 karakter"
-            placeholderTextColor="#6d8090"
+            placeholderTextColor={mobileTheme.colors.textMuted}
             multiline
             maxLength={600}
             style={[styles.input, styles.textarea]}
@@ -119,14 +120,17 @@ export default function CreatePostScreen() {
             value={locationText}
             onChangeText={setLocationText}
             placeholder="Ornek: Istanbul / Sariyer"
-            placeholderTextColor="#6d8090"
+            placeholderTextColor={mobileTheme.colors.textMuted}
             style={styles.input}
           />
         </View>
 
-        <View style={styles.card}>
+        <View style={styles.section}>
           <View style={styles.rowBetween}>
-            <Text style={styles.sectionTitle}>Medya listesi</Text>
+            <View>
+              <Text style={styles.sectionTitle}>Medya</Text>
+              <Text style={styles.sectionMeta}>{media.length}/10 secildi</Text>
+            </View>
             <Pressable onPress={() => void handlePickMedia()} style={styles.ghostButton}>
               <Text style={styles.ghostLabel}>{uploading ? 'Yukleniyor...' : 'Galeriden sec'}</Text>
             </Pressable>
@@ -134,25 +138,28 @@ export default function CreatePostScreen() {
 
           {!media.length ? (
             <View style={styles.emptyState}>
+              <View style={styles.placeholderTile} />
               <Text style={styles.emptyTitle}>Henuz medya secilmedi</Text>
-              <Text style={styles.emptyCopy}>Bir veya daha fazla gorsel/video secin. En fazla 10 medya desteklenir.</Text>
+              <Text style={styles.emptyCopy}>Bir veya daha fazla gorsel veya video sec. En fazla 10 medya desteklenir.</Text>
             </View>
           ) : null}
 
           {media.map((item, index) => (
             <View key={item.id} style={styles.mediaCard}>
-              <Text style={styles.mediaIndex}>Medya {index + 1}</Text>
+              <View style={styles.mediaHead}>
+                <Text style={styles.mediaIndex}>Medya {index + 1}</Text>
+                <Text style={styles.mediaMeta}>{item.mimeType} � {(item.size / 1024 / 1024).toFixed(2)} MB</Text>
+              </View>
               <View style={styles.previewFrame}>
                 {inferMediaType(item.mimeType) === 'IMAGE' ? (
                   <Image source={{ uri: item.url }} style={styles.previewImage} resizeMode="cover" />
                 ) : (
                   <View style={styles.previewVideo}>
-                    <Text style={styles.previewVideoLabel}>VIDEO PREVIEW</Text>
+                    <Text style={styles.previewVideoLabel}>VIDEO</Text>
                     <Text style={styles.previewVideoUrl}>{item.url}</Text>
                   </View>
                 )}
               </View>
-              <Text style={styles.mediaMeta}>{item.mimeType} · {(item.size / 1024 / 1024).toFixed(2)} MB</Text>
               <View style={styles.toolsRow}>
                 <Pressable
                   disabled={index === 0}
@@ -218,7 +225,14 @@ export default function CreatePostScreen() {
           </View>
         ) : null}
 
-        <Pressable onPress={() => void handleSubmit()} disabled={submitting || uploading || !hasValidMedia} style={[styles.submitButton, submitting || uploading || !hasValidMedia ? styles.submitButtonDisabled : null]}>
+        <Pressable
+          onPress={() => void handleSubmit()}
+          disabled={submitting || uploading || !hasValidMedia}
+          style={[
+            styles.submitButton,
+            submitting || uploading || !hasValidMedia ? styles.submitButtonDisabled : null,
+          ]}
+        >
           <Text style={styles.submitLabel}>{submitting ? 'Paylasiliyor...' : 'Paylas'}</Text>
         </Pressable>
       </ScrollView>
@@ -228,30 +242,30 @@ export default function CreatePostScreen() {
 
 const styles = StyleSheet.create({
   content: {
-    gap: 14,
+    gap: mobileTheme.spacing.md,
     paddingBottom: 10,
   },
-  card: {
+  section: {
     gap: 12,
     padding: 18,
-    borderRadius: 26,
-    backgroundColor: '#0d1d2a',
+    borderRadius: mobileTheme.radius.xl,
+    backgroundColor: mobileTheme.colors.surface,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: mobileTheme.colors.border,
   },
   label: {
-    color: '#f8f2ea',
+    color: mobileTheme.colors.textStrong,
     fontWeight: '700',
     fontSize: 13,
   },
   input: {
-    borderRadius: 18,
+    borderRadius: mobileTheme.radius.md,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    color: '#f8f2ea',
-    backgroundColor: '#08131d',
+    color: mobileTheme.colors.textStrong,
+    backgroundColor: mobileTheme.colors.surfaceMuted,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: mobileTheme.colors.border,
   },
   textarea: {
     minHeight: 110,
@@ -264,54 +278,70 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   sectionTitle: {
-    color: '#f8f2ea',
-    fontSize: 18,
-    fontWeight: '800',
+    color: mobileTheme.colors.textStrong,
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  sectionMeta: {
+    color: mobileTheme.colors.textMuted,
+    fontSize: 12,
+    marginTop: 2,
   },
   ghostButton: {
-    borderRadius: 16,
+    borderRadius: mobileTheme.radius.md,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    backgroundColor: 'rgba(239,131,84,0.14)',
+    backgroundColor: mobileTheme.colors.surfaceMuted,
   },
   ghostLabel: {
-    color: '#ffd6c2',
-    fontWeight: '800',
+    color: mobileTheme.colors.textStrong,
+    fontWeight: '700',
     fontSize: 12,
   },
   emptyState: {
-    gap: 6,
-    padding: 18,
+    gap: 8,
+    paddingVertical: 18,
+    alignItems: 'center',
+  },
+  placeholderTile: {
+    width: 92,
+    height: 92,
     borderRadius: 20,
-    backgroundColor: '#122334',
+    backgroundColor: mobileTheme.colors.surfaceMuted,
+    borderWidth: 1,
+    borderColor: mobileTheme.colors.border,
   },
   emptyTitle: {
-    color: '#f8f2ea',
-    fontWeight: '800',
+    color: mobileTheme.colors.textStrong,
+    fontWeight: '700',
   },
   emptyCopy: {
-    color: '#a9bac7',
+    color: mobileTheme.colors.textMuted,
     lineHeight: 20,
+    textAlign: 'center',
   },
   mediaCard: {
     gap: 10,
-    padding: 14,
-    borderRadius: 20,
-    backgroundColor: '#122334',
+    paddingTop: 2,
+    borderTopWidth: 1,
+    borderTopColor: mobileTheme.colors.border,
+  },
+  mediaHead: {
+    gap: 3,
   },
   mediaIndex: {
-    color: '#f8f2ea',
-    fontWeight: '800',
+    color: mobileTheme.colors.textStrong,
+    fontWeight: '700',
   },
   mediaMeta: {
-    color: '#9ab0bf',
+    color: mobileTheme.colors.textMuted,
     fontSize: 12,
   },
   previewFrame: {
     aspectRatio: 1,
     overflow: 'hidden',
-    borderRadius: 20,
-    backgroundColor: '#08131d',
+    borderRadius: mobileTheme.radius.lg,
+    backgroundColor: mobileTheme.colors.surfaceMuted,
   },
   previewImage: {
     width: '100%',
@@ -325,12 +355,12 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   previewVideoLabel: {
-    color: '#ffd6c2',
+    color: mobileTheme.colors.textStrong,
     fontWeight: '800',
     fontSize: 12,
   },
   previewVideoUrl: {
-    color: '#d5e0e7',
+    color: mobileTheme.colors.textMuted,
     textAlign: 'center',
     lineHeight: 20,
   },
@@ -340,50 +370,49 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   toolButton: {
-    borderRadius: 14,
+    borderRadius: mobileTheme.radius.md,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    backgroundColor: '#08131d',
+    backgroundColor: mobileTheme.colors.surfaceMuted,
   },
   toolButtonDisabled: {
     opacity: 0.4,
   },
   toolLabel: {
-    color: '#f8f2ea',
+    color: mobileTheme.colors.textStrong,
     fontSize: 12,
     fontWeight: '700',
   },
   messageBox: {
-    borderRadius: 18,
+    borderRadius: mobileTheme.radius.md,
     padding: 14,
+    borderWidth: 1,
   },
   messageSuccess: {
-    backgroundColor: 'rgba(143,214,148,0.16)',
-    borderWidth: 1,
-    borderColor: 'rgba(143,214,148,0.24)',
+    backgroundColor: '#f0fdf4',
+    borderColor: '#bbf7d0',
   },
   messageError: {
-    backgroundColor: 'rgba(216,82,82,0.16)',
-    borderWidth: 1,
-    borderColor: 'rgba(216,82,82,0.24)',
+    backgroundColor: '#fff5f5',
+    borderColor: '#fecaca',
   },
   messageText: {
-    color: '#f8f2ea',
+    color: mobileTheme.colors.text,
     lineHeight: 20,
   },
   submitButton: {
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 22,
+    borderRadius: mobileTheme.radius.lg,
     paddingVertical: 16,
-    backgroundColor: '#ef8354',
+    backgroundColor: mobileTheme.colors.textStrong,
     marginBottom: 6,
   },
   submitButtonDisabled: {
-    opacity: 0.5,
+    opacity: 0.45,
   },
   submitLabel: {
-    color: '#08131d',
+    color: mobileTheme.colors.white,
     fontSize: 15,
     fontWeight: '800',
   },

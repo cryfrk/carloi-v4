@@ -57,12 +57,12 @@ export const webScreens: PlaceholderScreenDefinition[] = [
     bullets: ['Okundu durumu', 'Bildirim gruplama', 'Gercek zamanli event akisi'],
   },
   {
-    slug: 'garage',
-    label: 'Garage',
-    eyebrow: 'Ownership Layer',
-    title: 'Garage Overview',
-    description: 'Kullanicinin arac portfoyunu, servis notlarini ve bagli ilanlarini yonetecek bolum.',
-    bullets: ['Arac kartlari', 'Ilan iliskileri', 'OBD ve servis genislemelerine hazir'],
+    slug: 'explore',
+    label: 'Explore',
+    eyebrow: 'Discovery Layer',
+    title: 'Vehicle Explore',
+    description: 'Kesfete acik araclarin reels benzeri dikey akis icinde onerildigi yeni merkez.',
+    bullets: ['Tam ekran arac akisi', 'Mesaj ve teklif aksiyonlari', 'Profildeki arac koleksiyonu ile bagli'],
   },
   {
     slug: 'profile',

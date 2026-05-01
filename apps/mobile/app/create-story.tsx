@@ -1,9 +1,10 @@
-﻿import { MediaAssetPurpose, type MediaAssetUploadResponse } from '@carloi-v4/types';
+import { MediaAssetPurpose, type MediaAssetUploadResponse } from '@carloi-v4/types';
 import { Redirect, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { MobileShell } from '../components/mobile-shell';
 import { useAuth } from '../context/auth-context';
+import { mobileTheme } from '../lib/design-system';
 import { mobileMediaApi } from '../lib/media-api';
 import { SocialApiError, mobileSocialApi } from '../lib/social-api';
 import { pickMediaFiles } from '../lib/upload-picker';
@@ -87,12 +88,18 @@ export default function CreateStoryScreen() {
   }
 
   return (
-    <MobileShell title="Hikaye olustur" subtitle="24 saatlik story icin fotograf veya 15 saniyelik video sec.">
+    <MobileShell title="Hikaye olustur" subtitle="24 saatlik story akisi icin tek medya sec ve aninda paylas.">
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.card}>
-          <Pressable style={styles.pickButton} onPress={() => void handlePickStoryMedia()}>
-            <Text style={styles.pickLabel}>{uploading ? 'Medya yukleniyor...' : 'Galeri veya video sec'}</Text>
-          </Pressable>
+        <View style={styles.section}>
+          <View style={styles.rowBetween}>
+            <View>
+              <Text style={styles.sectionTitle}>Story medyasi</Text>
+              <Text style={styles.sectionMeta}>Foto veya 15 saniyelik video</Text>
+            </View>
+            <Pressable style={styles.ghostButton} onPress={() => void handlePickStoryMedia()}>
+              <Text style={styles.ghostLabel}>{uploading ? 'Yukleniyor...' : 'Sec'}</Text>
+            </Pressable>
+          </View>
 
           {uploadedMedia ? (
             <View style={styles.previewCard}>
@@ -104,23 +111,24 @@ export default function CreateStoryScreen() {
                   <Text style={styles.videoUrl}>{uploadedMedia.url}</Text>
                 </View>
               )}
-              <Text style={styles.meta}>{uploadedMedia.mimeType} · {(uploadedMedia.size / 1024 / 1024).toFixed(2)} MB</Text>
+              <Text style={styles.meta}>{uploadedMedia.mimeType} � {(uploadedMedia.size / 1024 / 1024).toFixed(2)} MB</Text>
             </View>
           ) : (
             <View style={styles.placeholderCard}>
+              <View style={styles.placeholderTile} />
               <Text style={styles.placeholderTitle}>Henuz hikaye medyasi secilmedi</Text>
               <Text style={styles.placeholderCopy}>Foto veya video secildiginde burada onizleme goreceksiniz.</Text>
             </View>
           )}
         </View>
 
-        <View style={styles.card}>
+        <View style={styles.section}>
           <Text style={styles.label}>Caption</Text>
           <TextInput
             value={caption}
             onChangeText={setCaption}
             placeholder="Kisa bir hikaye notu"
-            placeholderTextColor="#73879a"
+            placeholderTextColor={mobileTheme.colors.textMuted}
             multiline
             maxLength={280}
             style={[styles.input, styles.textarea]}
@@ -130,15 +138,27 @@ export default function CreateStoryScreen() {
             value={locationText}
             onChangeText={setLocationText}
             placeholder="Ornek: Istanbul / Besiktas"
-            placeholderTextColor="#73879a"
+            placeholderTextColor={mobileTheme.colors.textMuted}
             style={styles.input}
           />
         </View>
 
-        {message ? <Text style={styles.notice}>{message}</Text> : null}
-        {errorMessage ? <Text style={styles.error}>{errorMessage}</Text> : null}
+        {message ? (
+          <View style={[styles.messageBox, styles.messageSuccess]}>
+            <Text style={styles.messageText}>{message}</Text>
+          </View>
+        ) : null}
+        {errorMessage ? (
+          <View style={[styles.messageBox, styles.messageError]}>
+            <Text style={styles.messageText}>{errorMessage}</Text>
+          </View>
+        ) : null}
 
-        <Pressable style={[styles.submitButton, !uploadedMedia || submitting ? styles.submitButtonDisabled : null]} onPress={() => void handleSubmit()} disabled={!uploadedMedia || submitting || uploading}>
+        <Pressable
+          style={[styles.submitButton, !uploadedMedia || submitting ? styles.submitButtonDisabled : null]}
+          onPress={() => void handleSubmit()}
+          disabled={!uploadedMedia || submitting || uploading}
+        >
           <Text style={styles.submitLabel}>{submitting ? 'Paylasiliyor...' : 'Hikayeyi paylas'}</Text>
         </Pressable>
       </ScrollView>
@@ -148,105 +168,141 @@ export default function CreateStoryScreen() {
 
 const styles = StyleSheet.create({
   content: {
-    gap: 14,
+    gap: mobileTheme.spacing.md,
     paddingBottom: 18,
   },
-  card: {
+  section: {
     gap: 12,
     padding: 18,
-    borderRadius: 26,
-    backgroundColor: '#0d1d2a',
+    borderRadius: mobileTheme.radius.xl,
+    backgroundColor: mobileTheme.colors.surface,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: mobileTheme.colors.border,
   },
-  pickButton: {
-    borderRadius: 18,
-    paddingVertical: 14,
+  rowBetween: {
+    flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(239,131,84,0.16)',
+    justifyContent: 'space-between',
+    gap: 10,
   },
-  pickLabel: {
-    color: '#ffd6c2',
-    fontWeight: '800',
+  sectionTitle: {
+    color: mobileTheme.colors.textStrong,
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  sectionMeta: {
+    color: mobileTheme.colors.textMuted,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  ghostButton: {
+    borderRadius: mobileTheme.radius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: mobileTheme.colors.surfaceMuted,
+  },
+  ghostLabel: {
+    color: mobileTheme.colors.textStrong,
+    fontWeight: '700',
+    fontSize: 12,
   },
   previewCard: {
     gap: 10,
   },
   previewImage: {
     width: '100%',
-    aspectRatio: 0.65,
-    borderRadius: 22,
+    aspectRatio: 0.72,
+    borderRadius: mobileTheme.radius.lg,
   },
   videoPlaceholder: {
-    aspectRatio: 0.65,
-    borderRadius: 22,
-    backgroundColor: '#08131d',
+    aspectRatio: 0.72,
+    borderRadius: mobileTheme.radius.lg,
+    backgroundColor: mobileTheme.colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 20,
     gap: 8,
   },
   videoLabel: {
-    color: '#ffd6c2',
+    color: mobileTheme.colors.textStrong,
     fontWeight: '800',
   },
   videoUrl: {
-    color: '#c7d5de',
+    color: mobileTheme.colors.textMuted,
     textAlign: 'center',
   },
   meta: {
-    color: '#9eb0be',
+    color: mobileTheme.colors.textMuted,
     fontSize: 12,
   },
   placeholderCard: {
-    gap: 6,
-    padding: 18,
-    borderRadius: 20,
-    backgroundColor: '#122334',
+    gap: 8,
+    paddingVertical: 18,
+    alignItems: 'center',
+  },
+  placeholderTile: {
+    width: 96,
+    height: 136,
+    borderRadius: mobileTheme.radius.lg,
+    backgroundColor: mobileTheme.colors.surfaceMuted,
+    borderWidth: 1,
+    borderColor: mobileTheme.colors.border,
   },
   placeholderTitle: {
-    color: '#f8f2ea',
-    fontWeight: '800',
+    color: mobileTheme.colors.textStrong,
+    fontWeight: '700',
   },
   placeholderCopy: {
-    color: '#a8b9c6',
+    color: mobileTheme.colors.textMuted,
     lineHeight: 20,
+    textAlign: 'center',
   },
   label: {
-    color: '#f8f2ea',
+    color: mobileTheme.colors.textStrong,
     fontWeight: '700',
     fontSize: 13,
   },
   input: {
-    borderRadius: 18,
+    borderRadius: mobileTheme.radius.md,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    color: '#f8f2ea',
-    backgroundColor: '#08131d',
+    color: mobileTheme.colors.textStrong,
+    backgroundColor: mobileTheme.colors.surfaceMuted,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: mobileTheme.colors.border,
   },
   textarea: {
     minHeight: 96,
     textAlignVertical: 'top',
   },
-  notice: {
-    color: '#d6efcf',
+  messageBox: {
+    borderRadius: mobileTheme.radius.md,
+    padding: 14,
+    borderWidth: 1,
   },
-  error: {
-    color: '#ffb4b4',
+  messageSuccess: {
+    backgroundColor: '#f0fdf4',
+    borderColor: '#bbf7d0',
+  },
+  messageError: {
+    backgroundColor: '#fff5f5',
+    borderColor: '#fecaca',
+  },
+  messageText: {
+    color: mobileTheme.colors.text,
+    lineHeight: 20,
   },
   submitButton: {
-    borderRadius: 22,
+    borderRadius: mobileTheme.radius.lg,
     paddingVertical: 16,
     alignItems: 'center',
-    backgroundColor: '#ef8354',
+    backgroundColor: mobileTheme.colors.textStrong,
   },
   submitButtonDisabled: {
     opacity: 0.45,
   },
   submitLabel: {
-    color: '#08131d',
-    fontWeight: '900',
+    color: mobileTheme.colors.white,
+    fontWeight: '800',
   },
 });

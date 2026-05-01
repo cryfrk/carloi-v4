@@ -28,7 +28,7 @@ export function CreateHubClient() {
           <Link className="bullet-card" href="/listings/create">
             <div className="card-label">Marketplace</div>
             <h3 className="card-title">Ilan olustur</h3>
-            <p className="card-copy">Garajindaki araclardan birini secip yayin akisina al.</p>
+            <p className="card-copy">Profilindeki arac koleksiyonundan bir araci secip yayin akisina al.</p>
           </Link>
         </section>
       </section>

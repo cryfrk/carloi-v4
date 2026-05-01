@@ -132,6 +132,29 @@ export function SparkIcon({ className, filled }: IconProps) {
   );
 }
 
+export function ExploreIcon({ className, filled }: IconProps) {
+  if (filled) {
+    return (
+      <svg
+        aria-hidden="true"
+        className={className}
+        fill="currentColor"
+        stroke="none"
+        viewBox="0 0 24 24"
+      >
+        <path d="M12 3.8c4.5 0 8.2 3.7 8.2 8.2s-3.7 8.2-8.2 8.2S3.8 16.5 3.8 12 7.5 3.8 12 3.8Zm2.9 4.2-5.6 2.1a1 1 0 0 0-.6.6L6.6 16a.6.6 0 0 0 .8.8l5.3-2.1a1 1 0 0 0 .6-.6l2.1-5.3a.6.6 0 0 0-.8-.8Z" />
+      </svg>
+    );
+  }
+
+  return (
+    <Svg className={className}>
+      <path d="M12 4.2a7.8 7.8 0 1 1 0 15.6 7.8 7.8 0 0 1 0-15.6Z" />
+      <path d="m15.3 8.7-5.1 1.9-1.9 5.1 5.1-1.9Z" />
+    </Svg>
+  );
+}
+
 export function PlusIcon({ className, filled }: IconProps) {
   if (filled) {
     return (

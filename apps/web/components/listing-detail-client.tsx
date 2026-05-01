@@ -1,11 +1,10 @@
-﻿'use client';
+'use client';
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import type { ListingDetailResponse } from '@carloi-v4/types';
 import { AppShell } from './app-shell';
-import { ExpertiseReportSection } from './expertise-report-section';
 import { useAuth } from './auth-provider';
 import { VehicleDamageMap } from './vehicle-damage-map';
 import { formatKm, formatPrice, fuelTypeLabels, sellerTypeLabels, transmissionLabels } from '../lib/listings-ui';
@@ -137,8 +136,8 @@ export function ListingDetailClient({ listingId }: { listingId: string }) {
         <Link className="secondary-link" href="/listings">
           Ilanlara don
         </Link>
-        <Link className="secondary-link" href="/garage">
-          Garajim
+        <Link className="secondary-link" href="/profile?tab=vehicles">
+          Araclarim
         </Link>
       </div>
 
@@ -240,10 +239,6 @@ export function ListingDetailClient({ listingId }: { listingId: string }) {
               </div>
             </article>
 
-            <ExpertiseReportSection
-              report={listing.expertiseReport}
-              vehicleLabel={`${listing.vehicle.brand ?? '-'} ${listing.vehicle.model ?? '-'}${listing.vehicle.package ? ` / ${listing.vehicle.package}` : ''}`}
-            />
           </section>
 
           <aside className="detail-card listing-action-rail">

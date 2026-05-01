@@ -1,7 +1,18 @@
-﻿import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  NotFoundException,
+  Param,
+  Patch,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { CurrentUser } from '../../common/auth/current-user.decorator';
 import type { AuthenticatedUser } from '../../common/auth/auth.types';
 import { JwtAuthGuard } from '../../common/auth/jwt-auth.guard';
+import { isObdEnabled } from '../../common/feature-flags';
 import { ObdService } from '../obd/obd.service';
 import { ConnectObdDeviceDto } from './dto/connect-obd-device.dto';
 import { CreateObdReportDto } from './dto/create-obd-report.dto';
@@ -36,6 +47,7 @@ export class GarageController {
     @Param('id') vehicleId: string,
     @Body() body: ConnectObdDeviceDto,
   ) {
+    this.ensureObdEnabled();
     return this.obdService.connectDevice(user.userId, vehicleId, body);
   }
 
@@ -45,6 +57,7 @@ export class GarageController {
     @Param('id') vehicleId: string,
     @Body() body: CreateObdReportDto,
   ) {
+    this.ensureObdEnabled();
     return this.obdService.createReport(user.userId, vehicleId, body);
   }
 
@@ -65,5 +78,11 @@ export class GarageController {
   @Delete('vehicles/:id')
   deleteGarageVehicle(@CurrentUser() user: AuthenticatedUser, @Param('id') vehicleId: string) {
     return this.garageService.deleteGarageVehicle(user.userId, vehicleId);
+  }
+
+  private ensureObdEnabled() {
+    if (!isObdEnabled()) {
+      throw new NotFoundException('Aradiginiz kaynak bulunamadi.');
+    }
   }
 }

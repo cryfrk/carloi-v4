@@ -9,7 +9,6 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   Image,
   Linking,
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -25,21 +24,30 @@ import { MobileShell } from './mobile-shell';
 
 type TabKey = 'posts' | 'listings' | 'vehicles';
 
-export function MobileProfileScreen({ identifier }: { identifier?: string }) {
+export function MobileProfileScreen({
+  identifier,
+  initialTab,
+}: {
+  identifier?: string;
+  initialTab?: TabKey;
+}) {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const { session } = useAuth();
+  const defaultTab = initialTab ?? (identifier ? 'posts' : 'vehicles');
   const [profile, setProfile] = useState<ProfileDetailResponse | null>(null);
   const [posts, setPosts] = useState<ProfilePostGridItem[]>([]);
   const [listings, setListings] = useState<ProfileListingItem[]>([]);
   const [vehicles, setVehicles] = useState<ProfileVehicleItem[]>([]);
-  const [activeTab, setActiveTab] = useState<TabKey>('posts');
+  const [activeTab, setActiveTab] = useState<TabKey>(defaultTab);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [selectedVehicle, setSelectedVehicle] = useState<ProfileVehicleItem | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const postTileSize = useMemo(() => Math.floor((width - 32) / 3), [width]);
-  const visualTileWidth = useMemo(() => Math.floor((width - 42) / 2), [width]);
+  useEffect(() => {
+    setActiveTab(defaultTab);
+  }, [defaultTab]);
+
+  const tileSize = useMemo(() => Math.floor((width - 4) / 3), [width]);
   const profileKey = identifier ?? 'me';
 
   useEffect(() => {
@@ -72,15 +80,6 @@ export function MobileProfileScreen({ identifier }: { identifier?: string }) {
       })
       .finally(() => setLoading(false));
   }, [identifier, profileKey, session?.accessToken, session?.user.username]);
-
-  const tabCounts = useMemo(
-    () => ({
-      posts: profile?.postCount ?? posts.length,
-      listings: profile?.listingCount ?? listings.length,
-      vehicles: profile?.vehicleCount ?? vehicles.length,
-    }),
-    [listings.length, posts.length, profile?.listingCount, profile?.postCount, profile?.vehicleCount, vehicles.length],
-  );
 
   async function handleFollowToggle() {
     if (!session?.accessToken || !profile || profile.isOwnProfile) {
@@ -119,11 +118,12 @@ export function MobileProfileScreen({ identifier }: { identifier?: string }) {
   const profileUsername = profile?.username ?? session?.user.username ?? '-';
   const displayInitial = (profile?.firstName?.[0] ?? session?.user.firstName?.[0] ?? '?').toUpperCase();
   const canViewContent = profile?.canViewContent ?? true;
+  const isOwnProfile = profile?.isOwnProfile ?? !identifier;
 
   return (
     <MobileShell
-      title={profile?.isOwnProfile ? 'Profil' : `@${profileUsername}`}
-      subtitle="Gonderiler, ilanlar ve araclar ayni profil akisi icinde toplanir."
+      title={isOwnProfile ? 'Profil' : `@${profileUsername}`}
+      subtitle="Gonderiler, ilanlar ve araclar tek profil akisi icinde yasiyor."
     >
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
         {errorMessage ? <Text style={styles.error}>{errorMessage}</Text> : null}
@@ -141,11 +141,11 @@ export function MobileProfileScreen({ identifier }: { identifier?: string }) {
           {profile ? <Text style={styles.nameText}>{profile.firstName} {profile.lastName}</Text> : null}
 
           <View style={styles.statsRow}>
-            <StatItem label="posts" value={tabCounts.posts} />
+            <StatItem label="posts" value={profile?.postCount ?? posts.length} />
             <Text style={styles.statsDivider}>|</Text>
-            <StatItem label="listings" value={tabCounts.listings} />
+            <StatItem label="listings" value={profile?.listingCount ?? listings.length} />
             <Text style={styles.statsDivider}>|</Text>
-            <StatItem label="vehicles" value={tabCounts.vehicles} />
+            <StatItem label="vehicles" value={profile?.vehicleCount ?? vehicles.length} />
           </View>
 
           <View style={styles.metaStack}>
@@ -162,7 +162,7 @@ export function MobileProfileScreen({ identifier }: { identifier?: string }) {
           </View>
 
           <View style={styles.actionRow}>
-            {profile?.isOwnProfile ? (
+            {isOwnProfile ? (
               <>
                 <Pressable style={styles.secondaryButton} onPress={() => router.push('/settings')}>
                   <Text style={styles.secondaryButtonLabel}>Profili duzenle</Text>
@@ -190,7 +190,16 @@ export function MobileProfileScreen({ identifier }: { identifier?: string }) {
           <TabButton label="Araclar" active={activeTab === 'vehicles'} onPress={() => setActiveTab('vehicles')} />
         </View>
 
-        {!canViewContent && !profile?.isOwnProfile ? (
+        {isOwnProfile && activeTab === 'vehicles' ? (
+          <View style={styles.inlineToolbar}>
+            <Text style={styles.inlineToolbarTitle}>Arac koleksiyonun</Text>
+            <Pressable style={styles.inlineAction} onPress={() => router.push('/vehicles/create')}>
+              <Text style={styles.inlineActionLabel}>+ Arac ekle</Text>
+            </Pressable>
+          </View>
+        ) : null}
+
+        {!canViewContent && !isOwnProfile ? (
           <View style={styles.privateNotice}>
             <Text style={styles.privateTitle}>Bu hesap gizli</Text>
             <Text style={styles.privateCopy}>Takip etmeden gonderi, ilan ve araclar gorunmez.</Text>
@@ -200,11 +209,11 @@ export function MobileProfileScreen({ identifier }: { identifier?: string }) {
         {loading ? <Text style={styles.helperText}>Profil yukleniyor...</Text> : null}
 
         {!loading && activeTab === 'posts' ? (
-          <View style={styles.postsGrid}>
+          <View style={styles.gridWrap}>
             {posts.map((post) => (
               <Pressable
                 key={post.id}
-                style={[styles.postTile, { width: postTileSize, height: postTileSize }]}
+                style={[styles.squareTile, { width: tileSize, height: tileSize }]}
                 onPress={() => router.push(`/posts/${post.id}`)}
               >
                 {post.thumbnailUrl ? (
@@ -221,26 +230,24 @@ export function MobileProfileScreen({ identifier }: { identifier?: string }) {
         ) : null}
 
         {!loading && activeTab === 'listings' ? (
-          <View style={styles.visualGrid}>
+          <View style={styles.gridWrap}>
             {listings.map((listing) => (
               <Pressable
                 key={listing.listingId}
-                style={[styles.visualTile, { width: visualTileWidth }]}
+                style={[styles.squareTile, { width: tileSize, height: tileSize }]}
                 onPress={() => router.push(`/listings/${listing.listingId}`)}
               >
-                <View style={styles.visualMedia}>
-                  {listing.firstMediaUrl ? (
-                    <Image source={{ uri: listing.firstMediaUrl }} style={styles.tileImage} />
-                  ) : (
-                    <View style={styles.tileFallback}>
-                      <Text style={styles.tileFallbackLabel}>ILAN</Text>
-                    </View>
-                  )}
+                {listing.firstMediaUrl ? (
+                  <Image source={{ uri: listing.firstMediaUrl }} style={styles.tileImage} />
+                ) : (
+                  <View style={styles.tileFallback}>
+                    <Text style={styles.tileFallbackLabel}>ILAN</Text>
+                  </View>
+                )}
+                <View style={styles.tileCaption}>
+                  <Text numberOfLines={1} style={styles.tileTitle}>{listing.brand} {listing.model}</Text>
+                  <Text numberOfLines={1} style={styles.tileMeta}>{listing.price.toLocaleString('tr-TR')} TL</Text>
                 </View>
-                <Text numberOfLines={1} style={styles.visualTitle}>{listing.title}</Text>
-                <Text numberOfLines={1} style={styles.visualMeta}>
-                  {[listing.brand, listing.model, listing.package].filter(Boolean).join(' · ')}
-                </Text>
               </Pressable>
             ))}
             {!listings.length ? <EmptyState text="Bu sekmede gosterilecek ilan yok." /> : null}
@@ -248,48 +255,30 @@ export function MobileProfileScreen({ identifier }: { identifier?: string }) {
         ) : null}
 
         {!loading && activeTab === 'vehicles' ? (
-          <View style={styles.visualGrid}>
+          <View style={styles.gridWrap}>
             {vehicles.map((vehicle) => (
               <Pressable
                 key={vehicle.id}
-                style={[styles.visualTile, { width: visualTileWidth }]}
-                onPress={() => setSelectedVehicle(vehicle)}
+                style={[styles.squareTile, { width: tileSize, height: tileSize }]}
+                onPress={() => router.push(`/vehicles/${vehicle.id}`)}
               >
-                <View style={styles.visualMedia}>
-                  {vehicle.firstMediaUrl ? (
-                    <Image source={{ uri: vehicle.firstMediaUrl }} style={styles.tileImage} />
-                  ) : (
-                    <View style={styles.tileFallback}>
-                      <Text style={styles.tileFallbackLabel}>ARAC</Text>
-                    </View>
-                  )}
+                {vehicle.firstMediaUrl ? (
+                  <Image source={{ uri: vehicle.firstMediaUrl }} style={styles.tileImage} />
+                ) : (
+                  <View style={styles.tileFallback}>
+                    <Text style={styles.tileFallbackLabel}>ARAC</Text>
+                  </View>
+                )}
+                <View style={styles.tileCaption}>
+                  <Text numberOfLines={1} style={styles.tileTitle}>{vehicle.brand} {vehicle.model}</Text>
+                  <Text numberOfLines={1} style={styles.tileMeta}>{vehicle.package ?? vehicle.plateNumberMasked}</Text>
                 </View>
-                <Text numberOfLines={1} style={styles.visualTitle}>{vehicle.brand} {vehicle.model}</Text>
-                <Text numberOfLines={1} style={styles.visualMeta}>{vehicle.package ?? vehicle.plateNumberMasked}</Text>
               </Pressable>
             ))}
             {!vehicles.length ? <EmptyState text="Bu sekmede gosterilecek arac yok." /> : null}
           </View>
         ) : null}
       </ScrollView>
-
-      <Modal visible={Boolean(selectedVehicle)} animationType="slide" transparent onRequestClose={() => setSelectedVehicle(null)}>
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>{selectedVehicle?.brand} {selectedVehicle?.model}</Text>
-            <Text style={styles.modalMeta}>{selectedVehicle?.package ?? 'Paket bilgisi yok'}</Text>
-            <Text style={styles.modalMeta}>{selectedVehicle?.year} · {selectedVehicle?.km.toLocaleString('tr-TR')} km</Text>
-            <Text style={styles.modalMeta}>{selectedVehicle?.fuelType} · {selectedVehicle?.transmissionType}</Text>
-            <Text style={styles.modalMeta}>Plaka: {selectedVehicle?.plateNumberMasked}</Text>
-            {selectedVehicle?.latestObdReport ? (
-              <Text style={styles.modalMeta}>Expertiz skoru: {selectedVehicle.latestObdReport.overallScore ?? '-'} / 100</Text>
-            ) : null}
-            <Pressable style={styles.primaryButton} onPress={() => setSelectedVehicle(null)}>
-              <Text style={styles.primaryButtonLabel}>Kapat</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
     </MobileShell>
   );
 }
@@ -337,8 +326,8 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   avatarShell: {
-    width: 88,
-    height: 88,
+    width: 92,
+    height: 92,
     borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
@@ -470,6 +459,30 @@ const styles = StyleSheet.create({
   tabUnderlineActive: {
     backgroundColor: '#111111',
   },
+  inlineToolbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  inlineToolbarTitle: {
+    color: '#111111',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  inlineAction: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 999,
+    backgroundColor: '#111111',
+  },
+  inlineActionLabel: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '800',
+  },
   privateNotice: {
     marginHorizontal: 18,
     marginTop: 16,
@@ -491,15 +504,16 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingVertical: 24,
   },
-  postsGrid: {
+  gridWrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 2,
     paddingTop: 2,
   },
-  postTile: {
+  squareTile: {
     backgroundColor: '#eef1f4',
     overflow: 'hidden',
+    position: 'relative',
   },
   tileImage: {
     width: '100%',
@@ -517,30 +531,24 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 1.1,
   },
-  visualGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    paddingHorizontal: 14,
-    paddingTop: 14,
+  tileCaption: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    gap: 2,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(17,17,17,0.38)',
   },
-  visualTile: {
-    gap: 8,
-  },
-  visualMedia: {
-    aspectRatio: 1,
-    overflow: 'hidden',
-    borderRadius: 12,
-    backgroundColor: '#eef1f4',
-  },
-  visualTitle: {
-    color: '#111111',
-    fontSize: 13,
+  tileTitle: {
+    color: '#ffffff',
+    fontSize: 11,
     fontWeight: '700',
   },
-  visualMeta: {
-    color: '#6b7280',
-    fontSize: 12,
+  tileMeta: {
+    color: 'rgba(255,255,255,0.84)',
+    fontSize: 10,
   },
   emptyState: {
     width: '100%',
@@ -552,25 +560,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingBottom: 10,
   },
-  modalBackdrop: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(15,23,42,0.2)',
-  },
-  modalCard: {
-    gap: 10,
-    padding: 20,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    backgroundColor: '#ffffff',
-  },
-  modalTitle: {
-    color: '#111111',
-    fontSize: 20,
-    fontWeight: '700',
-  },
-  modalMeta: {
-    color: '#4b5563',
-    lineHeight: 20,
-  },
 });
+

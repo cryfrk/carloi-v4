@@ -1,5 +1,6 @@
-﻿import type { ObdExpertiseReportSummary } from '@carloi-v4/types';
+import type { ObdExpertiseReportSummary } from '@carloi-v4/types';
 import { StyleSheet, Text, View } from 'react-native';
+import { mobileTheme } from '../lib/design-system';
 
 type ExpertiseReportCardProps = {
   report: ObdExpertiseReportSummary | null;
@@ -109,13 +110,13 @@ const styles = StyleSheet.create({
   card: {
     gap: 14,
     padding: 18,
-    borderRadius: 24,
-    backgroundColor: '#0d1d2a',
+    borderRadius: mobileTheme.radius.xl,
+    backgroundColor: mobileTheme.colors.surface,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: mobileTheme.colors.border,
   },
   kicker: {
-    color: '#ffd6c2',
+    color: mobileTheme.colors.textMuted,
     fontSize: 12,
     fontWeight: '800',
     letterSpacing: 1.4,
@@ -131,29 +132,29 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   title: {
-    color: '#f8f2ea',
+    color: mobileTheme.colors.textStrong,
     fontSize: 20,
     fontWeight: '800',
   },
   copy: {
-    color: '#d7e0e8',
+    color: mobileTheme.colors.textMuted,
     lineHeight: 21,
   },
   scorePill: {
     minWidth: 88,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    borderRadius: 20,
+    borderRadius: mobileTheme.radius.lg,
     alignItems: 'center',
-    backgroundColor: 'rgba(239,131,84,0.16)',
+    backgroundColor: mobileTheme.colors.surfaceMuted,
   },
   scoreValue: {
-    color: '#f8f2ea',
+    color: mobileTheme.colors.textStrong,
     fontSize: 28,
     fontWeight: '900',
   },
   scoreLabel: {
-    color: '#ffd6c2',
+    color: mobileTheme.colors.textMuted,
     fontSize: 12,
     fontWeight: '700',
   },
@@ -163,19 +164,19 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   metaText: {
-    color: '#9cb0be',
+    color: mobileTheme.colors.textMuted,
     fontSize: 12,
   },
   listBlock: {
     gap: 8,
   },
   blockTitle: {
-    color: '#f8f2ea',
+    color: mobileTheme.colors.textStrong,
     fontSize: 15,
     fontWeight: '800',
   },
   bulletText: {
-    color: '#d7e0e8',
+    color: mobileTheme.colors.text,
     lineHeight: 20,
   },
   faultRow: {
@@ -183,19 +184,19 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 10,
     padding: 12,
-    borderRadius: 18,
-    backgroundColor: '#102030',
+    borderRadius: mobileTheme.radius.md,
+    backgroundColor: mobileTheme.colors.surfaceMuted,
   },
   faultCode: {
-    color: '#f8f2ea',
+    color: mobileTheme.colors.textStrong,
     fontWeight: '800',
   },
   faultDescription: {
-    color: '#9cb0be',
+    color: mobileTheme.colors.textMuted,
     marginTop: 3,
   },
   faultSeverity: {
-    color: '#ffd6c2',
+    color: mobileTheme.colors.textStrong,
     fontSize: 12,
     fontWeight: '800',
   },
@@ -209,19 +210,19 @@ const styles = StyleSheet.create({
     minWidth: 140,
     gap: 4,
     padding: 12,
-    borderRadius: 18,
-    backgroundColor: '#102030',
+    borderRadius: mobileTheme.radius.md,
+    backgroundColor: mobileTheme.colors.surfaceMuted,
   },
   metricLabel: {
-    color: '#8fa4b4',
+    color: mobileTheme.colors.textMuted,
     fontSize: 12,
   },
   metricValue: {
-    color: '#f8f2ea',
+    color: mobileTheme.colors.textStrong,
     fontWeight: '800',
   },
   disclaimer: {
-    color: '#8fa4b4',
+    color: mobileTheme.colors.textMuted,
     fontSize: 12,
     lineHeight: 18,
   },

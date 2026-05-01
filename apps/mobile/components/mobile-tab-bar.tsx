@@ -1,12 +1,7 @@
-import { Ionicons } from '@expo/vector-icons';
+﻿import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef } from 'react';
-import {
-  Animated,
-  Pressable,
-  StyleSheet,
-  View,
-} from 'react-native';
+import { Animated, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { mobileTheme } from '../lib/design-system';
 
@@ -42,26 +37,26 @@ const NAV_ITEMS: NavItem[] = [
     matchPrefixes: ['/listings'],
   },
   {
+    href: '/explore',
+    label: 'Kesfet',
+    icon: 'play-circle-outline',
+    activeIcon: 'play-circle',
+    matchPrefixes: ['/explore'],
+    special: true,
+  },
+  {
     href: '/loi-ai',
     label: 'Loi AI',
     icon: 'sparkles-outline',
     activeIcon: 'sparkles',
     matchPrefixes: ['/loi-ai'],
-    special: true,
-  },
-  {
-    href: '/garage',
-    label: 'Garajim',
-    icon: 'cube-outline',
-    activeIcon: 'cube',
-    matchPrefixes: ['/garage'],
   },
   {
     href: '/profile',
     label: 'Profil',
     icon: 'person-circle-outline',
     activeIcon: 'person-circle',
-    matchPrefixes: ['/profile', '/settings', '/saved'],
+    matchPrefixes: ['/profile', '/settings', '/saved', '/vehicles'],
     profile: true,
   },
 ];
@@ -82,7 +77,7 @@ function MobileTabBarItem({
   onLongPress?: () => void;
 }) {
   const router = useRouter();
-  const activeScale = item.special ? 1.02 : 1.05;
+  const activeScale = item.special ? 1.04 : 1.05;
   const scale = useRef(new Animated.Value(active ? activeScale : 1)).current;
 
   useEffect(() => {
@@ -110,7 +105,7 @@ function MobileTabBarItem({
       onPress={() => router.push(item.href)}
       onPressIn={() => {
         Animated.spring(scale, {
-          toValue: item.special ? 0.95 : 0.96,
+          toValue: 0.96,
           damping: 18,
           stiffness: 300,
           mass: 0.72,
@@ -140,7 +135,7 @@ function MobileTabBarItem({
           <Ionicons
             color={item.special ? mobileTheme.colors.white : active ? mobileTheme.colors.textStrong : mobileTheme.colors.textMuted}
             name={active ? item.activeIcon : item.icon}
-            size={item.special ? 23 : 21}
+            size={item.special ? 22 : 20}
           />
         )}
       </Animated.View>
@@ -176,51 +171,51 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-between',
-    gap: 14,
-    minHeight: 60,
-    paddingHorizontal: 18,
+    gap: 18,
+    minHeight: 58,
+    paddingHorizontal: 20,
     paddingTop: 6,
     paddingBottom: 8,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: mobileTheme.colors.border,
     borderRadius: 24,
-    backgroundColor: 'rgba(255,255,255,0.9)',
+    backgroundColor: 'rgba(255,255,255,0.92)',
     shadowColor: '#111827',
-    shadowOpacity: 0.05,
-    shadowRadius: 16,
+    shadowOpacity: 0.04,
+    shadowRadius: 14,
     shadowOffset: { width: 0, height: 6 },
-    elevation: 8,
+    elevation: 6,
   },
   itemPressable: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'flex-end',
-    minHeight: 42,
+    minHeight: 40,
   },
   itemPressableSpecial: {
     flex: 0,
-    marginTop: -10,
+    marginTop: -8,
   },
   iconWrap: {
-    width: 40,
-    height: 40,
+    width: 36,
+    height: 36,
     borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
   },
   iconWrapActive: {
-    backgroundColor: '#f3f5f8',
+    backgroundColor: '#f4f6f8',
   },
   iconWrapSpecial: {
-    width: 50,
-    height: 50,
+    width: 44,
+    height: 44,
     borderWidth: 1,
     borderColor: 'rgba(17,17,17,0.08)',
-    backgroundColor: mobileTheme.colors.accent,
+    backgroundColor: mobileTheme.colors.textStrong,
   },
   avatarTab: {
-    width: 26,
-    height: 26,
+    width: 24,
+    height: 24,
     borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
@@ -230,22 +225,23 @@ const styles = StyleSheet.create({
     borderColor: '#111111',
   },
   avatarInner: {
-    width: 20,
-    height: 20,
+    width: 18,
+    height: 18,
     borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: mobileTheme.colors.accentSoft,
   },
   avatarInnerActive: {
-    backgroundColor: mobileTheme.colors.accent,
+    backgroundColor: mobileTheme.colors.textStrong,
   },
   avatarLabel: {
     color: mobileTheme.colors.textStrong,
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '800',
   },
   avatarLabelActive: {
     color: mobileTheme.colors.white,
   },
 });
+

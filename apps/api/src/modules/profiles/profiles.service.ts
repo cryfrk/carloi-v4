@@ -11,7 +11,6 @@ import bcrypt from 'bcryptjs';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { maskPlateNumber } from '../listings/listings.utils';
 import { getUserOwnedMediaAssetMap } from '../media/media-asset.helpers';
-import { serializeObdReport } from '../obd/obd.utils';
 import { ChangePasswordDto, UpdatePrivacyDto, UpdateProfileDto } from './dto/profile-settings.dto';
 
 const gridPostInclude = Prisma.validator<Prisma.PostInclude>()({
@@ -66,17 +65,6 @@ const profileVehicleInclude = Prisma.validator<Prisma.GarageVehicleInclude>()({
         },
       },
       spec: true,
-    },
-  },
-  obdExpertiseReports: {
-    orderBy: [{ reportedAt: 'desc' }, { createdAt: 'desc' }],
-    take: 1,
-    include: {
-      faultCodes: {
-        orderBy: {
-          createdAt: 'asc',
-        },
-      },
     },
   },
 });
@@ -738,7 +726,10 @@ export class ProfilesService {
       enginePowerHp: spec?.enginePowerHp ?? null,
       engineVolumeCc: spec?.engineVolumeCc ?? null,
       tractionType: spec?.tractionType ?? null,
-      latestObdReport: serializeObdReport(vehicle.obdExpertiseReports[0] ?? null),
+      description: vehicle.description ?? null,
+      equipmentNotes: vehicle.equipmentNotes ?? null,
+      showInExplore: vehicle.showInExplore,
+      openToOffers: vehicle.openToOffers,
     };
   }
 
@@ -853,3 +844,5 @@ export class ProfilesService {
     throw error;
   }
 }
+
+

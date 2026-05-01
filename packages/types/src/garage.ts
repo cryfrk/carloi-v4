@@ -38,6 +38,10 @@ export interface CreateGarageVehicleRequest {
   transmissionType: TransmissionType;
   km: number;
   isPublic?: boolean;
+  description?: string;
+  equipmentNotes?: string;
+  showInExplore?: boolean;
+  openToOffers?: boolean;
   media?: GarageVehicleMediaInput[];
 }
 
@@ -57,6 +61,10 @@ export interface UpdateGarageVehicleRequest {
   transmissionType?: TransmissionType;
   km?: number;
   isPublic?: boolean;
+  description?: string;
+  equipmentNotes?: string;
+  showInExplore?: boolean;
+  openToOffers?: boolean;
   media?: GarageVehicleMediaInput[];
 }
 
@@ -71,8 +79,9 @@ export interface GarageVehicleSummary {
   year: number;
   km: number;
   isPublic: boolean;
-  latestObdReportId: string | null;
-  latestObdReportScore: number | null;
+  description: string | null;
+  showInExplore: boolean;
+  openToOffers: boolean;
 }
 
 export interface GarageVehicleSummaryResponse {
@@ -148,6 +157,10 @@ export interface GarageVehicleDetailResponse {
   transmissionType: TransmissionType;
   km: number;
   isPublic: boolean;
+  description: string | null;
+  equipmentNotes: string | null;
+  showInExplore: boolean;
+  openToOffers: boolean;
   createdAt: string;
   spec: {
     bodyType: string | null;
@@ -161,7 +174,6 @@ export interface GarageVehicleDetailResponse {
     interiorSummary: string | null;
     exteriorSummary: string | null;
   } | null;
-  latestObdReport: ObdExpertiseReportSummary | null;
 }
 
 export interface GarageVehicleMutationResponse {

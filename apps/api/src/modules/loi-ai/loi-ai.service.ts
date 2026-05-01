@@ -1,4 +1,4 @@
-ï»¿import {
+import {
   BadRequestException,
   Injectable,
   NotFoundException,
@@ -12,6 +12,7 @@ import {
   ListingStatus,
   Prisma,
 } from '@prisma/client';
+import { isObdEnabled } from '../../common/feature-flags';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { trimNullable } from '../listings/listings.utils';
 import { detectLoiAiTaskKinds, normalizeLoiAiText, type LoiAiTaskKind } from './loi-ai-routing';
@@ -508,7 +509,7 @@ export class LoiAiService {
       usernameMatch ||
       normalized.includes('profil') ||
       normalized.includes('kullanici') ||
-      normalized.includes('kullanÄ±cÄ±')
+      normalized.includes('kullanýcý')
     ) {
       const users = await this.searchUsers(content, usernameMatch);
 
@@ -534,7 +535,7 @@ export class LoiAiService {
 
     if (
       normalized.includes('gonderi') ||
-      normalized.includes('gÃ¶nderi') ||
+      normalized.includes('gönderi') ||
       normalized.includes('post')
     ) {
       const posts = await this.searchPosts(content);
@@ -624,7 +625,7 @@ export class LoiAiService {
 
     return {
       text: [
-        'Secilen ilanlari fiyat, kilometre, yil, paket, kaporta durumu ve expertiz varligina gore karsilastirdim.',
+        'Secilen ilanlari fiyat, kilometre, yil, paket ve kaporta durumu uzerinden karsilastirdim.',
         recommended
           ? `Su an daha dengeli gorunen ilan ${recommended.listingNo}. ${this.buildListingObservation(recommended)}`
           : 'Net bir oneride bulunmak icin daha fazla veri gerekiyor.',
@@ -658,10 +659,14 @@ export class LoiAiService {
           label: 'Kaporta',
           values: listings.map((listing) => this.describeDamageSummary(listing.damageParts)),
         },
-        {
-          label: 'Expertiz',
-          values: listings.map((listing) => (listing.hasExpertiseReport ? 'Var' : 'Yok')),
-        },
+        ...(isObdEnabled()
+          ? [
+              {
+                label: 'Expertiz',
+                values: listings.map((listing) => (listing.hasExpertiseReport ? 'Var' : 'Yok')),
+              },
+            ]
+          : []),
         {
           label: 'Konum',
           values: listings.map(
@@ -690,7 +695,7 @@ export class LoiAiService {
   private buildComparisonReasons(listing: ListingSearchResult) {
     const reasons: string[] = [];
 
-    if (listing.hasExpertiseReport) {
+    if (isObdEnabled() && listing.hasExpertiseReport) {
       reasons.push('Carloi expertiz raporu mevcut.');
     }
     if (!listing.damageParts.some((item) => item.damageStatus !== DamageStatus.NONE)) {
@@ -947,7 +952,7 @@ export class LoiAiService {
 
     const tokens = rawTokens.filter(
       (token) =>
-        !['kullanici', 'kullanÄ±cÄ±', 'profil', 'bul', 'ara', 'goster', 'gÃ¶ster'].includes(
+        !['kullanici', 'kullanýcý', 'profil', 'bul', 'ara', 'goster', 'göster'].includes(
           normalizeLoiAiText(token),
         ),
     );
@@ -1102,7 +1107,7 @@ export class LoiAiService {
       badges: [
         listing.listingNo,
         listing.sellerType,
-        ...(listing.hasExpertiseReport ? ['Expertiz'] : []),
+        ...(isObdEnabled() && listing.hasExpertiseReport ? ['Expertiz'] : []),
       ],
       metadata: {
         listingNo: listing.listingNo,
@@ -1154,7 +1159,9 @@ export class LoiAiService {
       listing.km ? `${listing.km.toLocaleString('tr-TR')} km` : 'Kilometre bilgisi eksik',
       listing.year ? `${listing.year} model` : 'Yil bilgisi eksik',
       this.describeDamageSummary(listing.damageParts),
-      listing.hasExpertiseReport ? 'Carloi expertiz raporu mevcut.' : 'Expertiz raporu eklenmemis.',
+      ...(isObdEnabled()
+        ? [listing.hasExpertiseReport ? 'Carloi expertiz raporu mevcut.' : 'Expertiz raporu eklenmemis.']
+        : []),
     ];
 
     return fragments.join(' ');
@@ -1325,7 +1332,7 @@ export class LoiAiService {
       fuelType: vehicle.vehiclePackage?.spec?.fuelType ?? vehicle.fuelType,
       transmissionType: vehicle.vehiclePackage?.spec?.transmissionType ?? vehicle.transmissionType,
       km: vehicle.km,
-      hasExpertiseReport: vehicle.obdExpertiseReports.length > 0,
+      hasExpertiseReport: isObdEnabled() && vehicle.obdExpertiseReports.length > 0,
       equipmentSummary: vehicle.vehiclePackage?.spec?.equipmentSummary ?? undefined,
     };
   }
@@ -1354,9 +1361,11 @@ export class LoiAiService {
       .filter(Boolean)
       .join(', ');
 
-    const expertiseLine = facts.hasExpertiseReport
-      ? 'Carloi expertiz raporu mevcut.'
-      : 'Expertiz bilgisi belirtilmemistir.';
+    const expertiseLine = isObdEnabled()
+      ? facts.hasExpertiseReport
+        ? 'Carloi expertiz raporu mevcut.'
+        : 'Expertiz bilgisi belirtilmemistir.'
+      : null;
 
     const draftPrice = 'price' in facts ? facts.price : undefined;
     const draftCity = 'city' in facts ? facts.city : undefined;
@@ -1389,3 +1398,5 @@ export class LoiAiService {
     return sections.length > 600 ? `${sections.slice(0, 597)}...` : sections;
   }
 }
+
+

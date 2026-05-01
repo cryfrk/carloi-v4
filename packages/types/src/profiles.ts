@@ -5,7 +5,6 @@ import type {
   SellerType,
   TransmissionType,
 } from './enums';
-import type { ObdExpertiseReportSummary } from './garage';
 
 export interface MutualFollowerSummary {
   id: string;
@@ -99,7 +98,10 @@ export interface ProfileVehicleItem {
   enginePowerHp: number | null;
   engineVolumeCc: number | null;
   tractionType: string | null;
-  latestObdReport: ObdExpertiseReportSummary | null;
+  description: string | null;
+  equipmentNotes: string | null;
+  showInExplore: boolean;
+  openToOffers: boolean;
 }
 
 export interface ProfileVehiclesResponse {

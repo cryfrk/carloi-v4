@@ -1,10 +1,20 @@
-import { GarageDetailClient } from '../../../components/garage-detail-client';
+﻿'use client';
 
-export default async function GarageDetailPage({
-  params,
-}: {
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+
+type PageProps = {
   params: Promise<{ id: string }>;
-}) {
-  const { id } = await params;
-  return <GarageDetailClient vehicleId={id} />;
+};
+
+export default function GarageDetailRedirectPage(props: PageProps) {
+  const router = useRouter();
+
+  useEffect(() => {
+    void props.params.then((resolved) => {
+      router.replace(`/vehicles/${resolved.id}`);
+    });
+  }, [props.params, router]);
+
+  return null;
 }

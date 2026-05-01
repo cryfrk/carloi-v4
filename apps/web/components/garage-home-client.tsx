@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
@@ -154,7 +154,7 @@ export function GarageHomeClient() {
 
       const garageResponse = await webListingsApi.getGarageVehicles(session.accessToken);
       setVehicles(garageResponse.items);
-      setNotice('Arac garaja eklendi. OBD expertiz akisi mobil uygulamada devam eder.');
+      setNotice('Arac garaja eklendi ve garaj listenize eklendi.');
       setForm({
         vehicleType: VehicleType.SEDAN,
         brandText: '',
@@ -210,9 +210,9 @@ export function GarageHomeClient() {
       <section className="feed-hero-card garage-hero-card">
         <div>
           <div className="card-label">Ownership Layer</div>
-          <h2 className="feed-hero-title">Garajim ve Carloi Expertiz</h2>
+          <h2 className="feed-hero-title">Garajim</h2>
           <p className="feed-hero-copy">
-            Araclarinizi garaja ekleyin, ilanlara baglayin ve expertiz akisini mobil uygulamadan yonetin.
+            Araclarinizi garaja ekleyin, ilanlara baglayin ve profil gorunurlugunu buradan yonetin.
           </p>
         </div>
         <div className="garage-stat-grid">
@@ -221,8 +221,8 @@ export function GarageHomeClient() {
             <strong>{vehicles.length}</strong>
           </div>
           <div className="listing-info-row">
-            <span>Expertizli arac</span>
-            <strong>{vehicles.filter((vehicle) => vehicle.latestObdReportId).length}</strong>
+            <span>Profilde gorunen</span>
+            <strong>{vehicles.filter((vehicle) => vehicle.isPublic).length}</strong>
           </div>
         </div>
       </section>
@@ -247,7 +247,7 @@ export function GarageHomeClient() {
       {!loading && vehicles.length === 0 ? (
         <section className="detail-card compact-card">
           <h3 className="card-title">Garajiniz bos</h3>
-          <p className="card-copy">Ilk aracinizi ekleyin. Mock OBD baglantisi ve test akisi mobil uygulamada acilir.</p>
+          <p className="card-copy">Ilk aracinizi ekleyin. Sonra detay ekranindan bilgilerini duzenleyebilirsiniz.</p>
         </section>
       ) : null}
 
@@ -267,9 +267,7 @@ export function GarageHomeClient() {
                         {vehicle.brand} {vehicle.model}
                       </h3>
                     </div>
-                    <span className="toggle-badge">
-                      {vehicle.latestObdReportId ? `Expertiz ${vehicle.latestObdReportScore ?? '-'}` : 'Expertiz yok'}
-                    </span>
+                    <span className="toggle-badge">{vehicle.isPublic ? 'Profilde gorunur' : 'Profilde gizli'}</span>
                   </div>
                   <p className="card-copy">
                     {vehicle.package ? `${vehicle.package} / ` : ''}
@@ -296,7 +294,7 @@ export function GarageHomeClient() {
         <aside className="detail-card create-panel garage-side-panel">
           <div className="card-label">Hizli Garaj Kaydi</div>
           <h3 className="card-title">Yeni arac ekle</h3>
-          <p className="card-copy">Medya URL alanlari fake olabilir. OBD testi sonrasinda expertiz raporunu ilanlara baglayabilirsiniz.</p>
+          <p className="card-copy">Medya URL alanlari fake olabilir. Araci kaydettikten sonra ilana cikarabilirsiniz.</p>
 
           <div className="choice-row garage-choice-wrap">
             {Object.values(VehicleType).map((vehicleType) => (
@@ -429,9 +427,12 @@ export function GarageHomeClient() {
           <button className="primary-link wide-button" onClick={() => void handleCreateVehicle()}>
             {submitting ? 'Garaja ekleniyor...' : 'Araci garaja ekle'}
           </button>
-          <p className="card-copy">OBD baglantisi web tarafinda kapali. Mock cihaz tarama ve 10 dakikalik test mobil uygulamada calisir.</p>
+          <p className="card-copy">Garaj kayitlari burada duzenlenir; detay ekranindan arac bilgilerini yonetebilirsiniz.</p>
         </aside>
       </div>
     </AppShell>
   );
 }
+
+
+

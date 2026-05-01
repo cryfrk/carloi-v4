@@ -1,6 +1,7 @@
 import type { ListingDamagePartInput, VehicleDamagePartName } from '@carloi-v4/types';
 import { DamageStatus, VEHICLE_DAMAGE_PARTS } from '@carloi-v4/types';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { mobileTheme } from '../lib/design-system';
 import { damageStatusLabels } from '../lib/listings-ui';
 
 const statusCycle: DamageStatus[] = [
@@ -30,13 +31,13 @@ function nextStatus(status: DamageStatus) {
 function tone(status: DamageStatus) {
   switch (status) {
     case DamageStatus.NONE:
-      return '#7f90a0';
+      return mobileTheme.colors.textMuted;
     case DamageStatus.PAINTED:
       return '#ffd166';
     case DamageStatus.REPLACED:
       return '#ff7b7b';
     default:
-      return '#7f90a0';
+      return mobileTheme.colors.textMuted;
   }
 }
 
@@ -99,28 +100,28 @@ export function VehicleDamageMap({
 
 const styles = StyleSheet.create({
   wrapper: {
-    gap: 12,
+    gap: mobileTheme.spacing.md,
   },
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: mobileTheme.spacing.sm,
   },
   partCard: {
     width: '48%',
-    minHeight: 86,
+    minHeight: 82,
     padding: 12,
-    borderRadius: 18,
+    borderRadius: mobileTheme.radius.md,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    backgroundColor: '#102030',
+    borderColor: mobileTheme.colors.border,
+    backgroundColor: mobileTheme.colors.surface,
     justifyContent: 'space-between',
   },
   partCardEditable: {
-    backgroundColor: '#122436',
+    backgroundColor: mobileTheme.colors.surfaceMuted,
   },
   partName: {
-    color: '#f8f2ea',
+    color: mobileTheme.colors.textStrong,
     fontSize: 12,
     lineHeight: 18,
     textTransform: 'capitalize',
@@ -129,7 +130,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   note: {
-    color: '#92a6b5',
+    color: mobileTheme.colors.textMuted,
     lineHeight: 20,
   },
 });

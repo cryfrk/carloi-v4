@@ -676,6 +676,10 @@ model GarageVehicle {
   transmissionType    TransmissionType
   km                  Int
   isPublic            Boolean              @default(false)
+  description         String?              @db.VarChar(600)
+  equipmentNotes      String?
+  showInExplore       Boolean              @default(false)
+  openToOffers        Boolean              @default(false)
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
   deletedAt           DateTime?

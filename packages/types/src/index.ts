@@ -15,3 +15,4 @@ export * from './profiles';
 export * from './stories';
 export * from './settings';
 export * from './notifications';
+export * from './explore';

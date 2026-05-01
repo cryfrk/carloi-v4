@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import type { ListingDetailResponse } from '@carloi-v4/types';
 import {
   ActivityIndicator,
+  Dimensions,
   Image,
   Linking,
   Pressable,
@@ -11,13 +12,15 @@ import {
   Text,
   View,
 } from 'react-native';
-import { ExpertiseReportCard } from '../../components/expertise-report-card';
 import { MobileShell } from '../../components/mobile-shell';
 import { VehicleDamageMap } from '../../components/vehicle-damage-map';
 import { useAuth } from '../../context/auth-context';
+import { mobileTheme } from '../../lib/design-system';
 import { mobileListingsApi } from '../../lib/listings-api';
+import { fuelTypeLabels, formatKm, formatPrice, sellerTypeLabels, transmissionLabels } from '../../lib/listings-ui';
 import { mobileMessagesApi } from '../../lib/messages-api';
-import { formatKm, formatPrice, fuelTypeLabels, sellerTypeLabels, transmissionLabels } from '../../lib/listings-ui';
+
+const FULL_BLEED_WIDTH = Dimensions.get('window').width;
 
 export default function ListingDetailScreen() {
   const router = useRouter();
@@ -28,6 +31,7 @@ export default function ListingDetailScreen() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
+  const [activeMediaIndex, setActiveMediaIndex] = useState(0);
 
   const accessToken = session?.accessToken;
 
@@ -113,7 +117,7 @@ export default function ListingDetailScreen() {
   return (
     <MobileShell
       title="Ilan detayi"
-      subtitle="Galeriyi, teknik bilgileri, expertiz raporunu ve iletisim aksiyonlarini ayni akista gor."
+      subtitle="Galeri, aciklama ve teknik bilgiler temiz bir akista bir arada."
     >
       <View style={styles.layout}>
         <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
@@ -129,42 +133,70 @@ export default function ListingDetailScreen() {
           ) : null}
 
           {loading ? (
-            <View style={styles.loadingCard}>
-              <ActivityIndicator color="#ef8354" />
+            <View style={styles.loadingState}>
+              <ActivityIndicator color={mobileTheme.colors.textStrong} />
               <Text style={styles.loadingText}>Ilan detayi getiriliyor...</Text>
             </View>
           ) : null}
 
           {!loading && !listing ? (
-            <View style={styles.loadingCard}>
-              <Text style={styles.loadingText}>Ilan bulunamadi.</Text>
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyTitle}>Ilan bulunamadi</Text>
+              <Text style={styles.emptyCopy}>Bu kayit silinmis olabilir veya size acik olmayabilir.</Text>
             </View>
           ) : null}
 
           {listing ? (
             <>
-              <ScrollView
-                horizontal
-                pagingEnabled
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.gallery}
-              >
-                {listing.media.map((mediaItem) => (
-                  <View key={mediaItem.id} style={styles.galleryFrame}>
-                    {mediaItem.mediaType === 'IMAGE' ? (
-                      <Image source={{ uri: mediaItem.url }} style={styles.galleryImage} resizeMode="cover" />
-                    ) : (
-                      <View style={styles.videoTile}>
-                        <Text style={styles.videoBadge}>VIDEO</Text>
-                        <Text style={styles.videoUrl}>{mediaItem.url}</Text>
-                      </View>
-                    )}
+              <View style={styles.galleryShell}>
+                <ScrollView
+                  horizontal
+                  pagingEnabled
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.gallery}
+                  onMomentumScrollEnd={(event) => {
+                    const nextIndex = Math.round(
+                      event.nativeEvent.contentOffset.x / FULL_BLEED_WIDTH,
+                    );
+                    setActiveMediaIndex(nextIndex);
+                  }}
+                >
+                  {listing.media.map((mediaItem) => (
+                    <View key={mediaItem.id} style={styles.galleryFrame}>
+                      {mediaItem.mediaType === 'IMAGE' ? (
+                        <Image source={{ uri: mediaItem.url }} style={styles.galleryImage} resizeMode="cover" />
+                      ) : (
+                        <View style={styles.videoTile}>
+                          <Text style={styles.videoBadge}>VIDEO</Text>
+                          <Text style={styles.videoUrl}>{mediaItem.url}</Text>
+                        </View>
+                      )}
+                    </View>
+                  ))}
+                </ScrollView>
+                {listing.media.length > 1 ? (
+                  <View style={styles.paginationRow}>
+                    {listing.media.map((mediaItem, index) => (
+                      <View
+                        key={mediaItem.id}
+                        style={[
+                          styles.paginationDot,
+                          index === activeMediaIndex ? styles.paginationDotActive : null,
+                        ]}
+                      />
+                    ))}
                   </View>
-                ))}
-              </ScrollView>
+                ) : null}
+              </View>
 
-              <View style={styles.sectionCard}>
-                <Text style={styles.priceLabel}>{formatPrice(listing.price, listing.currency)}</Text>
+              <View style={styles.section}>
+                <View style={styles.priceRow}>
+                  <Text style={styles.priceLabel}>{formatPrice(listing.price, listing.currency)}</Text>
+                  <Text style={styles.locationLabel}>
+                    {listing.city}
+                    {listing.district ? ` / ${listing.district}` : ''}
+                  </Text>
+                </View>
                 <Text style={styles.title}>{listing.title}</Text>
                 <View style={styles.ownerRow}>
                   <View style={styles.avatar}>
@@ -180,12 +212,12 @@ export default function ListingDetailScreen() {
                 </Text>
                 {listing.description.length > 180 ? (
                   <Pressable onPress={() => setExpanded((current) => !current)}>
-                    <Text style={styles.expandLabel}>{expanded ? 'Kapat' : 'Devamini oku'}</Text>
+                    <Text style={styles.expandLabel}>{expanded ? 'Daha az goster' : 'Devamini oku'}</Text>
                   </Pressable>
                 ) : null}
               </View>
 
-              <View style={styles.sectionCard}>
+              <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Bilgi tablosu</Text>
                 <View style={styles.infoGrid}>
                   {infoRows.map(([label, value]) => (
@@ -197,26 +229,21 @@ export default function ListingDetailScreen() {
                 </View>
               </View>
 
-              <View style={styles.sectionCard}>
+              <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Boya / Degisen</Text>
                 <VehicleDamageMap value={listing.damageParts} />
               </View>
 
-              <View style={styles.sectionCard}>
-                <Text style={styles.sectionTitle}>Donanim ozeti</Text>
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Donanim</Text>
                 <Text style={styles.cardCopy}>{listing.equipmentSummary ?? 'Donanim bilgisi bekleniyor.'}</Text>
-                <Text style={styles.sectionTitle}>Multimedya</Text>
+                <Text style={styles.sectionSubTitle}>Multimedya</Text>
                 <Text style={styles.cardCopy}>{listing.multimediaSummary ?? 'Multimedya bilgisi bekleniyor.'}</Text>
-                <Text style={styles.sectionTitle}>Ic mekan</Text>
+                <Text style={styles.sectionSubTitle}>Ic mekan</Text>
                 <Text style={styles.cardCopy}>{listing.interiorSummary ?? 'Ic mekan bilgisi bekleniyor.'}</Text>
-                <Text style={styles.sectionTitle}>Dis mekan</Text>
+                <Text style={styles.sectionSubTitle}>Dis mekan</Text>
                 <Text style={styles.cardCopy}>{listing.exteriorSummary ?? 'Dis mekan bilgisi bekleniyor.'}</Text>
               </View>
-
-              <ExpertiseReportCard
-                report={listing.expertiseReport}
-                vehicleLabel={`${listing.vehicle.brand ?? '-'} ${listing.vehicle.model ?? '-'}${listing.vehicle.package ? ` / ${listing.vehicle.package}` : ''}`}
-              />
             </>
           ) : null}
         </ScrollView>
@@ -235,10 +262,7 @@ export default function ListingDetailScreen() {
             >
               <Text style={styles.actionPrimaryLabel}>Ara</Text>
             </Pressable>
-            <Pressable
-              onPress={() => void startListingConversation()}
-              style={styles.actionSecondary}
-            >
+            <Pressable onPress={() => void startListingConversation()} style={styles.actionSecondary}>
               <Text style={styles.actionSecondaryLabel}>Mesaj</Text>
             </Pressable>
             <Pressable onPress={() => void toggleSave()} style={styles.actionSecondary}>
@@ -259,42 +283,70 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    gap: 14,
-    paddingBottom: 10,
+    gap: mobileTheme.spacing.md,
+    paddingBottom: 12,
   },
   banner: {
-    borderRadius: 18,
+    borderRadius: mobileTheme.radius.md,
     padding: 14,
+    borderWidth: 1,
   },
   noticeBanner: {
-    backgroundColor: 'rgba(255,255,255,0.07)',
+    borderColor: mobileTheme.colors.border,
+    backgroundColor: mobileTheme.colors.surface,
   },
   errorBanner: {
-    backgroundColor: 'rgba(216,82,82,0.2)',
+    borderColor: '#fecaca',
+    backgroundColor: '#fff5f5',
   },
   bannerText: {
-    color: '#f8f2ea',
+    color: mobileTheme.colors.text,
     lineHeight: 20,
   },
-  loadingCard: {
-    paddingVertical: 28,
+  loadingState: {
+    paddingVertical: 40,
     alignItems: 'center',
     gap: 10,
-    borderRadius: 24,
-    backgroundColor: '#0e1f2d',
+    borderRadius: mobileTheme.radius.lg,
+    backgroundColor: mobileTheme.colors.surface,
+    borderWidth: 1,
+    borderColor: mobileTheme.colors.border,
   },
   loadingText: {
-    color: '#d1dce5',
+    color: mobileTheme.colors.textMuted,
   },
-  gallery: {
+  emptyState: {
+    gap: 6,
+    paddingVertical: 40,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    borderRadius: mobileTheme.radius.lg,
+    backgroundColor: mobileTheme.colors.surface,
+    borderWidth: 1,
+    borderColor: mobileTheme.colors.border,
+  },
+  emptyTitle: {
+    color: mobileTheme.colors.textStrong,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  emptyCopy: {
+    color: mobileTheme.colors.textMuted,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  galleryShell: {
+    marginHorizontal: -mobileTheme.spacing.md,
     gap: 10,
   },
+  gallery: {
+    gap: 0,
+  },
   galleryFrame: {
-    width: 320,
-    aspectRatio: 1,
-    borderRadius: 24,
+    width: FULL_BLEED_WIDTH,
+    aspectRatio: 0.92,
     overflow: 'hidden',
-    backgroundColor: '#08131d',
+    backgroundColor: mobileTheme.colors.surfaceMuted,
   },
   galleryImage: {
     width: '100%',
@@ -305,41 +357,65 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     gap: 10,
-    padding: 18,
-    backgroundColor: '#122334',
+    padding: 22,
+    backgroundColor: mobileTheme.colors.surfaceMuted,
   },
   videoBadge: {
-    color: '#ffd6c2',
+    color: mobileTheme.colors.textStrong,
     fontWeight: '800',
     letterSpacing: 1.4,
   },
   videoUrl: {
-    color: '#d6e0e8',
+    color: mobileTheme.colors.textMuted,
     textAlign: 'center',
   },
-  sectionCard: {
+  paginationRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 6,
+  },
+  paginationDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 999,
+    backgroundColor: '#d0d5dd',
+  },
+  paginationDotActive: {
+    width: 16,
+    backgroundColor: mobileTheme.colors.textStrong,
+  },
+  section: {
     gap: 10,
-    padding: 18,
-    borderRadius: 24,
-    backgroundColor: '#0d1d2a',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    paddingHorizontal: 2,
+  },
+  priceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
   },
   priceLabel: {
-    color: '#ffd6c2',
-    fontSize: 14,
+    color: mobileTheme.colors.textStrong,
+    fontSize: 22,
     fontWeight: '800',
+    lineHeight: 28,
+  },
+  locationLabel: {
+    color: mobileTheme.colors.textMuted,
+    fontSize: 12,
   },
   title: {
-    color: '#f8f2ea',
+    color: mobileTheme.colors.textStrong,
     fontSize: 24,
-    fontWeight: '800',
+    fontWeight: '700',
     lineHeight: 30,
   },
   ownerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    paddingTop: 4,
   },
   avatar: {
     width: 42,
@@ -347,72 +423,91 @@ const styles = StyleSheet.create({
     borderRadius: 21,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#ef8354',
+    backgroundColor: mobileTheme.colors.surfaceMuted,
+    borderWidth: 1,
+    borderColor: mobileTheme.colors.border,
   },
   avatarLabel: {
-    color: '#08131d',
+    color: mobileTheme.colors.textStrong,
     fontWeight: '800',
     fontSize: 18,
   },
   ownerCopy: {
-    gap: 4,
+    gap: 3,
   },
   ownerName: {
-    color: '#f8f2ea',
-    fontWeight: '800',
+    color: mobileTheme.colors.textStrong,
+    fontWeight: '700',
   },
   ownerMeta: {
-    color: '#9cb0be',
+    color: mobileTheme.colors.textMuted,
+    fontSize: 12,
   },
   description: {
-    color: '#d7e0e8',
+    color: mobileTheme.colors.text,
     lineHeight: 22,
   },
   expandLabel: {
-    color: '#ffd6c2',
-    fontWeight: '800',
-  },
-  sectionTitle: {
-    color: '#f8f2ea',
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  infoGrid: {
-    gap: 10,
-  },
-  infoRow: {
-    padding: 12,
-    borderRadius: 18,
-    backgroundColor: '#102030',
-    gap: 4,
-  },
-  infoLabel: {
-    color: '#8fa4b4',
-    fontSize: 12,
-  },
-  infoValue: {
-    color: '#f8f2ea',
+    color: mobileTheme.colors.textStrong,
     fontWeight: '700',
   },
+  sectionTitle: {
+    color: mobileTheme.colors.textStrong,
+    fontSize: 17,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  sectionSubTitle: {
+    color: mobileTheme.colors.textStrong,
+    fontSize: 14,
+    fontWeight: '700',
+    marginTop: 4,
+  },
+  infoGrid: {
+    borderTopWidth: 1,
+    borderTopColor: mobileTheme.colors.border,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 14,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: mobileTheme.colors.border,
+  },
+  infoLabel: {
+    color: mobileTheme.colors.textMuted,
+    fontSize: 13,
+  },
+  infoValue: {
+    flexShrink: 1,
+    color: mobileTheme.colors.textStrong,
+    fontWeight: '600',
+    textAlign: 'right',
+  },
   cardCopy: {
-    color: '#d6e0e8',
+    color: mobileTheme.colors.text,
     lineHeight: 21,
   },
   actionBar: {
     flexDirection: 'row',
     gap: 10,
-    paddingTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: mobileTheme.colors.border,
+    backgroundColor: mobileTheme.colors.background,
   },
   actionPrimary: {
-    flex: 1.2,
+    flex: 1.15,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 14,
-    borderRadius: 20,
-    backgroundColor: '#ef8354',
+    borderRadius: mobileTheme.radius.lg,
+    backgroundColor: mobileTheme.colors.textStrong,
   },
   actionPrimaryLabel: {
-    color: '#08131d',
+    color: mobileTheme.colors.white,
     fontWeight: '800',
   },
   actionSecondary: {
@@ -420,12 +515,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 14,
-    borderRadius: 20,
-    backgroundColor: '#142636',
+    borderRadius: mobileTheme.radius.lg,
+    backgroundColor: mobileTheme.colors.surface,
+    borderWidth: 1,
+    borderColor: mobileTheme.colors.border,
   },
   actionSecondaryLabel: {
-    color: '#ffd6c2',
-    fontWeight: '800',
+    color: mobileTheme.colors.textStrong,
+    fontWeight: '700',
   },
 });
 

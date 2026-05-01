@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -6,7 +6,6 @@ import Link from 'next/link';
 import type { CreateGarageVehicleRequest, GarageVehicleDetailResponse } from '@carloi-v4/types';
 import { FuelType, TransmissionType, VehicleType } from '@carloi-v4/types';
 import { AppShell } from './app-shell';
-import { ExpertiseReportSection } from './expertise-report-section';
 import { useAuth } from './auth-provider';
 import { webListingsApi } from '../lib/listings-api';
 import { fuelTypeLabels, transmissionLabels } from '../lib/listings-ui';
@@ -267,18 +266,13 @@ export function GarageDetailClient({ vehicleId }: { vehicleId: string }) {
                 <p className="card-copy">{vehicle.spec.exteriorSummary ?? 'Dis mekan ozeti bekleniyor.'}</p>
               </article>
             ) : null}
-
-            <ExpertiseReportSection
-              report={vehicle.latestObdReport}
-              vehicleLabel={`${vehicle.brand} ${vehicle.model}${vehicle.package ? ` / ${vehicle.package}` : ''}`}
-            />
           </section>
 
           <aside className="detail-card garage-side-panel">
             <div className="card-label">Web Durumu</div>
-            <h3 className="card-title">OBD baglantisi mobil uygulamada yapilir</h3>
+            <h3 className="card-title">Arac bilgileri burada yonetilir</h3>
             <p className="card-copy">
-              Bu ekranda raporu okuyabilir ve arac kaydini guncelleyebilirsiniz. Mock cihaz tarama, baglanti ve 10 dakikalik test akisi mobil uygulamada calisir.
+              Bu ekranda arac kaydini guncelleyebilir, galeriyi duzenleyebilir ve profil gorunurlugunu degistirebilirsiniz.
             </p>
 
             <div className="choice-row garage-choice-wrap">
@@ -365,3 +359,4 @@ export function GarageDetailClient({ vehicleId }: { vehicleId: string }) {
     </AppShell>
   );
 }
+

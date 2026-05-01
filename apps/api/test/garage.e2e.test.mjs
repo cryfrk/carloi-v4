@@ -14,8 +14,6 @@ process.env.BREVO_EMAIL_SENDER = process.env.BREVO_EMAIL_SENDER || 'no-reply@exa
 const require = createRequire(import.meta.url);
 const {
   FuelType,
-  ObdAdapterType,
-  ObdFaultSeverity,
   PrismaClient,
   SellerType,
   TransmissionType,
@@ -99,7 +97,7 @@ async function login(baseUrl, identifier, password) {
   return response.payload.accessToken;
 }
 
-test('garage vehicles, visibility, obd report, and listing expertiz flow work end to end', async () => {
+test('garage vehicles, visibility, and listing flow stay stable while obd is disabled', async () => {
   const app = await createApp();
   await app.listen(0);
 
@@ -243,14 +241,13 @@ test('garage vehicles, visibility, obd report, and listing expertiz flow work en
       method: 'POST',
       token: ownerToken,
       body: {
-        adapterType: ObdAdapterType.MOCK,
+        adapterType: 'MOCK',
         deviceName: 'ELM327 Mock',
         deviceId: `mock-${suffix}`,
         password: '1234',
       },
     });
-    assert.equal(connectResponse.status, 201);
-    assert.equal(connectResponse.payload.connection.connectionStatus, 'CONNECTED');
+    assert.equal(connectResponse.status, 404);
 
     const reportResponse = await requestJson(baseUrl, `/garage/vehicles/${vehicleId}/obd/report`, {
       method: 'POST',
@@ -293,33 +290,27 @@ test('garage vehicles, visibility, obd report, and listing expertiz flow work en
           {
             code: 'P0420',
             description: 'Catalyst efficiency below threshold',
-            severity: ObdFaultSeverity.WARNING,
+            severity: 'WARNING',
           },
         ],
       },
     });
 
-    assert.equal(reportResponse.status, 201);
-    assert.equal(reportResponse.payload.success, true);
-    assert.equal(typeof reportResponse.payload.report.overallScore, 'number');
-    assert.ok(reportResponse.payload.report.summary);
-
-    const reportId = reportResponse.payload.report.id;
+    assert.equal(reportResponse.status, 404);
 
     const detailAfterReportResponse = await requestJson(baseUrl, `/garage/vehicles/${vehicleId}`, {
       token: ownerToken,
     });
     assert.equal(detailAfterReportResponse.status, 200);
-    assert.equal(detailAfterReportResponse.payload.latestObdReport.id, reportId);
+    assert.equal(detailAfterReportResponse.payload.latestObdReport, null);
 
     const listingResponse = await requestJson(baseUrl, '/listings', {
       method: 'POST',
       token: ownerToken,
       body: {
         garageVehicleId: vehicleId,
-        obdExpertiseReportId: reportId,
         title: 'Sahibinden temiz Egea',
-        description: 'Bakimli ve expertiz raporlu arac.',
+        description: 'Bakimli ve duzenli kullanilmis arac.',
         price: 845000,
         currency: 'TRY',
         city: 'Istanbul',
@@ -351,8 +342,8 @@ test('garage vehicles, visibility, obd report, and listing expertiz flow work en
       { token: ownerToken },
     );
     assert.equal(listingDetailResponse.status, 200);
-    assert.equal(listingDetailResponse.payload.expertiseReport.id, reportId);
-    assert.equal(listingDetailResponse.payload.expertiseSummary, reportResponse.payload.report.summary);
+    assert.equal(listingDetailResponse.payload.expertiseReport, null);
+    assert.equal(listingDetailResponse.payload.expertiseSummary, null);
   } finally {
     if (listingIds.length > 0) {
       await prisma.listing.deleteMany({

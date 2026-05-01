@@ -5,7 +5,6 @@
   SellerType,
   TransmissionType,
 } from './enums';
-import type { ObdExpertiseReportSummary } from './garage';
 
 export const VEHICLE_DAMAGE_PARTS = [
   'on tampon',
@@ -45,7 +44,6 @@ export interface ListingLicenseInfoInput {
 
 export interface CreateListingRequest {
   garageVehicleId: string;
-  obdExpertiseReportId?: string;
   title: string;
   description: string;
   price: number;
@@ -62,7 +60,6 @@ export interface CreateListingRequest {
 }
 
 export interface UpdateListingRequest {
-  obdExpertiseReportId?: string;
   title?: string;
   description?: string;
   price?: number;
@@ -185,8 +182,6 @@ export interface ListingDetailResponse {
   multimediaSummary: string | null;
   interiorSummary: string | null;
   exteriorSummary: string | null;
-  expertiseSummary: string | null;
-  expertiseReport: ObdExpertiseReportSummary | null;
   contactActions: {
     canCall: boolean;
     canMessage: boolean;

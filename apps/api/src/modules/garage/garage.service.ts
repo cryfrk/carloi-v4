@@ -1,4 +1,4 @@
-﻿import {
+import {
   BadRequestException,
   Injectable,
   NotFoundException,
@@ -12,7 +12,6 @@ import {
   toTitleCase,
   trimNullable,
 } from '../listings/listings.utils';
-import { serializeObdReport } from '../obd/obd.utils';
 import { CreateGarageVehicleDto } from './dto/create-garage-vehicle.dto';
 import { UpdateGarageVehicleDto } from './dto/update-garage-vehicle.dto';
 
@@ -38,14 +37,6 @@ const garageVehicleSummaryInclude = Prisma.validator<Prisma.GarageVehicleInclude
     },
     take: 1,
   },
-  obdExpertiseReports: {
-    orderBy: [{ reportedAt: 'desc' }, { createdAt: 'desc' }],
-    take: 1,
-    select: {
-      id: true,
-      overallScore: true,
-    },
-  },
 });
 
 const garageVehicleDetailInclude = Prisma.validator<Prisma.GarageVehicleInclude>()({
@@ -70,16 +61,35 @@ const garageVehicleDetailInclude = Prisma.validator<Prisma.GarageVehicleInclude>
       sortOrder: 'asc',
     },
   },
-  obdExpertiseReports: {
-    orderBy: [{ reportedAt: 'desc' }, { createdAt: 'desc' }],
-    take: 1,
+});
+
+const garageVehicleExploreInclude = Prisma.validator<Prisma.GarageVehicleInclude>()({
+  owner: {
     include: {
-      faultCodes: {
-        orderBy: {
-          createdAt: 'asc',
+      profile: true,
+    },
+  },
+  vehiclePackage: {
+    include: {
+      model: {
+        include: {
+          brand: true,
         },
       },
+      spec: true,
     },
+  },
+  brand: true,
+  model: {
+    include: {
+      brand: true,
+    },
+  },
+  media: {
+    orderBy: {
+      sortOrder: 'asc',
+    },
+    take: 6,
   },
 });
 
@@ -89,6 +99,10 @@ type GarageVehicleSummaryRecord = Prisma.GarageVehicleGetPayload<{
 
 type GarageVehicleDetailRecord = Prisma.GarageVehicleGetPayload<{
   include: typeof garageVehicleDetailInclude;
+}>;
+
+type GarageVehicleExploreRecord = Prisma.GarageVehicleGetPayload<{
+  include: typeof garageVehicleExploreInclude;
 }>;
 
 @Injectable()
@@ -163,6 +177,10 @@ export class GarageService {
           transmissionType: dto.transmissionType,
           km: dto.km,
           isPublic: dto.isPublic ?? false,
+          description: trimNullable(dto.description),
+          equipmentNotes: trimNullable(dto.equipmentNotes),
+          showInExplore: dto.showInExplore ?? false,
+          openToOffers: dto.openToOffers ?? false,
           media: {
             create: (dto.media ?? []).map((item, index) => {
               const asset = item.mediaAssetId ? assetMap.get(item.mediaAssetId) : null;
@@ -253,6 +271,12 @@ export class GarageService {
             transmissionType: dto.transmissionType,
             km: dto.km,
             isPublic: dto.isPublic,
+            description:
+              dto.description !== undefined ? trimNullable(dto.description) : undefined,
+            equipmentNotes:
+              dto.equipmentNotes !== undefined ? trimNullable(dto.equipmentNotes) : undefined,
+            showInExplore: dto.showInExplore,
+            openToOffers: dto.openToOffers,
             media: dto.media
               ? {
                   create: dto.media.map((item, index) => {
@@ -359,6 +383,54 @@ export class GarageService {
     };
   }
 
+  async getExploreFeed() {
+    const vehicles = await this.prisma.garageVehicle.findMany({
+      where: {
+        deletedAt: null,
+        isPublic: true,
+        showInExplore: true,
+        owner: {
+          deletedAt: null,
+          isActive: true,
+          profile: {
+            showGarageVehicles: true,
+          },
+        },
+      },
+      include: garageVehicleExploreInclude,
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: 24,
+    });
+
+    return {
+      items: vehicles.map((vehicle) => this.serializeExploreVehicle(vehicle)),
+      nextCursor: null,
+    };
+  }
+
+  async getVehicleShowcase(viewerId: string, vehicleId: string) {
+    const vehicle = await this.prisma.garageVehicle.findFirst({
+      where: {
+        id: vehicleId,
+        deletedAt: null,
+      },
+      include: garageVehicleExploreInclude,
+    });
+
+    if (!vehicle) {
+      throw new NotFoundException('Arac bulunamadi.');
+    }
+
+    const isOwner = vehicle.ownerId === viewerId;
+    const isVisibleToViewer = isOwner || (vehicle.isPublic && vehicle.owner.profile?.showGarageVehicles !== false);
+
+    if (!isVisibleToViewer) {
+      throw new NotFoundException('Arac bulunamadi.');
+    }
+
+    return this.serializeExploreVehicle(vehicle);
+  }
+
   private async resolveCatalogInput(input: {
     brandId?: string;
     modelId?: string;
@@ -463,8 +535,9 @@ export class GarageService {
       year: vehicle.year,
       km: vehicle.km,
       isPublic: vehicle.isPublic,
-      latestObdReportId: vehicle.obdExpertiseReports[0]?.id ?? null,
-      latestObdReportScore: vehicle.obdExpertiseReports[0]?.overallScore ?? null,
+      description: vehicle.description ?? null,
+      showInExplore: vehicle.showInExplore,
+      openToOffers: vehicle.openToOffers,
     };
   }
 
@@ -497,6 +570,11 @@ export class GarageService {
       transmissionType: vehicle.transmissionType,
       km: vehicle.km,
       isPublic: vehicle.isPublic,
+      description: vehicle.description ?? null,
+      equipmentNotes: vehicle.equipmentNotes ?? null,
+      showInExplore: vehicle.showInExplore,
+      openToOffers: vehicle.openToOffers,
+      latestObdReport: null,
       createdAt: vehicle.createdAt.toISOString(),
       spec: spec
         ? {
@@ -512,7 +590,45 @@ export class GarageService {
             exteriorSummary: spec.exteriorSummary ?? null,
           }
         : null,
-      latestObdReport: serializeObdReport(vehicle.obdExpertiseReports[0] ?? null),
+    };
+  }
+
+  private serializeExploreVehicle(vehicle: GarageVehicleExploreRecord) {
+    const spec = vehicle.vehiclePackage?.spec ?? null;
+
+    return {
+      id: vehicle.id,
+      firstMediaUrl: vehicle.media[0]?.url ?? null,
+      media: vehicle.media.map((mediaItem) => ({
+        id: mediaItem.id,
+        url: mediaItem.url,
+        mediaType: mediaItem.mediaType,
+        sortOrder: mediaItem.sortOrder,
+      })),
+      owner: {
+        id: vehicle.owner.id,
+        username: vehicle.owner.username,
+        fullName: `${vehicle.owner.firstName} ${vehicle.owner.lastName}`.trim(),
+        avatarUrl: vehicle.owner.profile?.avatarUrl ?? null,
+        blueVerified: vehicle.owner.profile?.blueVerified ?? false,
+        goldVerified: vehicle.owner.profile?.goldVerified ?? false,
+      },
+      city: vehicle.owner.profile?.locationText ?? null,
+      brand:
+        vehicle.vehiclePackage?.model.brand.name ??
+        vehicle.model?.brand.name ??
+        vehicle.brand?.name ??
+        vehicle.brandText,
+      model: vehicle.vehiclePackage?.model.name ?? vehicle.model?.name ?? vehicle.modelText,
+      package: vehicle.vehiclePackage?.name ?? vehicle.packageText ?? null,
+      year: vehicle.year,
+      fuelType: vehicle.fuelType,
+      transmissionType: vehicle.transmissionType,
+      km: vehicle.km,
+      bodyType: spec?.bodyType ?? null,
+      description: vehicle.description ?? null,
+      equipmentNotes: vehicle.equipmentNotes ?? null,
+      openToOffers: vehicle.openToOffers,
     };
   }
 
@@ -531,3 +647,5 @@ export class GarageService {
     }
   }
 }
+
+

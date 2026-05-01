@@ -1,5 +1,14 @@
-﻿import { GarageHomeClient } from '../../components/garage-home-client';
+﻿'use client';
 
-export default function GaragePage() {
-  return <GarageHomeClient />;
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+
+export default function GarageRedirectPage() {
+  const router = useRouter();
+
+  useEffect(() => {
+    router.replace('/profile?tab=vehicles');
+  }, [router]);
+
+  return null;
 }
