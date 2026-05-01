@@ -1,4 +1,4 @@
-import type { FuelType, MediaType, TransmissionType } from './enums';
+import type { FuelType, MediaType, TransmissionType, VehicleEquipmentCategory } from './enums';
 
 export interface ExploreVehicleOwner {
   id: string;
@@ -30,8 +30,28 @@ export interface ExploreVehicleItem {
   transmissionType: TransmissionType;
   km: number;
   bodyType: string | null;
+  engineVolume: number | null;
+  enginePower: number | null;
   description: string | null;
   equipmentNotes: string | null;
+  standardEquipment: Array<{
+    category: VehicleEquipmentCategory;
+    items: Array<{
+      id: string;
+      name: string;
+      isStandard: boolean;
+      manualReviewNeeded: boolean;
+    }>;
+  }>;
+  extraEquipment: Array<{
+    id: string;
+    category: VehicleEquipmentCategory | null;
+    name: string;
+    note: string | null;
+    isStandard: false;
+    manualReviewNeeded: false;
+  }>;
+  showInExplore: boolean;
   openToOffers: boolean;
 }
 

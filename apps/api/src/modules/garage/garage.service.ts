@@ -1,9 +1,5 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
-import { MediaAssetPurpose, Prisma } from '@prisma/client';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { MediaAssetPurpose, Prisma, VehicleEquipmentCategory } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { getUserOwnedMediaAssetMap } from '../media/media-asset.helpers';
 import {
@@ -53,13 +49,28 @@ const garageVehicleDetailInclude = Prisma.validator<Prisma.GarageVehicleInclude>
           brand: true,
         },
       },
-      spec: true,
+      equipmentItems: {
+        where: {
+          isActive: true,
+        },
+        orderBy: [{ category: 'asc' }, { name: 'asc' }],
+      },
+      specs: {
+        where: {
+          isActive: true,
+        },
+        orderBy: [{ manualReviewNeeded: 'asc' }, { year: 'desc' }, { enginePowerHp: 'desc' }],
+        take: 1,
+      },
     },
   },
   media: {
     orderBy: {
       sortOrder: 'asc',
     },
+  },
+  extraEquipment: {
+    orderBy: [{ category: 'asc' }, { createdAt: 'asc' }],
   },
 });
 
@@ -76,7 +87,19 @@ const garageVehicleExploreInclude = Prisma.validator<Prisma.GarageVehicleInclude
           brand: true,
         },
       },
-      spec: true,
+      equipmentItems: {
+        where: {
+          isActive: true,
+        },
+        orderBy: [{ category: 'asc' }, { name: 'asc' }],
+      },
+      specs: {
+        where: {
+          isActive: true,
+        },
+        orderBy: [{ manualReviewNeeded: 'asc' }, { year: 'desc' }, { enginePowerHp: 'desc' }],
+        take: 1,
+      },
     },
   },
   brand: true,
@@ -90,6 +113,9 @@ const garageVehicleExploreInclude = Prisma.validator<Prisma.GarageVehicleInclude
       sortOrder: 'asc',
     },
     take: 6,
+  },
+  extraEquipment: {
+    orderBy: [{ category: 'asc' }, { createdAt: 'asc' }],
   },
 });
 
@@ -179,6 +205,9 @@ export class GarageService {
           isPublic: dto.isPublic ?? false,
           description: trimNullable(dto.description),
           equipmentNotes: trimNullable(dto.equipmentNotes),
+          extraEquipment: {
+            create: this.normalizeExtraEquipment(dto.extraEquipment),
+          },
           showInExplore: dto.showInExplore ?? false,
           openToOffers: dto.openToOffers ?? false,
           media: {
@@ -251,6 +280,14 @@ export class GarageService {
           });
         }
 
+        if (dto.extraEquipment) {
+          await tx.userVehicleExtraEquipment.deleteMany({
+            where: {
+              vehicleId,
+            },
+          });
+        }
+
         return tx.garageVehicle.update({
           where: {
             id: vehicleId,
@@ -275,6 +312,12 @@ export class GarageService {
               dto.description !== undefined ? trimNullable(dto.description) : undefined,
             equipmentNotes:
               dto.equipmentNotes !== undefined ? trimNullable(dto.equipmentNotes) : undefined,
+            extraEquipment:
+              dto.extraEquipment !== undefined
+                ? {
+                    create: this.normalizeExtraEquipment(dto.extraEquipment),
+                  }
+                : undefined,
             showInExplore: dto.showInExplore,
             openToOffers: dto.openToOffers,
             media: dto.media
@@ -530,8 +573,8 @@ export class GarageService {
         vehicle.brandText,
       model: vehicle.vehiclePackage?.model.name ?? vehicle.model?.name ?? vehicle.modelText,
       package: vehicle.vehiclePackage?.name ?? vehicle.packageText ?? null,
-      plateNumberMasked: maskPlateNumber(vehicle.plateNumber),
-      plateMasked: maskPlateNumber(vehicle.plateNumber),
+      plateNumberMasked: vehicle.plateNumber ? maskPlateNumber(vehicle.plateNumber) : 'Plaka girilmedi',
+      plateMasked: vehicle.plateNumber ? maskPlateNumber(vehicle.plateNumber) : 'Plaka girilmedi',
       year: vehicle.year,
       km: vehicle.km,
       isPublic: vehicle.isPublic,
@@ -542,7 +585,7 @@ export class GarageService {
   }
 
   private serializeVehicleDetail(vehicle: GarageVehicleDetailRecord) {
-    const spec = vehicle.vehiclePackage?.spec ?? null;
+    const spec = this.selectPrimaryPackageSpec(vehicle.vehiclePackage?.specs);
 
     return {
       id: vehicle.id,
@@ -564,7 +607,7 @@ export class GarageService {
       package: vehicle.vehiclePackage?.name ?? vehicle.packageText ?? null,
       vehicleType: vehicle.vehicleType,
       year: vehicle.year,
-      plateNumberMasked: maskPlateNumber(vehicle.plateNumber),
+      plateNumberMasked: vehicle.plateNumber ? maskPlateNumber(vehicle.plateNumber) : 'Plaka girilmedi',
       color: vehicle.color ?? null,
       fuelType: vehicle.fuelType,
       transmissionType: vehicle.transmissionType,
@@ -572,13 +615,18 @@ export class GarageService {
       isPublic: vehicle.isPublic,
       description: vehicle.description ?? null,
       equipmentNotes: vehicle.equipmentNotes ?? null,
+      standardEquipment: this.groupStandardEquipment(vehicle.vehiclePackage?.equipmentItems),
+      extraEquipment: this.serializeExtraEquipment(vehicle.extraEquipment),
       showInExplore: vehicle.showInExplore,
       openToOffers: vehicle.openToOffers,
       latestObdReport: null,
       createdAt: vehicle.createdAt.toISOString(),
       spec: spec
         ? {
+            year: spec.year ?? null,
             bodyType: spec.bodyType ?? null,
+            engineVolume: spec.engineVolume ?? spec.engineVolumeCc ?? null,
+            enginePower: spec.enginePower ?? spec.enginePowerHp ?? null,
             engineVolumeCc: spec.engineVolumeCc ?? null,
             enginePowerHp: spec.enginePowerHp ?? null,
             tractionType: spec.tractionType ?? null,
@@ -594,7 +642,7 @@ export class GarageService {
   }
 
   private serializeExploreVehicle(vehicle: GarageVehicleExploreRecord) {
-    const spec = vehicle.vehiclePackage?.spec ?? null;
+    const spec = this.selectPrimaryPackageSpec(vehicle.vehiclePackage?.specs);
 
     return {
       id: vehicle.id,
@@ -626,14 +674,135 @@ export class GarageService {
       transmissionType: vehicle.transmissionType,
       km: vehicle.km,
       bodyType: spec?.bodyType ?? null,
+      engineVolume: spec?.engineVolume ?? spec?.engineVolumeCc ?? null,
+      enginePower: spec?.enginePower ?? spec?.enginePowerHp ?? null,
       description: vehicle.description ?? null,
       equipmentNotes: vehicle.equipmentNotes ?? null,
+      standardEquipment: this.groupStandardEquipment(vehicle.vehiclePackage?.equipmentItems),
+      extraEquipment: this.serializeExtraEquipment(vehicle.extraEquipment),
+      showInExplore: vehicle.showInExplore,
       openToOffers: vehicle.openToOffers,
     };
   }
 
-  private normalizePlate(plateNumber: string) {
-    return plateNumber.trim().toLocaleUpperCase('tr-TR');
+  private normalizePlate(plateNumber?: string | null) {
+    const normalized = trimNullable(plateNumber);
+    return normalized ? normalized.toLocaleUpperCase('tr-TR') : null;
+  }
+
+  private selectPrimaryPackageSpec<T>(specs: T[] | null | undefined) {
+    return specs?.[0] ?? null;
+  }
+
+  private groupStandardEquipment(
+    items:
+      | Array<{
+          id: string;
+          category: VehicleEquipmentCategory;
+          name: string;
+          isStandard: boolean;
+          manualReviewNeeded: boolean;
+          source: string;
+        }>
+      | null
+      | undefined,
+  ) {
+    if (!items?.length) {
+      return [];
+    }
+
+    const categoryOrder: VehicleEquipmentCategory[] = [
+      VehicleEquipmentCategory.SAFETY,
+      VehicleEquipmentCategory.COMFORT,
+      VehicleEquipmentCategory.MULTIMEDIA,
+      VehicleEquipmentCategory.EXTERIOR,
+      VehicleEquipmentCategory.INTERIOR,
+      VehicleEquipmentCategory.DRIVING_ASSIST,
+      VehicleEquipmentCategory.LIGHTING,
+      VehicleEquipmentCategory.OTHER,
+    ];
+
+    return categoryOrder
+      .map((category) => ({
+        category,
+        items: items
+          .filter((item) => item.category === category)
+          .map((item) => ({
+            id: item.id,
+            name: item.name,
+            isStandard: item.isStandard,
+            manualReviewNeeded: item.manualReviewNeeded,
+            source: item.source ?? null,
+          })),
+      }))
+      .filter((group) => group.items.length > 0);
+  }
+
+  private serializeExtraEquipment(
+    items:
+      | Array<{
+          id: string;
+          category: VehicleEquipmentCategory | null;
+          name: string;
+          note: string | null;
+        }>
+      | null
+      | undefined,
+  ) {
+    return (items ?? []).map((item) => ({
+      id: item.id,
+      category: item.category ?? null,
+      name: item.name,
+      note: item.note ?? null,
+      isStandard: false as const,
+      manualReviewNeeded: false as const,
+    }));
+  }
+
+  private normalizeExtraEquipment(
+    items:
+      | Array<{
+          category?: VehicleEquipmentCategory;
+          name: string;
+          note?: string;
+        }>
+      | null
+      | undefined,
+  ): Array<{
+    category: VehicleEquipmentCategory | null;
+    name: string;
+    note: string | null;
+  }> {
+    const seen = new Set<string>();
+
+    return (items ?? [])
+      .map((item) => ({
+        category: item.category ?? null,
+        name: trimNullable(item.name),
+        note: trimNullable(item.note),
+      }))
+      .filter(
+        (
+          item,
+        ): item is {
+          category: VehicleEquipmentCategory | null;
+          name: string;
+          note: string | null;
+        } => Boolean(item.name),
+      )
+      .filter((item) => {
+        const key = `${item.category ?? 'OTHER'}::${item.name.toLocaleLowerCase('tr-TR')}`;
+        if (seen.has(key)) {
+          return false;
+        }
+        seen.add(key);
+        return true;
+      })
+      .map((item) => ({
+        category: item.category,
+        name: item.name,
+        note: item.note,
+      }));
   }
 
   private handleUniqueConstraint(error: unknown) {

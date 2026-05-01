@@ -138,14 +138,38 @@ async function createCatalogChain({ brandName, brandSlug, modelName, modelSlug, 
       },
     });
 
+    const engineName =
+      item.spec.engineName ??
+      ([item.spec.engineVolumeCc ? `${(item.spec.engineVolumeCc / 1000).toFixed(1)}L` : null, item.spec.enginePowerHp ? `${item.spec.enginePowerHp} HP` : null]
+        .filter(Boolean)
+        .join(' ') || 'Fixture Spec');
+
     await prisma.vehicleSpec.upsert({
       where: {
-        packageId: vehiclePackage.id,
+        packageId_year_engineName_fuelType_transmissionType: {
+          packageId: vehiclePackage.id,
+          year: item.spec.year ?? 2026,
+          engineName,
+          fuelType: item.spec.fuelType ?? 'UNKNOWN',
+          transmissionType: item.spec.transmissionType ?? 'UNKNOWN',
+        },
       },
-      update: item.spec,
+      update: {
+        ...item.spec,
+        year: item.spec.year ?? 2026,
+        engineName,
+        source: 'CARLOI_PHASE3_SEED',
+        manualReviewNeeded: false,
+        isActive: true,
+      },
       create: {
         packageId: vehiclePackage.id,
         ...item.spec,
+        year: item.spec.year ?? 2026,
+        engineName,
+        source: 'CARLOI_PHASE3_SEED',
+        manualReviewNeeded: false,
+        isActive: true,
       },
     });
 

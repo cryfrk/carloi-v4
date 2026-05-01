@@ -5509,6 +5509,38 @@ textarea {
   position: relative;
 }
 
+.profile-add-tile {
+  display: grid;
+  place-items: center;
+  gap: 6px;
+  background: #f5f7fa;
+  color: #111827;
+}
+
+.profile-add-plus {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.tile-top-badges {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  z-index: 1;
+}
+
+.tile-top-badges small {
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(17, 17, 17, 0.56);
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+}
+
 .tile-overlay-copy {
   position: absolute;
   inset-inline: 0;
@@ -5536,6 +5568,22 @@ textarea {
 .vehicle-wizard-shell {
   display: grid;
   gap: 18px;
+}
+
+.vehicle-wizard-progress {
+  display: grid;
+  gap: 4px;
+}
+
+.vehicle-wizard-progress strong {
+  color: #111827;
+  font-size: 0.9rem;
+}
+
+.vehicle-wizard-progress span,
+.vehicle-context-label {
+  color: #667085;
+  line-height: 1.6;
 }
 
 .explore-head h1,
@@ -5771,18 +5819,73 @@ textarea {
 .vehicle-option-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.vehicle-brand-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
   gap: 12px;
+}
+
+.vehicle-brand-card {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  min-height: 138px;
+  padding: 18px 14px;
+  border-radius: 22px;
+  border: 1px solid #edf1f4;
+  background: #f8fafc;
+  transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+}
+
+.vehicle-brand-card.active {
+  border-color: #111111;
+  background: #f3f4f6;
+}
+
+.vehicle-brand-mark {
+  width: 58px;
+  height: 58px;
+  border-radius: 999px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+.vehicle-brand-mark img {
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 999px;
+}
+
+.vehicle-brand-mark span {
+  color: #111827;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.vehicle-brand-card strong {
+  color: #111827;
+  text-align: center;
 }
 
 .vehicle-option-card,
 .vehicle-toggle-row {
   display: grid;
-  gap: 6px;
-  padding: 18px;
-  border-radius: 20px;
+  gap: 8px;
+  min-height: 124px;
+  padding: 20px;
+  border-radius: 22px;
   background: #f8fafc;
   border: 1px solid #edf1f4;
   text-align: left;
+  align-content: center;
+  transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
 }
 
 .vehicle-option-card.active,
@@ -5791,6 +5894,13 @@ textarea {
 .vehicle-inline-tile.active {
   border-color: #111111;
   background: #f3f4f6;
+}
+
+.vehicle-option-card:hover,
+.vehicle-chip:hover,
+.vehicle-inline-tile:hover,
+.vehicle-toggle-row:hover {
+  transform: translateY(-1px);
 }
 
 .vehicle-option-card strong,
@@ -5811,17 +5921,25 @@ textarea {
 .vehicle-chip-grid,
 .vehicle-inline-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(156px, 1fr));
+  gap: 12px;
+}
+
+.vehicle-chip-grid.compact {
+  grid-template-columns: repeat(auto-fill, minmax(108px, 1fr));
 }
 
 .vehicle-chip {
-  border-radius: 16px;
-  padding: 12px 14px;
+  min-height: 60px;
+  border-radius: 18px;
+  padding: 14px 16px;
   background: #f8fafc;
   border: 1px solid #edf1f4;
   color: var(--strong-text);
   font-weight: 700;
+  line-height: 1.35;
+  text-align: center;
+  transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
 }
 
 .vehicle-stack {
@@ -5832,7 +5950,7 @@ textarea {
 .vehicle-summary-card {
   display: grid;
   gap: 4px;
-  padding: 16px;
+  padding: 18px;
   border-radius: 20px;
   background: #f8fafc;
   border: 1px solid #edf1f4;
@@ -5878,10 +5996,63 @@ textarea {
   margin-top: 8px;
 }
 
+.messages-onboarding-card {
+  display: grid;
+  gap: 10px;
+  padding: 18px;
+  border-radius: 22px;
+  background: #fbfcfd;
+  border: 1px solid #edf1f4;
+}
+
+.messages-onboarding-card strong,
+.messages-empty-chat strong {
+  color: var(--strong-text);
+  font-size: 15px;
+}
+
+.messages-onboarding-card span,
+.messages-empty-chat span {
+  color: var(--muted-text);
+  line-height: 1.7;
+}
+
+.messages-onboarding-card.compact {
+  padding: 16px;
+}
+
+.messages-empty-chat {
+  margin: auto;
+  width: min(440px, 100%);
+  display: grid;
+  gap: 12px;
+  text-align: center;
+  padding: 28px 24px;
+  border-radius: 28px;
+  background: #fbfcfd;
+  border: 1px solid #edf1f4;
+}
+
+.messages-empty-chat .gate-actions {
+  justify-content: center;
+}
+
+.ai-suggestion-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+
 @media (max-width: 960px) {
   .vehicle-option-grid,
   .vehicle-spec-grid {
     grid-template-columns: 1fr;
+  }
+
+  .vehicle-brand-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .explore-overlay {

@@ -1,4 +1,10 @@
-import { DamageStatus, FuelType, SellerType, TransmissionType } from '@carloi-v4/types';
+import {
+  DamageStatus,
+  FuelType,
+  SellerType,
+  TransmissionType,
+  VehicleEquipmentCategory,
+} from '@carloi-v4/types';
 
 export const fuelTypeLabels: Record<FuelType, string> = {
   [FuelType.GASOLINE]: 'Benzin',
@@ -7,6 +13,7 @@ export const fuelTypeLabels: Record<FuelType, string> = {
   [FuelType.ELECTRIC]: 'Elektrik',
   [FuelType.LPG]: 'LPG',
   [FuelType.OTHER]: 'Diger',
+  [FuelType.UNKNOWN]: 'Bilinmiyor',
 };
 
 export const transmissionLabels: Record<TransmissionType, string> = {
@@ -14,6 +21,7 @@ export const transmissionLabels: Record<TransmissionType, string> = {
   [TransmissionType.AUTOMATIC]: 'Otomatik',
   [TransmissionType.SEMI_AUTOMATIC]: 'Yari otomatik',
   [TransmissionType.CVT]: 'CVT',
+  [TransmissionType.UNKNOWN]: 'Bilinmiyor',
 };
 
 export const sellerTypeLabels: Record<SellerType, string> = {
@@ -25,6 +33,17 @@ export const damageStatusLabels: Record<DamageStatus, string> = {
   [DamageStatus.NONE]: 'Temiz',
   [DamageStatus.PAINTED]: 'Boyali',
   [DamageStatus.REPLACED]: 'Degisen',
+};
+
+export const vehicleEquipmentCategoryLabels: Record<VehicleEquipmentCategory, string> = {
+  [VehicleEquipmentCategory.SAFETY]: 'Guvenlik',
+  [VehicleEquipmentCategory.COMFORT]: 'Konfor',
+  [VehicleEquipmentCategory.MULTIMEDIA]: 'Multimedya',
+  [VehicleEquipmentCategory.EXTERIOR]: 'Dis Donanim',
+  [VehicleEquipmentCategory.INTERIOR]: 'Ic Donanim',
+  [VehicleEquipmentCategory.DRIVING_ASSIST]: 'Surus Destek',
+  [VehicleEquipmentCategory.LIGHTING]: 'Aydinlatma',
+  [VehicleEquipmentCategory.OTHER]: 'Diger',
 };
 
 export function formatPrice(value: number, currency = 'TRY') {

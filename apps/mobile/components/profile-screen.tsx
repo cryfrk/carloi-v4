@@ -256,6 +256,15 @@ export function MobileProfileScreen({
 
         {!loading && activeTab === 'vehicles' ? (
           <View style={styles.gridWrap}>
+            {isOwnProfile ? (
+              <Pressable
+                style={[styles.squareTile, styles.addTile, { width: tileSize, height: tileSize }]}
+                onPress={() => router.push('/vehicles/create')}
+              >
+                <Text style={styles.addTilePlus}>+</Text>
+                <Text style={styles.addTileLabel}>Arac ekle</Text>
+              </Pressable>
+            ) : null}
             {vehicles.map((vehicle) => (
               <Pressable
                 key={vehicle.id}
@@ -272,6 +281,10 @@ export function MobileProfileScreen({
                 <View style={styles.tileCaption}>
                   <Text numberOfLines={1} style={styles.tileTitle}>{vehicle.brand} {vehicle.model}</Text>
                   <Text numberOfLines={1} style={styles.tileMeta}>{vehicle.package ?? vehicle.plateNumberMasked}</Text>
+                </View>
+                <View style={styles.tileBadgeRail}>
+                  {vehicle.showInExplore ? <View style={styles.tileBadge}><Text style={styles.tileBadgeLabel}>Kesfet</Text></View> : null}
+                  {vehicle.openToOffers ? <View style={styles.tileBadge}><Text style={styles.tileBadgeLabel}>Teklife acik</Text></View> : null}
                 </View>
               </Pressable>
             ))}
@@ -549,6 +562,40 @@ const styles = StyleSheet.create({
   tileMeta: {
     color: 'rgba(255,255,255,0.84)',
     fontSize: 10,
+  },
+  tileBadgeRail: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    gap: 6,
+  },
+  tileBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 999,
+    backgroundColor: 'rgba(17,17,17,0.56)',
+  },
+  tileBadgeLabel: {
+    color: '#ffffff',
+    fontSize: 9,
+    fontWeight: '700',
+  },
+  addTile: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#f5f7fa',
+  },
+  addTilePlus: {
+    color: '#111111',
+    fontSize: 28,
+    fontWeight: '500',
+  },
+  addTileLabel: {
+    color: '#6b7280',
+    fontSize: 12,
+    fontWeight: '700',
   },
   emptyState: {
     width: '100%',

@@ -34,7 +34,13 @@ const obdVehicleCatalogInclude = Prisma.validator<Prisma.GarageVehicleInclude>()
           brand: true,
         },
       },
-      spec: true,
+      specs: {
+        where: {
+          isActive: true,
+        },
+        orderBy: [{ manualReviewNeeded: 'asc' }, { year: 'desc' }, { enginePowerHp: 'desc' }],
+        take: 1,
+      },
     },
   },
   obdConnections: {
@@ -156,9 +162,9 @@ export class ObdService {
             brand,
             model,
             package: packageName,
-            bodyType: vehicle.vehiclePackage?.spec?.bodyType ?? null,
-            engineVolumeCc: vehicle.vehiclePackage?.spec?.engineVolumeCc ?? null,
-            enginePowerHp: vehicle.vehiclePackage?.spec?.enginePowerHp ?? null,
+      bodyType: vehicle.vehiclePackage?.specs?.[0]?.bodyType ?? null,
+      engineVolumeCc: vehicle.vehiclePackage?.specs?.[0]?.engineVolumeCc ?? null,
+      enginePowerHp: vehicle.vehiclePackage?.specs?.[0]?.enginePowerHp ?? null,
           },
           rawMetricsSummary,
           generatedWith: 'mock-obd-analysis',
@@ -370,7 +376,7 @@ export class ObdService {
       vehicle.vehiclePackage?.model.brand.name ?? vehicle.model?.brand.name ?? vehicle.brand?.name ?? vehicle.brandText;
     const model = vehicle.vehiclePackage?.model.name ?? vehicle.model?.name ?? vehicle.modelText;
     const packageName = vehicle.vehiclePackage?.name ?? vehicle.packageText ?? null;
-    const spec = vehicle.vehiclePackage?.spec ?? null;
+    const spec = vehicle.vehiclePackage?.specs?.[0] ?? null;
 
     if (spec?.bodyType || spec?.enginePowerHp || spec?.engineVolumeCc) {
       normalFindings.push(

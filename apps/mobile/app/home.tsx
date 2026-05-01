@@ -18,6 +18,7 @@ import {
 import { MobileShell } from '../components/mobile-shell';
 import { StoryStrip } from '../components/story-strip';
 import { useAuth } from '../context/auth-context';
+import { demoFeedComments, demoFeedPosts } from '../lib/demo-content';
 import { mobileSocialApi } from '../lib/social-api';
 
 type CommentsState = Record<string, SocialComment[]>;
@@ -78,6 +79,8 @@ export default function HomeScreen() {
   const mediaWidth = useMemo(() => Math.max(320, width), [width]);
   const maybeAccessToken = session?.accessToken;
   const maybeCurrentUserId = session?.user.id;
+  const demoMode = !loading && feed.length === 0;
+  const displayedFeed = demoMode ? demoFeedPosts : feed;
 
   useEffect(() => {
     if (maybeAccessToken) {
@@ -135,6 +138,15 @@ export default function HomeScreen() {
   }
 
   async function handleLike(post: FeedPost) {
+    if (post.id.startsWith('demo-')) {
+      patchPost(post.id, (current) => ({
+        ...current,
+        isLiked: !current.isLiked,
+        likeCount: current.likeCount + (current.isLiked ? -1 : 1),
+      }));
+      return;
+    }
+
     try {
       const response = post.isLiked
         ? await mobileSocialApi.unlikePost(accessToken, post.id)
@@ -153,6 +165,15 @@ export default function HomeScreen() {
   }
 
   async function handleSave(post: FeedPost) {
+    if (post.id.startsWith('demo-')) {
+      patchPost(post.id, (current) => ({
+        ...current,
+        isSaved: !current.isSaved,
+      }));
+      setNotice('Bu ornek gonderi kaydedildi. Gercek gonderiler profilindeki Kaydedilenler alaninda toplanir.');
+      return;
+    }
+
     try {
       const response = post.isSaved
         ? await mobileSocialApi.unsavePost(accessToken, post.id)
@@ -171,6 +192,11 @@ export default function HomeScreen() {
   }
 
   async function handleFollow(post: FeedPost) {
+    if (post.id.startsWith('demo-')) {
+      setNotice('Bu bir onboarding hesabi. Gercek akista kullanicilari takip edip feedini sekillendirebilirsin.');
+      return;
+    }
+
     try {
       const response = post.owner.isFollowing
         ? await mobileSocialApi.unfollowUser(accessToken, post.owner.id)
@@ -189,6 +215,14 @@ export default function HomeScreen() {
       ...current,
       [postId]: !isOpen,
     }));
+
+    if (!isOpen && postId.startsWith('demo-')) {
+      setCommentsByPost((current) => ({
+        ...current,
+        [postId]: current[postId] ?? demoFeedComments[postId] ?? [],
+      }));
+      return;
+    }
 
     if (!isOpen && !commentsByPost[postId] && !loadingComments[postId]) {
       setLoadingComments((current) => ({ ...current, [postId]: true }));
@@ -211,6 +245,38 @@ export default function HomeScreen() {
       return;
     }
 
+    if (postId.startsWith('demo-')) {
+      const newComment: SocialComment = {
+        id: `demo-local-${Date.now()}`,
+        body,
+        createdAt: new Date().toISOString(),
+        parentCommentId: null,
+        owner: {
+          id: currentUserId,
+          username: session?.user.username ?? 'siz',
+          firstName: session?.user.firstName ?? 'Siz',
+          lastName: session?.user.lastName ?? '',
+          avatarUrl: null,
+          blueVerified: false,
+          goldVerified: false,
+        },
+        likeCount: 0,
+        replyCount: 0,
+        isLiked: false,
+      };
+      setCommentDrafts((current) => ({ ...current, [postId]: '' }));
+      setCommentsByPost((current) => ({
+        ...current,
+        [postId]: [newComment, ...(current[postId] ?? demoFeedComments[postId] ?? [])],
+      }));
+      setOpenComments((current) => ({ ...current, [postId]: true }));
+      patchPost(postId, (current) => ({
+        ...current,
+        commentCount: current.commentCount + 1,
+      }));
+      return;
+    }
+
     try {
       const response = await mobileSocialApi.createComment(accessToken, postId, { body });
       setCommentDrafts((current) => ({ ...current, [postId]: '' }));
@@ -229,6 +295,18 @@ export default function HomeScreen() {
   }
 
   async function handleCommentLike(postId: string, comment: SocialComment) {
+    if (postId.startsWith('demo-')) {
+      setCommentsByPost((current) => ({
+        ...current,
+        [postId]: (current[postId] ?? []).map((item) =>
+          item.id === comment.id
+            ? { ...item, isLiked: !item.isLiked, likeCount: item.likeCount + (item.isLiked ? -1 : 1) }
+            : item,
+        ),
+      }));
+      return;
+    }
+
     try {
       const response = comment.isLiked
         ? await mobileSocialApi.unlikeComment(accessToken, postId, comment.id)
@@ -432,7 +510,7 @@ export default function HomeScreen() {
       onActionPress={() => router.push('/create-post')}
     >
       <FlatList
-        data={loading ? [] : feed}
+        data={loading ? [] : displayedFeed}
         keyExtractor={(item) => item.id}
         renderItem={renderPost}
         style={styles.list}
@@ -475,10 +553,15 @@ export default function HomeScreen() {
             />
 
             {loading ? <FeedSkeleton mediaWidth={mediaWidth} /> : null}
-            {!loading && feed.length === 0 ? (
+            {demoMode ? (
               <View style={styles.emptyState}>
-                <Text style={styles.emptyTitle}>Heniz post yok</Text>
-                <Text style={styles.emptyCopy}>Ilk postu paylas ve akisi baslat.</Text>
+                <Text style={styles.emptyTitle}>Carloi'ye hos geldin</Text>
+                <Text style={styles.emptyCopy}>
+                  Ilk gonderini olustur, aracini profile ekle ve akisin nasil gorunecegini ornek postlarla kesfet.
+                </Text>
+                <Pressable style={styles.onboardingButton} onPress={() => router.push('/create')}>
+                  <Text style={styles.onboardingButtonLabel}>Ilk paylasimini baslat</Text>
+                </Pressable>
               </View>
             ) : null}
           </View>
@@ -603,6 +686,21 @@ const styles = StyleSheet.create({
   },
   emptyCopy: {
     color: '#6b7280',
+    lineHeight: 20,
+    textAlign: 'center',
+  },
+  onboardingButton: {
+    marginTop: 8,
+    minHeight: 42,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 18,
+    backgroundColor: '#111111',
+  },
+  onboardingButtonLabel: {
+    color: '#ffffff',
+    fontWeight: '700',
   },
   postCard: {
     gap: 8,

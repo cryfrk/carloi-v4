@@ -10,6 +10,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { demoStoryGroups } from '../lib/demo-content';
 import { mobileSocialApi } from '../lib/social-api';
 
 type StoryStripProps = {
@@ -50,11 +51,12 @@ export function StoryStrip({
   const [viewerItems, setViewerItems] = useState<StoryViewerItem[]>([]);
   const [loadingViewers, setLoadingViewers] = useState(false);
 
-  const activeGroup = activeGroupIndex !== null ? groups[activeGroupIndex] ?? null : null;
+  const displayedGroups = !loading && groups.length === 0 ? demoStoryGroups : groups;
+  const activeGroup = activeGroupIndex !== null ? displayedGroups[activeGroupIndex] ?? null : null;
   const activeStory = activeGroup?.stories[activeStoryIndex] ?? null;
   const hasOwnStories = useMemo(
-    () => groups.some((group) => group.owner.id === currentUserId && group.stories.length > 0),
-    [currentUserId, groups],
+    () => displayedGroups.some((group) => group.owner.id === currentUserId && group.stories.length > 0),
+    [currentUserId, displayedGroups],
   );
 
   useEffect(() => {
@@ -78,7 +80,9 @@ export function StoryStrip({
       return;
     }
 
-    void mobileSocialApi.viewStory(accessToken, activeStory.id).catch(() => undefined);
+    if (!activeStory.id.startsWith('demo-')) {
+      void mobileSocialApi.viewStory(accessToken, activeStory.id).catch(() => undefined);
+    }
     setGroups((current) =>
       current.map((group) => ({
         ...group,
@@ -134,7 +138,7 @@ export function StoryStrip({
     }
 
     const nextGroupIndex = (activeGroupIndex ?? 0) + direction;
-    const nextGroup = groups[nextGroupIndex];
+    const nextGroup = displayedGroups[nextGroupIndex];
 
     if (!nextGroup) {
       closeViewer();
@@ -198,7 +202,7 @@ export function StoryStrip({
           {loading ? (
             <StorySkeleton />
           ) : (
-            groups.map((group, index) => (
+            displayedGroups.map((group, index) => (
               <Pressable key={group.owner.id} onPress={() => openGroup(index)} style={styles.storyBubble}>
                 <View style={[styles.storyRing, group.hasUnviewed ? styles.storyRingActive : styles.storyRingViewed]}>
                   {group.owner.avatarUrl ? (

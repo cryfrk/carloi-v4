@@ -95,6 +95,8 @@ export interface ProfileVehicleItem {
   fuelType: FuelType;
   transmissionType: TransmissionType;
   bodyType: string | null;
+  engineVolume: number | null;
+  enginePower: number | null;
   enginePowerHp: number | null;
   engineVolumeCc: number | null;
   tractionType: string | null;

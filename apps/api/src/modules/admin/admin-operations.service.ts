@@ -40,7 +40,7 @@ export class AdminOperationsService {
           { key: 'pending_insurance_requests', label: 'Bekleyen sigorta talepleri', value: pendingRequests },
           { key: 'offer_ready_requests', label: 'Teklif hazir talepler', value: offerReady },
           { key: 'payment_waiting_requests', label: 'Odeme bekleyenler', value: paymentWaiting },
-          { key: 'policy_upload_waiting_requests', label: 'Police yüklenecekler', value: policyWaiting },
+          { key: 'policy_upload_waiting_requests', label: 'Police yï¿½klenecekler', value: policyWaiting },
         ],
       };
     }
@@ -392,7 +392,7 @@ export class AdminOperationsService {
       throw new NotFoundException('Ilan bulunamadi.');
     }
 
-    const spec = listing.garageVehicle?.vehiclePackage?.spec ?? null;
+    const spec = listing.garageVehicle?.vehiclePackage?.specs?.[0] ?? null;
 
     return {
       id: listing.id,
@@ -775,7 +775,13 @@ const adminListingDetailInclude = {
               brand: true,
             },
           },
-          spec: true,
+          specs: {
+            where: {
+              isActive: true,
+            },
+            orderBy: [{ manualReviewNeeded: 'asc' }, { year: 'desc' }, { enginePowerHp: 'desc' }],
+            take: 1,
+          },
         },
       },
     },

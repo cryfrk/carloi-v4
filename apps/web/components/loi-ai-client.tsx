@@ -12,6 +12,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppShell } from './app-shell';
 import { useAuth } from './auth-provider';
+import { loiAiSuggestedPrompts } from '../lib/demo-content';
 import { webLoiAiApi } from '../lib/loi-ai-api';
 
 const ATTACHMENT_SEQUENCE: AttachmentType[] = [
@@ -232,6 +233,10 @@ export function LoiAiClient() {
     router.push(card.appRoute);
   }
 
+  function applyPrompt(prompt: string) {
+    setInput(prompt);
+  }
+
   return (
     <AppShell>
       <section className="ai-layout">
@@ -289,6 +294,13 @@ export function LoiAiClient() {
               <div className="ai-empty">
                 <h3>Hazirim</h3>
                 <p>Bir fiyat hedefi, ilan no, marka-model veya teknik soru ile baslayabiliriz.</p>
+                <div className="ai-suggestion-row">
+                  {loiAiSuggestedPrompts.map((prompt) => (
+                    <button key={prompt} type="button" className="ai-chip button-reset" onClick={() => applyPrompt(prompt)}>
+                      {prompt}
+                    </button>
+                  ))}
+                </div>
               </div>
             ) : null}
             {activeConversation?.messages.map((message) => (

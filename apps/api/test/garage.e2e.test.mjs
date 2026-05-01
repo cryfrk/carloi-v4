@@ -167,6 +167,13 @@ test('garage vehicles, visibility, and listing flow stay stable while obd is dis
         transmissionType: TransmissionType.MANUAL,
         km: 84200,
         isPublic: true,
+        extraEquipment: [
+          {
+            category: 'COMFORT',
+            name: 'Sunroof',
+            note: 'Sonradan eklendi',
+          },
+        ],
         media: [
           { url: 'https://example.com/garage-owner-1.jpg' },
           { url: 'https://example.com/garage-owner-2.jpg' },
@@ -195,6 +202,8 @@ test('garage vehicles, visibility, and listing flow stay stable while obd is dis
     assert.equal(detailResponse.status, 200);
     assert.equal(detailResponse.payload.id, vehicleId);
     assert.equal(detailResponse.payload.media.length, 2);
+    assert.equal(detailResponse.payload.extraEquipment.length, 1);
+    assert.equal(detailResponse.payload.extraEquipment[0].name, 'Sunroof');
     assert.equal(detailResponse.payload.latestObdReport, null);
 
     const updateForbiddenResponse = await requestJson(baseUrl, `/garage/vehicles/${vehicleId}`, {

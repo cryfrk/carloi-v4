@@ -168,13 +168,23 @@ export default function MessagesScreen() {
         </View>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.friendRow}>
-          {friends.map((friend) => (
-            <Pressable key={friend.id} style={styles.friendItem} onPress={() => void openDirect(friend.id)}>
-              <Avatar username={friend.username} />
-              <Text numberOfLines={1} style={styles.friendName}>@{friend.username}</Text>
-              <Text style={styles.friendMeta}>{friend.isMutualFollow ? 'Karsilikli' : 'Takip'}</Text>
-            </Pressable>
-          ))}
+          {friends.length > 0 ? (
+            friends.map((friend) => (
+              <Pressable key={friend.id} style={styles.friendItem} onPress={() => void openDirect(friend.id)}>
+                <Avatar username={friend.username} />
+                <Text numberOfLines={1} style={styles.friendName}>@{friend.username}</Text>
+                <Text style={styles.friendMeta}>{friend.isMutualFollow ? 'Karsilikli' : 'Takip'}</Text>
+              </Pressable>
+            ))
+          ) : (
+            <View style={styles.friendOnboarding}>
+              <Text style={styles.friendOnboardingTitle}>Ilan sahipleriyle konusmaya basla</Text>
+              <Text style={styles.friendOnboardingCopy}>Bir araci begendiginde Mesaj butonuyla direct sohbet hemen burada acilir.</Text>
+              <Pressable style={styles.friendOnboardingButton} onPress={() => router.push('/listings')}>
+                <Text style={styles.friendOnboardingButtonLabel}>Ilanlara git</Text>
+              </Pressable>
+            </View>
+          )}
         </ScrollView>
 
         {searchResults.length > 0 ? (
@@ -227,7 +237,11 @@ export default function MessagesScreen() {
           </View>
         ) : threads.length === 0 ? (
           <View style={styles.emptyState}>
-            <Text style={styles.helperText}>Henuz sohbet yok.</Text>
+            <Text style={styles.emptyTitle}>Henuz sohbet yok</Text>
+            <Text style={styles.helperText}>Ilan sahipleriyle konusmaya basla veya arama alanindan bir kullanici sec.</Text>
+            <Pressable style={styles.friendOnboardingButton} onPress={() => router.push('/listings')}>
+              <Text style={styles.friendOnboardingButtonLabel}>Ilan akisini ac</Text>
+            </Pressable>
           </View>
         ) : (
           <FlatList
@@ -314,6 +328,35 @@ const styles = StyleSheet.create({
   friendMeta: {
     color: '#6b7280',
     fontSize: 11,
+  },
+  friendOnboarding: {
+    width: 240,
+    paddingVertical: 8,
+    gap: 8,
+  },
+  friendOnboardingTitle: {
+    color: '#111111',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  friendOnboardingCopy: {
+    color: '#6b7280',
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  friendOnboardingButton: {
+    alignSelf: 'flex-start',
+    minHeight: 38,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#111111',
+  },
+  friendOnboardingButtonLabel: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '700',
   },
   searchResults: {
     paddingHorizontal: 14,
@@ -402,6 +445,13 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 10,
+    paddingHorizontal: 24,
+  },
+  emptyTitle: {
+    color: '#111111',
+    fontSize: 18,
+    fontWeight: '700',
   },
   listContent: {
     paddingHorizontal: 14,

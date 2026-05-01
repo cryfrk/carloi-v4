@@ -13,6 +13,7 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
+import { GarageVehicleExtraEquipmentDto } from './garage-extra-equipment.dto';
 import { GarageVehicleMediaDto } from './garage-media.dto';
 
 export class CreateGarageVehicleDto {
@@ -51,8 +52,9 @@ export class CreateGarageVehicleDto {
   @Max(2100)
   year!: number;
 
+  @IsOptional()
   @IsString()
-  plateNumber!: string;
+  plateNumber?: string;
 
   @IsOptional()
   @IsString()
@@ -82,6 +84,13 @@ export class CreateGarageVehicleDto {
   @IsString()
   @MaxLength(600)
   equipmentNotes?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(30)
+  @ValidateNested({ each: true })
+  @Type(() => GarageVehicleExtraEquipmentDto)
+  extraEquipment?: GarageVehicleExtraEquipmentDto[];
 
   @IsOptional()
   @IsBoolean()

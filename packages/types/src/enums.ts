@@ -143,6 +143,46 @@ export enum VehicleType {
   OTHER = 'OTHER',
 }
 
+export enum VehicleCatalogType {
+  CAR = 'CAR',
+  MOTORCYCLE = 'MOTORCYCLE',
+  COMMERCIAL = 'COMMERCIAL',
+}
+
+export enum VehicleCatalogSource {
+  MANUAL_SEED = 'MANUAL_SEED',
+  CARLOI_SEED = 'CARLOI_SEED',
+}
+
+export enum VehicleCatalogPackageSource {
+  MANUAL_SEED = 'MANUAL_SEED',
+  CARLOI_SEED = 'CARLOI_SEED',
+  CARLOI_PHASE2_SEED = 'CARLOI_PHASE2_SEED',
+}
+
+export enum VehicleCatalogSpecSource {
+  MANUAL_SEED = 'MANUAL_SEED',
+  CARLOI_SEED = 'CARLOI_SEED',
+  CARLOI_PHASE3_SEED = 'CARLOI_PHASE3_SEED',
+}
+
+export enum VehicleCatalogEquipmentSource {
+  MANUAL_SEED = 'MANUAL_SEED',
+  CARLOI_SEED = 'CARLOI_SEED',
+  CARLOI_PHASE4_SEED = 'CARLOI_PHASE4_SEED',
+}
+
+export enum VehicleEquipmentCategory {
+  SAFETY = 'SAFETY',
+  COMFORT = 'COMFORT',
+  MULTIMEDIA = 'MULTIMEDIA',
+  EXTERIOR = 'EXTERIOR',
+  INTERIOR = 'INTERIOR',
+  DRIVING_ASSIST = 'DRIVING_ASSIST',
+  LIGHTING = 'LIGHTING',
+  OTHER = 'OTHER',
+}
+
 export enum FuelType {
   GASOLINE = 'GASOLINE',
   DIESEL = 'DIESEL',
@@ -150,6 +190,7 @@ export enum FuelType {
   ELECTRIC = 'ELECTRIC',
   LPG = 'LPG',
   OTHER = 'OTHER',
+  UNKNOWN = 'UNKNOWN',
 }
 
 export enum TransmissionType {
@@ -157,6 +198,7 @@ export enum TransmissionType {
   AUTOMATIC = 'AUTOMATIC',
   SEMI_AUTOMATIC = 'SEMI_AUTOMATIC',
   CVT = 'CVT',
+  UNKNOWN = 'UNKNOWN',
 }
 
 export enum ObdAdapterType {

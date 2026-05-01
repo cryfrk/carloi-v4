@@ -688,7 +688,7 @@ export class InsuranceService {
     const latestPayment = request.payments[0] ?? null;
     const garageVehicle = request.listing.garageVehicle;
     const vehiclePackage = garageVehicle?.vehiclePackage;
-    const spec = vehiclePackage?.spec ?? null;
+    const spec = vehiclePackage?.specs?.[0] ?? null;
 
     return {
       id: request.id,
@@ -871,7 +871,13 @@ const insuranceRequestInclude = {
                   brand: true,
                 },
               },
-              spec: true,
+              specs: {
+                where: {
+                  isActive: true,
+                },
+                orderBy: [{ manualReviewNeeded: 'asc' }, { year: 'desc' }, { enginePowerHp: 'desc' }],
+                take: 1,
+              },
             },
           },
         },

@@ -10,8 +10,8 @@ export function CreateHubClient() {
         <article className="settings-card settings-hero">
           <div>
             <div className="settings-kicker">Create</div>
-            <h2>Ne paylasmak istiyorsun?</h2>
-            <p>Dynamic island akisini bozmadan gonderi, hikaye ve ilan olusturma merkezini buradan baslat.</p>
+            <h2>Ne yapmak istiyorsun?</h2>
+            <p>Gonderi, hikaye, ilan veya arac ekleme akisini tek bir merkezden baslat.</p>
           </div>
         </article>
         <section className="cards-grid profile-cards-grid">
@@ -29,6 +29,11 @@ export function CreateHubClient() {
             <div className="card-label">Marketplace</div>
             <h3 className="card-title">Ilan olustur</h3>
             <p className="card-copy">Profilindeki arac koleksiyonundan bir araci secip yayin akisina al.</p>
+          </Link>
+          <Link className="bullet-card" href="/vehicles/create">
+            <div className="card-label">Vehicles</div>
+            <h3 className="card-title">Arac ekle</h3>
+            <p className="card-copy">Profilindeki Araclar sekmesini dolduracak yeni bir araci wizard ile ekle.</p>
           </Link>
         </section>
       </section>

@@ -64,7 +64,13 @@ const profileVehicleInclude = Prisma.validator<Prisma.GarageVehicleInclude>()({
           brand: true,
         },
       },
-      spec: true,
+      specs: {
+        where: {
+          isActive: true,
+        },
+        orderBy: [{ manualReviewNeeded: 'asc' }, { year: 'desc' }, { enginePowerHp: 'desc' }],
+        take: 1,
+      },
     },
   },
 });
@@ -702,7 +708,7 @@ export class ProfilesService {
   }
 
   private serializeProfileVehicle(vehicle: ProfileVehicleRecord) {
-    const spec = vehicle.vehiclePackage?.spec ?? null;
+    const spec = vehicle.vehiclePackage?.specs?.[0] ?? null;
     return {
       id: vehicle.id,
       firstMediaUrl: vehicle.media[0]?.url ?? null,
@@ -715,7 +721,7 @@ export class ProfilesService {
       brand: vehicle.vehiclePackage?.model.brand.name ?? vehicle.brandText,
       model: vehicle.vehiclePackage?.model.name ?? vehicle.modelText,
       package: vehicle.vehiclePackage?.name ?? vehicle.packageText ?? null,
-      plateNumberMasked: maskPlateNumber(vehicle.plateNumber),
+      plateNumberMasked: vehicle.plateNumber ? maskPlateNumber(vehicle.plateNumber) : 'Plaka girilmedi',
       year: vehicle.year,
       km: vehicle.km,
       isPublic: vehicle.isPublic,
@@ -723,6 +729,8 @@ export class ProfilesService {
       fuelType: vehicle.fuelType,
       transmissionType: vehicle.transmissionType,
       bodyType: spec?.bodyType ?? null,
+      enginePower: spec?.enginePower ?? spec?.enginePowerHp ?? null,
+      engineVolume: spec?.engineVolume ?? spec?.engineVolumeCc ?? null,
       enginePowerHp: spec?.enginePowerHp ?? null,
       engineVolumeCc: spec?.engineVolumeCc ?? null,
       tractionType: spec?.tractionType ?? null,

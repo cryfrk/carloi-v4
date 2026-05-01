@@ -509,7 +509,7 @@ export class LoiAiService {
       usernameMatch ||
       normalized.includes('profil') ||
       normalized.includes('kullanici') ||
-      normalized.includes('kullanýcý')
+      normalized.includes('kullanï¿½cï¿½')
     ) {
       const users = await this.searchUsers(content, usernameMatch);
 
@@ -535,7 +535,7 @@ export class LoiAiService {
 
     if (
       normalized.includes('gonderi') ||
-      normalized.includes('gönderi') ||
+      normalized.includes('gï¿½nderi') ||
       normalized.includes('post')
     ) {
       const posts = await this.searchPosts(content);
@@ -845,7 +845,13 @@ export class LoiAiService {
                     brand: true,
                   },
                 },
-                spec: true,
+                specs: {
+                  where: {
+                    isActive: true,
+                  },
+                  orderBy: [{ manualReviewNeeded: 'asc' }, { year: 'desc' }, { enginePowerHp: 'desc' }],
+                  take: 1,
+                },
               },
             },
           },
@@ -873,13 +879,13 @@ export class LoiAiService {
         listing.garageVehicle?.vehiclePackage?.name ?? listing.garageVehicle?.packageText ?? null,
       km: listing.garageVehicle?.km ?? null,
       year: listing.garageVehicle?.year ?? null,
-      bodyType: listing.garageVehicle?.vehiclePackage?.spec?.bodyType ?? null,
+      bodyType: listing.garageVehicle?.vehiclePackage?.specs?.[0]?.bodyType ?? null,
       fuelType:
-        (listing.garageVehicle?.vehiclePackage?.spec?.fuelType as string | null) ??
+        (listing.garageVehicle?.vehiclePackage?.specs?.[0]?.fuelType as string | null) ??
         listing.garageVehicle?.fuelType ??
         null,
       transmissionType:
-        (listing.garageVehicle?.vehiclePackage?.spec?.transmissionType as string | null) ??
+        (listing.garageVehicle?.vehiclePackage?.specs?.[0]?.transmissionType as string | null) ??
         listing.garageVehicle?.transmissionType ??
         null,
       sellerUsername: listing.seller.username,
@@ -888,7 +894,7 @@ export class LoiAiService {
         damageStatus: item.damageStatus,
       })),
       hasExpertiseReport: listing.hasExpertiseReport,
-      equipmentSummary: listing.garageVehicle?.vehiclePackage?.spec?.equipmentSummary ?? null,
+      equipmentSummary: listing.garageVehicle?.vehiclePackage?.specs?.[0]?.equipmentSummary ?? null,
     }));
 
     const bodyTypeFiltered = intent.bodyType
@@ -952,7 +958,7 @@ export class LoiAiService {
 
     const tokens = rawTokens.filter(
       (token) =>
-        !['kullanici', 'kullanýcý', 'profil', 'bul', 'ara', 'goster', 'göster'].includes(
+        !['kullanici', 'kullanï¿½cï¿½', 'profil', 'bul', 'ara', 'goster', 'gï¿½ster'].includes(
           normalizeLoiAiText(token),
         ),
     );
@@ -1306,7 +1312,13 @@ export class LoiAiService {
                 brand: true,
               },
             },
-            spec: true,
+            specs: {
+              where: {
+                isActive: true,
+              },
+              orderBy: [{ manualReviewNeeded: 'asc' }, { year: 'desc' }, { enginePowerHp: 'desc' }],
+              take: 1,
+            },
           },
         },
         obdExpertiseReports: {
@@ -1329,11 +1341,11 @@ export class LoiAiService {
       packageText: vehicle.vehiclePackage?.name ?? vehicle.packageText ?? undefined,
       year: vehicle.year,
       color: vehicle.color ?? undefined,
-      fuelType: vehicle.vehiclePackage?.spec?.fuelType ?? vehicle.fuelType,
-      transmissionType: vehicle.vehiclePackage?.spec?.transmissionType ?? vehicle.transmissionType,
+      fuelType: vehicle.vehiclePackage?.specs?.[0]?.fuelType ?? vehicle.fuelType,
+      transmissionType: vehicle.vehiclePackage?.specs?.[0]?.transmissionType ?? vehicle.transmissionType,
       km: vehicle.km,
       hasExpertiseReport: isObdEnabled() && vehicle.obdExpertiseReports.length > 0,
-      equipmentSummary: vehicle.vehiclePackage?.spec?.equipmentSummary ?? undefined,
+      equipmentSummary: vehicle.vehiclePackage?.specs?.[0]?.equipmentSummary ?? undefined,
     };
   }
 

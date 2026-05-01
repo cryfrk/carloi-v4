@@ -4,6 +4,12 @@
   ListingStatus,
   SellerType,
   TransmissionType,
+  VehicleCatalogPackageSource,
+  VehicleCatalogEquipmentSource,
+  VehicleCatalogSpecSource,
+  VehicleCatalogSource,
+  VehicleEquipmentCategory,
+  VehicleCatalogType,
 } from './enums';
 
 export const VEHICLE_DAMAGE_PARTS = [
@@ -125,12 +131,20 @@ export interface ListingOwnerProfile {
 export interface VehiclePackageSpec {
   id: string;
   packageId: string | null;
+  year: number | null;
   bodyType: string | null;
+  engineName: string | null;
+  engineVolume: number | null;
+  enginePower: number | null;
   engineVolumeCc: number | null;
   enginePowerHp: number | null;
+  torqueNm: number | null;
   tractionType: string | null;
   fuelType: FuelType | null;
   transmissionType: TransmissionType | null;
+  source: VehicleCatalogSpecSource | null;
+  manualReviewNeeded: boolean;
+  isActive: boolean;
   equipmentSummary: string | null;
   multimediaSummary: string | null;
   interiorSummary: string | null;
@@ -171,6 +185,8 @@ export interface ListingDetailResponse {
     transmissionType: TransmissionType | null;
     km: number | null;
     bodyType: string | null;
+    enginePower: number | null;
+    engineVolume: number | null;
     enginePowerHp: number | null;
     engineVolumeCc: number | null;
     tractionType: string | null;
@@ -203,20 +219,92 @@ export interface ListingSaveResponse {
 
 export interface VehicleCatalogBrand {
   id: string;
+  type: VehicleCatalogType;
   name: string;
   slug: string;
+  logoUrl: string | null;
+}
+
+export interface VehicleCatalogTypeItem {
+  key: VehicleCatalogType;
+  label: string;
+  description: string;
+  type?: VehicleCatalogType;
 }
 
 export interface VehicleCatalogModel {
   id: string;
-  brandId: string;
   name: string;
-  slug: string;
+  slug?: string;
+  brandId?: string;
+  catalogType?: VehicleCatalogType;
+  yearStart?: number | null;
+  yearEnd?: number | null;
+  bodyType: string | null;
+  source?: VehicleCatalogSource;
+  manualReviewNeeded?: boolean;
 }
 
 export interface VehicleCatalogPackage {
   id: string;
-  modelId: string;
   name: string;
-  slug: string;
+  slug?: string;
+  modelId?: string;
+  yearStart: number | null;
+  yearEnd: number | null;
+  marketRegion?: string | null;
+  source?: VehicleCatalogPackageSource;
+  manualReviewNeeded?: boolean;
 }
+
+export interface VehicleCatalogSpecOption {
+  id: string;
+  year: number | null;
+  bodyType: string | null;
+  engineName: string | null;
+  engineVolume: number | null;
+  enginePower: number | null;
+  engineVolumeCc: number | null;
+  enginePowerHp: number | null;
+  torqueNm: number | null;
+  fuelType: FuelType | null;
+  transmissionType: TransmissionType | null;
+  tractionType: string | null;
+  source: VehicleCatalogSpecSource | null;
+  manualReviewNeeded: boolean;
+  isActive: boolean;
+  equipmentSummary: string | null;
+}
+
+export interface VehicleCatalogSpecsResponse {
+  availableYears: number[];
+  engineOptions: Array<{
+    id: string;
+    label: string;
+    year: number | null;
+    engineName?: string | null;
+    engineVolume: number | null;
+    enginePower: number | null;
+  }>;
+  fuelTypes: FuelType[];
+  transmissionTypes: TransmissionType[];
+  specs: VehicleCatalogSpecOption[];
+}
+
+export interface VehicleCatalogEquipmentResponse {
+  packageId: string;
+  groups: Array<{
+    category: VehicleEquipmentCategory;
+    items: Array<{
+      id: string;
+      name: string;
+      isStandard: boolean;
+      manualReviewNeeded: boolean;
+      source: VehicleCatalogEquipmentSource | null;
+    }>;
+  }>;
+}
+
+
+
+

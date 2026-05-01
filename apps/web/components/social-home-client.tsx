@@ -12,6 +12,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { AppShell } from './app-shell';
 import { CommentIcon, HeartIcon, SaveIcon, ShareIcon } from './app-icons';
 import { useAuth } from './auth-provider';
+import { demoFeedComments, demoFeedPosts } from '../lib/demo-content';
 import { webSocialApi } from '../lib/social-api';
 
 type CommentsState = Record<string, SocialComment[]>;
@@ -95,11 +96,14 @@ export function SocialHomeClient() {
   const [commentDrafts, setCommentDrafts] = useState<DraftState>({});
   const [openComments, setOpenComments] = useState<OpenCommentsState>({});
   const [loadingComments, setLoadingComments] = useState<LoadingCommentsState>({});
+  const [demoFeedState, setDemoFeedState] = useState<FeedPost[]>(demoFeedPosts);
 
   const activeStoryGroup =
     activeStoryGroupIndex !== null ? (stories[activeStoryGroupIndex] ?? null) : null;
   const activeStory: StoryItem | null = activeStoryGroup?.stories[activeStoryIndex] ?? null;
   const isOwnActiveStory = Boolean(session && activeStory && activeStory.owner.id === session.user.id);
+  const demoMode = !loading && feed.length === 0;
+  const displayedFeed = demoMode ? demoFeedState : feed;
 
   useEffect(() => {
     if (session?.accessToken) {
@@ -265,6 +269,10 @@ export function SocialHomeClient() {
     setFeed((current) => current.map((post) => (post.id === postId ? updater(post) : post)));
   }
 
+  function patchDemoPost(postId: string, updater: (post: FeedPost) => FeedPost) {
+    setDemoFeedState((current) => current.map((post) => (post.id === postId ? updater(post) : post)));
+  }
+
   function patchOwner(ownerId: string, following: boolean) {
     setFeed((current) =>
       current.map((post) =>
@@ -274,6 +282,15 @@ export function SocialHomeClient() {
   }
 
   async function handleLike(post: FeedPost) {
+    if (post.id.startsWith('demo-')) {
+      patchDemoPost(post.id, (current) => ({
+        ...current,
+        isLiked: !current.isLiked,
+        likeCount: current.likeCount + (current.isLiked ? -1 : 1),
+      }));
+      return;
+    }
+
     if (!session) {
       return;
     }
@@ -296,6 +313,15 @@ export function SocialHomeClient() {
   }
 
   async function handleSave(post: FeedPost) {
+    if (post.id.startsWith('demo-')) {
+      patchDemoPost(post.id, (current) => ({
+        ...current,
+        isSaved: !current.isSaved,
+      }));
+      setNotice('Bu ornek gonderi kaydedildi. Gercek kayitlar Kaydedilenler alaninda toplanir.');
+      return;
+    }
+
     if (!session) {
       return;
     }
@@ -318,6 +344,11 @@ export function SocialHomeClient() {
   }
 
   async function handleFollow(post: FeedPost) {
+    if (post.id.startsWith('demo-')) {
+      setNotice('Bu bir onboarding hesabi. Gercek akista kullanicilari takip edip feedini sekillendirebilirsin.');
+      return;
+    }
+
     if (!session) {
       return;
     }
@@ -345,6 +376,14 @@ export function SocialHomeClient() {
       [postId]: !isOpen,
     }));
 
+    if (!isOpen && postId.startsWith('demo-')) {
+      setCommentsByPost((current) => ({
+        ...current,
+        [postId]: current[postId] ?? demoFeedComments[postId] ?? [],
+      }));
+      return;
+    }
+
     if (!isOpen && !commentsByPost[postId] && !loadingComments[postId]) {
       setLoadingComments((current) => ({ ...current, [postId]: true }));
 
@@ -370,6 +409,38 @@ export function SocialHomeClient() {
       return;
     }
 
+    if (postId.startsWith('demo-')) {
+      const newComment: SocialComment = {
+        id: `demo-local-${Date.now()}`,
+        body,
+        createdAt: new Date().toISOString(),
+        parentCommentId: null,
+        owner: {
+          id: session.user.id,
+          username: session.user.username,
+          firstName: session.user.firstName,
+          lastName: session.user.lastName,
+          avatarUrl: null,
+          blueVerified: false,
+          goldVerified: false,
+        },
+        likeCount: 0,
+        replyCount: 0,
+        isLiked: false,
+      };
+      setCommentDrafts((current) => ({ ...current, [postId]: '' }));
+      setCommentsByPost((current) => ({
+        ...current,
+        [postId]: [newComment, ...(current[postId] ?? demoFeedComments[postId] ?? [])],
+      }));
+      setOpenComments((current) => ({ ...current, [postId]: true }));
+      patchDemoPost(postId, (current) => ({
+        ...current,
+        commentCount: current.commentCount + 1,
+      }));
+      return;
+    }
+
     try {
       const response = await webSocialApi.createComment(session.accessToken, postId, { body });
       setCommentDrafts((current) => ({ ...current, [postId]: '' }));
@@ -388,6 +459,18 @@ export function SocialHomeClient() {
   }
 
   async function handleCommentLike(postId: string, comment: SocialComment) {
+    if (postId.startsWith('demo-')) {
+      setCommentsByPost((current) => ({
+        ...current,
+        [postId]: (current[postId] ?? []).map((item) =>
+          item.id === comment.id
+            ? { ...item, isLiked: !item.isLiked, likeCount: item.likeCount + (item.isLiked ? -1 : 1) }
+            : item,
+        ),
+      }));
+      return;
+    }
+
     if (!session) {
       return;
     }
@@ -456,7 +539,12 @@ export function SocialHomeClient() {
           {loadingStories ? (
             <StoryStripSkeleton />
           ) : stories.length === 0 ? (
-            <div className="story-loading-copy">Henuz aktif hikaye yok.</div>
+            <button className="story-bubble button-reset" type="button" onClick={() => setNotice("Aracini veya ilk hikayeni paylastiginda bu alan canlanacak.")}>
+              <span className="story-avatar-shell unviewed">
+                <span className="story-avatar-fallback">C</span>
+              </span>
+              <span className="story-bubble-label">@carloi</span>
+            </button>
           ) : (
             stories.map((group, index) => (
               <button key={`${group.owner.id}-${group.latestCreatedAt ?? 'story'}`} className="story-bubble button-reset" type="button" onClick={() => openStoryGroup(index)}>
@@ -481,18 +569,22 @@ export function SocialHomeClient() {
         </section>
       ) : null}
 
-      {loading ? (
-        <FeedSkeleton />
-      ) : feed.length === 0 ? (
+      {demoMode ? (
         <section className="detail-card gate-card">
-          <div className="card-label">First post</div>
-          <h3 className="card-title">Heniz post yok</h3>
-          <p className="card-copy">Ilk postu yukleyip sosyal akis bilgisini baslatabilirsiniz.</p>
+          <div className="card-label">Onboarding</div>
+          <h3 className="card-title">Carloi'ye hos geldin</h3>
+          <p className="card-copy">Asagidaki ornek akista ilk gonderinin nasil gorunecegini gorebilir, create alanindan paylasimini baslatabilirsin.</p>
+          <div className="gate-actions">
+            <Link className="primary-link" href="/create">Ilk paylasimini baslat</Link>
+            <Link className="secondary-link" href="/vehicles/create">Arac ekle</Link>
+          </div>
         </section>
+      ) : loading ? (
+        <FeedSkeleton />
       ) : null}
 
       <div className="feed-stack instagram-feed">
-        {feed.map((post) => {
+        {displayedFeed.map((post) => {
           const comments = commentsByPost[post.id] ?? [];
           const expanded = expandedCaptions[post.id] ?? false;
           const isOwnPost = session.user.id === post.owner.id;

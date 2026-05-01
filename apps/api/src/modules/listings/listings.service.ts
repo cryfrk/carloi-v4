@@ -361,7 +361,13 @@ export class ListingsService {
                     brand: true,
                   },
                 },
-                spec: true,
+                specs: {
+                  where: {
+                    isActive: true,
+                  },
+                  orderBy: [{ manualReviewNeeded: 'asc' }, { year: 'desc' }, { enginePowerHp: 'desc' }],
+                  take: 1,
+                },
               },
             },
             obdExpertiseReports: {
@@ -608,7 +614,13 @@ export class ListingsService {
                 brand: true,
               },
             },
-            spec: true,
+            specs: {
+              where: {
+                isActive: true,
+              },
+              orderBy: [{ manualReviewNeeded: 'asc' }, { year: 'desc' }, { enginePowerHp: 'desc' }],
+              take: 1,
+            },
           },
         },
         obdExpertiseReports: {
@@ -827,8 +839,14 @@ export class ListingsService {
         ON vm.id = vp."modelId"
       LEFT JOIN "VehicleBrand" vb
         ON vb.id = vm."brandId"
-      LEFT JOIN "VehicleSpec" vs
-        ON vs."packageId" = vp.id
+      LEFT JOIN LATERAL (
+        SELECT *
+        FROM "VehicleSpec" vs
+        WHERE vs."packageId" = vp.id
+          AND vs."isActive" = true
+        ORDER BY vs."manualReviewNeeded" ASC, vs."year" DESC, vs."enginePowerHp" DESC
+        LIMIT 1
+      ) vs ON true
       WHERE ${Prisma.join(filters, ' AND ')}
       ${cursorFilter}
       ORDER BY
@@ -960,8 +978,11 @@ export class ListingsService {
               name: string;
             };
           };
-          spec: {
+          specs: Array<{
+            year: number | null;
             bodyType: string | null;
+            enginePower: number | null;
+            engineVolume: number | null;
             enginePowerHp: number | null;
             engineVolumeCc: number | null;
             tractionType: string | null;
@@ -971,7 +992,7 @@ export class ListingsService {
             multimediaSummary: string | null;
             interiorSummary: string | null;
             exteriorSummary: string | null;
-          } | null;
+          }>;
         } | null;
         obdExpertiseReports: Array<{
           id: string;
@@ -993,7 +1014,7 @@ export class ListingsService {
         }>;
       } | null;
     };
-    const spec = typedListing.garageVehicle?.vehiclePackage?.spec ?? null;
+    const spec = typedListing.garageVehicle?.vehiclePackage?.specs?.[0] ?? null;
     const selectedExpertiseReport = obdEnabled
       ? typedListing.obdExpertiseReport ?? typedListing.garageVehicle?.obdExpertiseReports[0] ?? null
       : null;
@@ -1052,6 +1073,8 @@ export class ListingsService {
           null,
         km: typedListing.garageVehicle?.km ?? null,
         bodyType: spec?.bodyType ?? null,
+        enginePower: spec?.enginePower ?? spec?.enginePowerHp ?? null,
+        engineVolume: spec?.engineVolume ?? spec?.engineVolumeCc ?? null,
         enginePowerHp: spec?.enginePowerHp ?? null,
         engineVolumeCc: spec?.engineVolumeCc ?? null,
         tractionType: spec?.tractionType ?? null,

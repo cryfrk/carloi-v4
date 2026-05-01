@@ -18,6 +18,7 @@ import {
 } from 'react-native';
 import { MobileShell } from '../components/mobile-shell';
 import { useAuth } from '../context/auth-context';
+import { loiAiSuggestedPrompts } from '../lib/demo-content';
 import { mobileLoiAiApi } from '../lib/loi-ai-api';
 
 const ATTACHMENT_SEQUENCE: AttachmentType[] = [
@@ -240,6 +241,11 @@ export default function LoiAiScreen() {
     router.push(card.appRoute as never);
   }
 
+  function applyPrompt(prompt: string) {
+    setInput(prompt);
+    setHistoryOpen(false);
+  }
+
   return (
     <MobileShell
       title="Loi AI"
@@ -286,6 +292,13 @@ export default function LoiAiScreen() {
             <View style={styles.emptyState}>
               <Text style={styles.emptyTitle}>Loi AI hazir</Text>
               <Text style={styles.emptyCopy}>"800 bin TL civari Egea bul" veya "Golf kronik arizalari" yazarak baslayin.</Text>
+              <View style={styles.promptRow}>
+                {loiAiSuggestedPrompts.map((prompt) => (
+                  <Pressable key={prompt} style={styles.promptChip} onPress={() => applyPrompt(prompt)}>
+                    <Text style={styles.promptChipText}>{prompt}</Text>
+                  </Pressable>
+                ))}
+              </View>
             </View>
           ) : null}
 
@@ -394,6 +407,24 @@ const styles = StyleSheet.create({
   },
   emptyTitle: { color: '#111111', fontSize: 18, fontWeight: '700', textAlign: 'center' },
   emptyCopy: { color: '#6b7280', lineHeight: 20, textAlign: 'center' },
+  promptRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 8,
+  },
+  promptChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 999,
+    backgroundColor: '#f3f4f6',
+  },
+  promptChipText: {
+    color: '#111111',
+    fontSize: 12,
+    fontWeight: '700',
+  },
   stream: { flex: 1 },
   streamContent: { gap: 14, paddingBottom: 12 },
   streamContentEmpty: { flexGrow: 1, justifyContent: 'center' },

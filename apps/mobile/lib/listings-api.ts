@@ -16,8 +16,12 @@ import type {
   UpdateGarageVehicleRequest,
   CreateObdReportResponse,
   VehicleCatalogBrand,
+  VehicleCatalogEquipmentResponse,
+  VehicleCatalogType,
+  VehicleCatalogTypeItem,
   VehicleCatalogModel,
   VehicleCatalogPackage,
+  VehicleCatalogSpecsResponse,
   VehiclePackageSpec,
 } from '@carloi-v4/types';
 
@@ -139,14 +143,34 @@ export const mobileListingsApi = {
       accessToken,
     });
   },
-  getBrands() {
-    return requestJson<VehicleCatalogBrand[]>('/vehicle-catalog/brands');
+  getCatalogTypes() {
+    return requestJson<VehicleCatalogTypeItem[]>('/vehicle-catalog/types');
   },
-  getModels(brandId: string) {
-    return requestJson<VehicleCatalogModel[]>(`/vehicle-catalog/brands/${brandId}/models`);
+  getBrands(type?: VehicleCatalogType) {
+    const query = type ? `?type=${encodeURIComponent(type)}` : '';
+    return requestJson<VehicleCatalogBrand[]>(`/vehicle-catalog/brands${query}`);
+  },
+  getModels(brandId: string, type?: VehicleCatalogType) {
+    const search = new URLSearchParams({ brandId });
+    if (type) {
+      search.set('type', type);
+    }
+    return requestJson<VehicleCatalogModel[]>(`/vehicle-catalog/models?${search.toString()}`);
   },
   getPackages(modelId: string) {
-    return requestJson<VehicleCatalogPackage[]>(`/vehicle-catalog/models/${modelId}/packages`);
+    return requestJson<VehicleCatalogPackage[]>(`/vehicle-catalog/packages?modelId=${encodeURIComponent(modelId)}`);
+  },
+  getPackageSpecs(packageId: string, year?: number) {
+    const search = new URLSearchParams({ packageId });
+    if (year) {
+      search.set('year', String(year));
+    }
+    return requestJson<VehicleCatalogSpecsResponse>(`/vehicle-catalog/specs?${search.toString()}`);
+  },
+  getPackageEquipment(packageId: string) {
+    return requestJson<VehicleCatalogEquipmentResponse>(
+      `/vehicle-catalog/equipment?packageId=${encodeURIComponent(packageId)}`,
+    );
   },
   getPackageSpec(packageId: string) {
     return requestJson<VehiclePackageSpec>(`/vehicle-catalog/packages/${packageId}/spec`);

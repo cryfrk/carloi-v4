@@ -8,6 +8,7 @@ import {
   type MessageThreadSummary,
 } from '@carloi-v4/types';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AppShell } from './app-shell';
 import { useAuth } from './auth-provider';
@@ -352,13 +353,21 @@ export function MessagesClient() {
           </div>
 
           <div className="messages-ig-friends">
-            {friends.map((friend) => (
-              <button key={friend.id} type="button" className="messages-ig-friend" onClick={() => void openDirect(friend.id)}>
-                <Avatar username={friend.username} />
-                <strong>@{friend.username}</strong>
-                <span>{friend.isMutualFollow ? 'Karsilikli' : 'Takip'}</span>
-              </button>
-            ))}
+            {friends.length > 0 ? (
+              friends.map((friend) => (
+                <button key={friend.id} type="button" className="messages-ig-friend" onClick={() => void openDirect(friend.id)}>
+                  <Avatar username={friend.username} />
+                  <strong>@{friend.username}</strong>
+                  <span>{friend.isMutualFollow ? 'Karsilikli' : 'Takip'}</span>
+                </button>
+              ))
+            ) : (
+              <div className="messages-onboarding-card">
+                <strong>Ilan sahipleriyle konusmaya basla</strong>
+                <span>Begendigin bir aracta Mesaj butonuna dokundugunda ilk direct sohbet burada acilir.</span>
+                <Link className="primary-link" href="/listings">Ilanlari ac</Link>
+              </div>
+            )}
           </div>
 
           {searchResults.length > 0 ? (
@@ -401,33 +410,40 @@ export function MessagesClient() {
           ) : null}
 
           <div className="messages-ig-thread-list">
-            {threads.map((thread) => {
-              const counterpart = thread.participants.find((participant) => participant.id !== currentUserId) ?? thread.participants[0];
-              const active = thread.id === activeThreadId;
-              return (
-                <button
-                  key={thread.id}
-                  type="button"
-                  className={`messages-ig-thread-row${active ? ' active' : ''}`}
-                  onClick={() => {
-                    setActiveThreadId(thread.id);
-                    router.replace(`/messages?thread=${thread.id}`);
-                  }}
-                >
-                  <div className="messages-ig-row-main">
-                    <Avatar username={counterpart?.username ?? 'D'} />
-                    <div>
-                      <strong>{threadTitle(thread)}</strong>
-                      <span>{threadPreview(thread)}</span>
+            {threads.length > 0 ? (
+              threads.map((thread) => {
+                const counterpart = thread.participants.find((participant) => participant.id !== currentUserId) ?? thread.participants[0];
+                const active = thread.id === activeThreadId;
+                return (
+                  <button
+                    key={thread.id}
+                    type="button"
+                    className={`messages-ig-thread-row${active ? ' active' : ''}`}
+                    onClick={() => {
+                      setActiveThreadId(thread.id);
+                      router.replace(`/messages?thread=${thread.id}`);
+                    }}
+                  >
+                    <div className="messages-ig-row-main">
+                      <Avatar username={counterpart?.username ?? 'D'} />
+                      <div>
+                        <strong>{threadTitle(thread)}</strong>
+                        <span>{threadPreview(thread)}</span>
+                      </div>
                     </div>
-                  </div>
-                  <div className="messages-ig-row-side">
-                    <small>{formatTime(thread.lastMessage ? thread.lastMessage.createdAt : thread.createdAt)}</small>
-                    {thread.unreadCount > 0 ? <span className="messages-ig-unread">{thread.unreadCount}</span> : null}
-                  </div>
-                </button>
-              );
-            })}
+                    <div className="messages-ig-row-side">
+                      <small>{formatTime(thread.lastMessage ? thread.lastMessage.createdAt : thread.createdAt)}</small>
+                      {thread.unreadCount > 0 ? <span className="messages-ig-unread">{thread.unreadCount}</span> : null}
+                    </div>
+                  </button>
+                );
+              })
+            ) : (
+              <div className="messages-onboarding-card compact">
+                <strong>Henuz sohbet yok</strong>
+                <span>Bir ilan acildiginda veya bir kullanici secildiginde konusmalarin burada listelenir.</span>
+              </div>
+            )}
           </div>
         </aside>
 
@@ -437,7 +453,14 @@ export function MessagesClient() {
 
           {loading && !activeThread ? <div className="profile-ig-helper">Sohbet listesi getiriliyor...</div> : null}
           {!loading && !activeThread ? (
-            <div className="profile-ig-helper">Bir sohbet secin veya yeni direct baslatin.</div>
+            <div className="messages-empty-chat">
+              <strong>Konusmaya hazirsin</strong>
+              <span>Ilan sahipleriyle veya takip ettigin kisilerle direct sohbet baslat. İlk mesaj buraya dusecek.</span>
+              <div className="gate-actions">
+                <Link className="primary-link" href="/listings">Ilanlari gez</Link>
+                <button className="secondary-link button-reset" type="button" onClick={() => setGroupOpen(true)}>Grup kur</button>
+              </div>
+            </div>
           ) : null}
 
           {activeThread ? (

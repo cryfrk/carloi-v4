@@ -221,6 +221,12 @@ export function ProfileClient({
 
             {!loading && activeTab === 'vehicles' ? (
               <section className="profile-post-grid vehicle-grid">
+                {isOwnProfile ? (
+                  <Link className="profile-post-tile profile-add-tile" href="/vehicles/create">
+                    <span className="profile-add-plus">+</span>
+                    <strong>Arac ekle</strong>
+                  </Link>
+                ) : null}
                 {vehicles.map((vehicle) => (
                   <Link key={vehicle.id} className="profile-post-tile" href={`/vehicles/${vehicle.id}`}>
                     {vehicle.firstMediaUrl ? (
@@ -228,6 +234,10 @@ export function ProfileClient({
                     ) : (
                       <div className="profile-tile-fallback">ARAC</div>
                     )}
+                    <span className="tile-top-badges">
+                      {vehicle.showInExplore ? <small>Kesfet</small> : null}
+                      {vehicle.openToOffers ? <small>Teklife acik</small> : null}
+                    </span>
                     <span className="tile-overlay-copy">
                       <strong>{vehicle.brand} {vehicle.model}</strong>
                       <small>{vehicle.package ?? vehicle.plateNumberMasked}</small>

@@ -15,6 +15,7 @@ import { MobileShell } from '../../components/mobile-shell';
 import { useAuth } from '../../context/auth-context';
 import { mobileTheme } from '../../lib/design-system';
 import { mobileExploreApi } from '../../lib/explore-api';
+import { vehicleEquipmentCategoryLabels } from '../../lib/listings-ui';
 import { mobileMessagesApi } from '../../lib/messages-api';
 
 export default function VehicleDetailScreen() {
@@ -119,12 +120,50 @@ export default function VehicleDetailScreen() {
             <SpecItem label="Vites" value={vehicle.transmissionType} />
             <SpecItem label="KM" value={`${vehicle.km.toLocaleString('tr-TR')} km`} />
             <SpecItem label="Kasa" value={vehicle.bodyType ?? 'Belirtilmedi'} />
+            <SpecItem label="Motor" value={vehicle.engineVolume ? `${(vehicle.engineVolume / 1000).toFixed(1)}L` : 'Belirtilmedi'} />
+            <SpecItem label="Guc" value={vehicle.enginePower ? `${vehicle.enginePower} hp` : 'Belirtilmedi'} />
           </View>
 
           <View style={styles.badgeRow}>
             {vehicle.openToOffers ? <Badge label="Teklife acik" /> : null}
+            {vehicle.showInExplore ? <Badge label="Kesfette gorunuyor" /> : null}
             {vehicle.city ? <Badge label={vehicle.city} /> : null}
           </View>
+
+          {vehicle.standardEquipment.length > 0 ? (
+            <View style={styles.sectionBlock}>
+              <Text style={styles.sectionTitle}>Standart Paket Donanimi</Text>
+              {vehicle.standardEquipment.map((group) => (
+                <View key={group.category} style={styles.sectionGroup}>
+                  <Text style={styles.sectionGroupTitle}>
+                    {vehicleEquipmentCategoryLabels[group.category]}
+                  </Text>
+                  <View style={styles.badgeRow}>
+                    {group.items.map((item) => (
+                      <Badge key={item.id} label={item.name} />
+                    ))}
+                  </View>
+                </View>
+              ))}
+            </View>
+          ) : null}
+
+          {vehicle.extraEquipment.length > 0 ? (
+            <View style={styles.sectionBlock}>
+              <Text style={styles.sectionTitle}>Ilave Donanimlar</Text>
+              <View style={styles.stackGap}>
+                {vehicle.extraEquipment.map((item) => (
+                  <View key={item.id} style={styles.summaryCard}>
+                    <Text style={styles.summaryTitle}>{item.name}</Text>
+                    <Text style={styles.summaryMeta}>
+                      {(item.category ? vehicleEquipmentCategoryLabels[item.category] : 'Diger') +
+                        (item.note ? ` · ${item.note}` : '')}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          ) : null}
 
           <View style={styles.actionRow}>
             {isOwnVehicle ? (
@@ -134,7 +173,7 @@ export default function VehicleDetailScreen() {
             ) : (
               <Pressable style={styles.primaryButton} onPress={() => void openMessage()}>
                 <Ionicons color="#ffffff" name="paper-plane-outline" size={16} />
-                <Text style={styles.primaryButtonLabel}>Mesaj gonder</Text>
+                <Text style={styles.primaryButtonLabel}>{vehicle.openToOffers ? 'Teklif ver' : 'Mesaj gonder'}</Text>
               </Pressable>
             )}
           </View>
@@ -293,6 +332,44 @@ const styles = StyleSheet.create({
     color: mobileTheme.colors.textStrong,
     fontSize: 12,
     fontWeight: '700',
+  },
+  sectionBlock: {
+    gap: 12,
+    paddingTop: 18,
+  },
+  sectionTitle: {
+    color: mobileTheme.colors.textStrong,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  sectionGroup: {
+    gap: 8,
+  },
+  sectionGroupTitle: {
+    color: mobileTheme.colors.textMuted,
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  stackGap: {
+    gap: 10,
+  },
+  summaryCard: {
+    gap: 4,
+    padding: 14,
+    borderRadius: 18,
+    backgroundColor: '#f7f8fa',
+    borderWidth: 1,
+    borderColor: '#edf1f4',
+  },
+  summaryTitle: {
+    color: mobileTheme.colors.textStrong,
+    fontWeight: '700',
+  },
+  summaryMeta: {
+    color: mobileTheme.colors.textMuted,
+    lineHeight: 20,
   },
   actionRow: {
     paddingTop: 20,

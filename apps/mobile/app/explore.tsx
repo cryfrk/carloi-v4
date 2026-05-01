@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { MobileShell } from '../components/mobile-shell';
 import { useAuth } from '../context/auth-context';
+import { demoExploreVehicles } from '../lib/demo-content';
 import { mobileTheme } from '../lib/design-system';
 import { mobileExploreApi } from '../lib/explore-api';
 import { mobileMessagesApi } from '../lib/messages-api';
@@ -26,8 +27,10 @@ export default function ExploreScreen() {
   const [likedMap, setLikedMap] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const reelHeight = useMemo(() => Math.max(height - 208, 420), [height]);
+  const displayItems = !loading && items.length === 0 ? demoExploreVehicles : items;
 
   useEffect(() => {
     if (!session?.accessToken) {
@@ -51,6 +54,11 @@ export default function ExploreScreen() {
       return;
     }
 
+    if (ownerId.startsWith('demo-')) {
+      setNotice('Bu ornek arac kesfet akisini gostermek icin burada. Gercek teklif ve mesaj icin kendi araclarini veya ilanlari kullanabilirsin.');
+      return;
+    }
+
     try {
       const response = await mobileMessagesApi.createDirectThread(session.accessToken, {
         targetUserId: ownerId,
@@ -63,6 +71,7 @@ export default function ExploreScreen() {
 
   return (
     <MobileShell title="Kesfet" subtitle="Arac videolari ve fotograflari tam ekran sosyal akis icinde akar.">
+      {notice ? <Text style={styles.notice}>{notice}</Text> : null}
       {errorMessage ? <Text style={styles.error}>{errorMessage}</Text> : null}
       {loading ? (
         <View style={styles.loadingWrap}>
@@ -70,15 +79,9 @@ export default function ExploreScreen() {
           <Text style={styles.loadingText}>Kesif akisi yukleniyor...</Text>
         </View>
       ) : null}
-      {!loading && !items.length ? (
-        <View style={styles.emptyState}>
-          <Text style={styles.emptyTitle}>Kesfet henuz bos</Text>
-          <Text style={styles.emptyCopy}>Kullanicilar araclarini kesfete acmaya basladiginda burada akacak.</Text>
-        </View>
-      ) : null}
-      {!loading && items.length ? (
+      {!loading ? (
         <FlatList
-          data={items}
+          data={displayItems}
           keyExtractor={(item) => item.id}
           pagingEnabled
           renderItem={({ item }) => {
@@ -111,7 +114,14 @@ export default function ExploreScreen() {
                       <ActionButton
                         icon="chatbubble-outline"
                         label="Detay"
-                        onPress={() => router.push(`/vehicles/${item.id}`)}
+                        onPress={() => {
+                          if (item.id.startsWith('demo-')) {
+                            setNotice('Ornek arac detayi yerine kendi arac koleksiyonunu olusturmaya yonlendiriliyorsun.');
+                            router.push('/vehicles/create');
+                            return;
+                          }
+                          router.push(`/vehicles/${item.id}`);
+                        }}
                       />
                       <ActionButton
                         icon="paper-plane-outline"
@@ -258,6 +268,11 @@ const styles = StyleSheet.create({
     color: '#dc2626',
     textAlign: 'center',
     paddingBottom: 12,
+  },
+  notice: {
+    color: mobileTheme.colors.textMuted,
+    textAlign: 'center',
+    paddingBottom: 10,
   },
 });
 

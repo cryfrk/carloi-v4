@@ -6,6 +6,7 @@ import type { ExploreVehicleItem } from '@carloi-v4/types';
 import { AppShell } from './app-shell';
 import { useAuth } from './auth-provider';
 import { HeartIcon, MessageIcon, ShareIcon } from './app-icons';
+import { demoExploreVehicles } from '../lib/demo-content';
 import { webExploreApi } from '../lib/explore-api';
 import { webMessagesApi } from '../lib/messages-api';
 
@@ -15,6 +16,8 @@ export function ExploreClient() {
   const [likedMap, setLikedMap] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const displayItems = !loading && items.length === 0 ? demoExploreVehicles : items;
 
   useEffect(() => {
     if (!session?.accessToken) {
@@ -35,6 +38,11 @@ export function ExploreClient() {
 
   async function handleMessage(ownerId: string) {
     if (!session?.accessToken) {
+      return;
+    }
+
+    if (ownerId.startsWith('demo-')) {
+      setNotice('Bu ornek kesif akisi urunun ilk deneyimini gostermek icin hazirlandi. Gercek iletisim arac ekledikce aktiflesir.');
       return;
     }
 
@@ -60,25 +68,26 @@ export function ExploreClient() {
         </header>
 
         {errorMessage ? <div className="auth-message error">{errorMessage}</div> : null}
+        {notice ? <div className="auth-message success">{notice}</div> : null}
         {!isReady ? <div className="detail-card">Oturum hazirlaniyor...</div> : null}
         {loading ? <div className="detail-card">Kesif akisi yukleniyor...</div> : null}
-        {!loading && !items.length ? (
+        {!loading && items.length === 0 ? (
           <div className="detail-card empty-explore-card">
-            <h3 className="card-title">Kesfet henuz bos</h3>
-            <p className="card-copy">Kullanicilar araclarini kesfete acmaya basladiginda burada akacak.</p>
+            <h3 className="card-title">Kesfeti simdiden deneyimle</h3>
+            <p className="card-copy">Asagidaki ornek araclar, reels benzeri dikey akisin nasil gorunecegini gosteriyor.</p>
           </div>
         ) : null}
 
-        {!loading && items.length ? (
+        {!loading ? (
           <section className="explore-feed">
-            {items.map((item) => {
+            {displayItems.map((item) => {
               const liked = Boolean(likedMap[item.id]);
               const media = item.media[0];
 
               return (
                 <article className="explore-reel" key={item.id}>
                   <div className="explore-media">
-                    <Link className="explore-media-link" href={`/vehicles/${item.id}`}>
+                    <Link className="explore-media-link" href={item.id.startsWith('demo-') ? '/vehicles/create' : `/vehicles/${item.id}`}>
                       {media?.url ? (
                         <img alt={`${item.brand} ${item.model}`} loading="lazy" src={media.url} />
                       ) : (

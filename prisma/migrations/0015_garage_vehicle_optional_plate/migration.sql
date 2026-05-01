@@ -1,0 +1,2 @@
+ALTER TABLE "GarageVehicle"
+ALTER COLUMN "plateNumber" DROP NOT NULL;

@@ -6,6 +6,8 @@ import type {
   ObdFaultSeverity,
   ObdReportStatus,
   TransmissionType,
+  VehicleCatalogEquipmentSource,
+  VehicleEquipmentCategory,
   VehicleType,
 } from './enums';
 
@@ -22,6 +24,32 @@ export interface GarageVehicleMedia {
   sortOrder: number;
 }
 
+export interface VehicleEquipmentItemInput {
+  category?: VehicleEquipmentCategory | null;
+  name: string;
+  note?: string;
+}
+
+export interface VehicleEquipmentItem {
+  id: string;
+  category: VehicleEquipmentCategory | null;
+  name: string;
+  note: string | null;
+  isStandard: boolean;
+  manualReviewNeeded: boolean;
+}
+
+export interface VehicleEquipmentGroup {
+  category: VehicleEquipmentCategory;
+  items: Array<{
+    id: string;
+    name: string;
+    isStandard: boolean;
+    manualReviewNeeded: boolean;
+    source?: VehicleCatalogEquipmentSource | null;
+  }>;
+}
+
 export interface CreateGarageVehicleRequest {
   vehicleType: VehicleType;
   brandId?: string;
@@ -32,7 +60,7 @@ export interface CreateGarageVehicleRequest {
   modelText: string;
   packageText?: string;
   year: number;
-  plateNumber: string;
+  plateNumber?: string;
   color?: string;
   fuelType: FuelType;
   transmissionType: TransmissionType;
@@ -40,6 +68,7 @@ export interface CreateGarageVehicleRequest {
   isPublic?: boolean;
   description?: string;
   equipmentNotes?: string;
+  extraEquipment?: VehicleEquipmentItemInput[];
   showInExplore?: boolean;
   openToOffers?: boolean;
   media?: GarageVehicleMediaInput[];
@@ -63,6 +92,7 @@ export interface UpdateGarageVehicleRequest {
   isPublic?: boolean;
   description?: string;
   equipmentNotes?: string;
+  extraEquipment?: VehicleEquipmentItemInput[];
   showInExplore?: boolean;
   openToOffers?: boolean;
   media?: GarageVehicleMediaInput[];
@@ -162,8 +192,13 @@ export interface GarageVehicleDetailResponse {
   showInExplore: boolean;
   openToOffers: boolean;
   createdAt: string;
+  standardEquipment: VehicleEquipmentGroup[];
+  extraEquipment: VehicleEquipmentItem[];
   spec: {
+    year: number | null;
     bodyType: string | null;
+    engineVolume: number | null;
+    enginePower: number | null;
     engineVolumeCc: number | null;
     enginePowerHp: number | null;
     tractionType: string | null;

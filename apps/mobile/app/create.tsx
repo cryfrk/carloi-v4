@@ -18,6 +18,11 @@ const CREATE_OPTIONS = [
     copy: 'Profilindeki arac koleksiyonundan bir araci secip ilan akisina al.',
     href: '/create-listing',
   },
+  {
+    title: 'Arac ekle',
+    copy: 'Profilindeki Araclar sekmesini dolduracak yeni bir arac wizard ile ekle.',
+    href: '/vehicles/create',
+  },
 ] as const;
 
 export default function CreateHubScreen() {
@@ -29,8 +34,8 @@ export default function CreateHubScreen() {
       <View style={styles.sheet}>
         <View style={styles.handle} />
         <Text style={styles.kicker}>Olustur</Text>
-        <Text style={styles.title}>Ne paylasmak istiyorsun?</Text>
-        <Text style={styles.subtitle}>Akisi bozmadan yeni bir gonderi, hikaye veya ilan baslat.</Text>
+        <Text style={styles.title}>Ne yapmak istiyorsun?</Text>
+        <Text style={styles.subtitle}>Gonderi, hikaye, ilan veya arac ekleme akisini tek bir yerden baslat.</Text>
         <View style={styles.options}>
           {CREATE_OPTIONS.map((option) => (
             <Pressable key={option.href} style={styles.option} onPress={() => router.replace(option.href)}>
