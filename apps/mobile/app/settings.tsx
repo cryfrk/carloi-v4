@@ -1,4 +1,4 @@
-import type { CommercialApplicationView, SettingsMeResponse } from '@carloi-v4/types';
+import type { AuthSessionDevice, CommercialApplicationView, SettingsMeResponse } from '@carloi-v4/types';
 import { MediaAssetPurpose } from '@carloi-v4/types';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View, Image } from 'react-native';
@@ -6,6 +6,7 @@ import { MobileShell } from '../components/mobile-shell';
 import { mobileTheme } from '../lib/design-system';
 import { useAuth } from '../context/auth-context';
 import { mobileCommercialApi } from '../lib/commercial-api';
+import { mobileAuthApi } from '../lib/auth-api';
 import { mobileMediaApi } from '../lib/media-api';
 import { pickDocumentFiles, pickMediaFiles } from '../lib/upload-picker';
 import { mobileProfileApi } from '../lib/profile-api';
@@ -16,6 +17,8 @@ export default function SettingsScreen() {
   const { session, sessions, switchAccount, signOut, signOutAll } = useAuth();
   const [settings, setSettings] = useState<SettingsMeResponse | null>(null);
   const [application, setApplication] = useState<CommercialApplicationView | null>(null);
+  const [sessionDevices, setSessionDevices] = useState<AuthSessionDevice[]>([]);
+  const [sessionDevicesLoading, setSessionDevicesLoading] = useState(false);
   const [profileForm, setProfileForm] = useState({
     avatarUrl: '',
     firstName: '',
@@ -74,6 +77,14 @@ export default function SettingsScreen() {
       });
   }, [session?.accessToken]);
 
+  useEffect(() => {
+    if (!session?.accessToken) {
+      return;
+    }
+
+    void reloadSessionDevices(session.accessToken);
+  }, [session?.accessToken]);
+
   const hasPendingApplication = application?.status === 'PENDING';
   const isApproved = session?.user.isCommercialApproved || application?.status === 'APPROVED';
   const otherDocumentUrls = useMemo(
@@ -94,6 +105,43 @@ export default function SettingsScreen() {
     const response = await mobileProfileApi.getSettings(session.accessToken);
     setSettings(response);
     setPrivacy(response.privacy);
+  }
+
+  async function reloadSessionDevices(accessToken = session?.accessToken) {
+    if (!accessToken) {
+      return;
+    }
+
+    setSessionDevicesLoading(true);
+
+    try {
+      const response = await mobileAuthApi.getSessions(accessToken);
+      setSessionDevices(response.items);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Aktif cihazlar getirilemedi.');
+    } finally {
+      setSessionDevicesLoading(false);
+    }
+  }
+
+  async function handleRevokeSession(device: AuthSessionDevice) {
+    if (!session?.accessToken) {
+      return;
+    }
+
+    try {
+      await mobileAuthApi.revokeSession(session.accessToken, device.id);
+      setNotice(device.isCurrent ? 'Bu cihaz oturumu kapatildi.' : 'Cihaz oturumu kapatildi.');
+      if (device.isCurrent) {
+        await signOut();
+        router.replace('/login');
+        return;
+      }
+
+      await reloadSessionDevices(session.accessToken);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Cihaz oturumu kapatilamadi.');
+    }
   }
 
   async function handleProfileSave() {
@@ -253,6 +301,28 @@ export default function SettingsScreen() {
     }
   }
 
+  function formatSessionMeta(device: AuthSessionDevice) {
+    const parts = [
+      device.deviceName ?? device.platform ?? 'Carloi Device',
+      device.platform,
+      device.approximateLocation,
+      device.ip,
+    ].filter(Boolean);
+
+    return parts.join(' | ');
+  }
+
+  function formatSessionDate(value: string | null) {
+    if (!value) {
+      return 'Simdi';
+    }
+
+    return new Date(value).toLocaleString('tr-TR', {
+      dateStyle: 'short',
+      timeStyle: 'short',
+    });
+  }
+
   return (
     <MobileShell title="Ayarlar" subtitle="Profil, gizlilik, kaydedilenler ve hesap yonetimi burada toplanir.">
       <ScrollView contentContainerStyle={styles.content}>
@@ -262,7 +332,7 @@ export default function SettingsScreen() {
         <View style={styles.card}>
           <Text style={styles.kicker}>Hesap merkezi</Text>
           <Text style={styles.title}>@{settings?.profile.username ?? session?.user.username ?? '-'}</Text>
-          <Text style={styles.text}>Aktif oturumlar: {settings?.accountCenter.activeSessionCount ?? sessions.length}</Text>
+          <Text style={styles.text}>Aktif oturumlar: {sessionDevices.length || settings?.accountCenter.activeSessionCount || sessions.length}</Text>
           <Text style={styles.text}>Kaydedilen gonderi: {settings?.accountCenter.savedPostsCount ?? 0}</Text>
           <Text style={styles.text}>Kaydedilen ilan: {settings?.accountCenter.savedListingsCount ?? 0}</Text>
           <View style={styles.row}>
@@ -273,6 +343,29 @@ export default function SettingsScreen() {
               <Text style={styles.secondaryButtonLabel}>Hesap ekle</Text>
             </Pressable>
           </View>
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.kicker}>Aktif cihazlar</Text>
+          {sessionDevicesLoading ? <Text style={styles.text}>Cihaz oturumlari getiriliyor...</Text> : null}
+          {!sessionDevicesLoading && sessionDevices.length === 0 ? (
+            <Text style={styles.text}>Bu hesaba bagli aktif cihaz bulunamadi.</Text>
+          ) : null}
+          {sessionDevices.map((device) => (
+            <View key={device.id} style={styles.sessionRow}>
+              <View style={styles.sessionCopy}>
+                <Text style={styles.cardTitle}>
+                  {device.deviceName ?? device.platform ?? 'Carloi Device'}
+                  {device.isCurrent ? ' · Bu cihaz' : ''}
+                </Text>
+                <Text style={styles.meta}>{formatSessionMeta(device)}</Text>
+                <Text style={styles.meta}>Son gorulme: {formatSessionDate(device.lastSeenAt)}</Text>
+              </View>
+              <Pressable style={styles.sessionButton} onPress={() => void handleRevokeSession(device)}>
+                <Text style={styles.sessionButtonLabel}>{device.isCurrent ? 'Cikis yap' : 'Cihazi kapat'}</Text>
+              </Pressable>
+            </View>
+          ))}
         </View>
 
         <View style={styles.card}>
@@ -472,6 +565,29 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: mobileTheme.colors.border,
+  },
+  sessionRow: {
+    gap: 10,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: mobileTheme.colors.border,
+  },
+  sessionCopy: {
+    gap: 4,
+  },
+  sessionButton: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: mobileTheme.radius.md,
+    backgroundColor: mobileTheme.colors.surfaceMuted,
+    borderWidth: 1,
+    borderColor: mobileTheme.colors.border,
+  },
+  sessionButtonLabel: {
+    color: mobileTheme.colors.textStrong,
+    fontSize: 12,
+    fontWeight: '700',
   },
   disabled: { opacity: 0.45 },
 });

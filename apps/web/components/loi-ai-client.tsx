@@ -12,7 +12,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppShell } from './app-shell';
 import { useAuth } from './auth-provider';
-import { loiAiSuggestedPrompts } from '../lib/demo-content';
+import { demoLoiAiWelcomeConversation, loiAiSuggestedPrompts } from '../lib/demo-content';
 import { webLoiAiApi } from '../lib/loi-ai-api';
 
 const ATTACHMENT_SEQUENCE: AttachmentType[] = [
@@ -64,6 +64,7 @@ export function LoiAiClient() {
     () => conversations.find((item) => item.id === activeConversationId) ?? null,
     [activeConversationId, conversations],
   );
+  const displayConversation = activeConversation ?? demoLoiAiWelcomeConversation;
 
   useEffect(() => {
     if (!accessToken) {
@@ -303,7 +304,7 @@ export function LoiAiClient() {
                 </div>
               </div>
             ) : null}
-            {activeConversation?.messages.map((message) => (
+            {displayConversation.messages.map((message) => (
               <article key={message.id} className={`ai-message ai-message-${message.role.toLowerCase()}`}>
                 <div className="ai-message-meta">
                   <strong>{message.role === 'USER' ? 'Siz' : 'Loi AI'}</strong>

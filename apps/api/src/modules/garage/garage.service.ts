@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { MediaAssetPurpose, Prisma, VehicleEquipmentCategory } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { getUserOwnedMediaAssetMap } from '../media/media-asset.helpers';
+import { normalizePersistedMediaUrl, shouldLogMediaDebug } from '../media/media-url.utils';
 import {
   inferMediaType,
   maskPlateNumber,
@@ -32,6 +33,16 @@ const garageVehicleSummaryInclude = Prisma.validator<Prisma.GarageVehicleInclude
       sortOrder: 'asc',
     },
     take: 1,
+    include: {
+      mediaAsset: {
+        select: {
+          id: true,
+          url: true,
+          storageKey: true,
+          visibility: true,
+        },
+      },
+    },
   },
 });
 
@@ -67,6 +78,16 @@ const garageVehicleDetailInclude = Prisma.validator<Prisma.GarageVehicleInclude>
   media: {
     orderBy: {
       sortOrder: 'asc',
+    },
+    include: {
+      mediaAsset: {
+        select: {
+          id: true,
+          url: true,
+          storageKey: true,
+          visibility: true,
+        },
+      },
     },
   },
   extraEquipment: {
@@ -113,6 +134,16 @@ const garageVehicleExploreInclude = Prisma.validator<Prisma.GarageVehicleInclude
       sortOrder: 'asc',
     },
     take: 6,
+    include: {
+      mediaAsset: {
+        select: {
+          id: true,
+          url: true,
+          storageKey: true,
+          visibility: true,
+        },
+      },
+    },
   },
   extraEquipment: {
     orderBy: [{ category: 'asc' }, { createdAt: 'asc' }],
@@ -130,6 +161,13 @@ type GarageVehicleDetailRecord = Prisma.GarageVehicleGetPayload<{
 type GarageVehicleExploreRecord = Prisma.GarageVehicleGetPayload<{
   include: typeof garageVehicleExploreInclude;
 }>;
+
+type MediaAssetReference = {
+  id: string;
+  url: string;
+  storageKey: string;
+  visibility: 'PUBLIC' | 'PRIVATE';
+};
 
 @Injectable()
 export class GarageService {
@@ -563,9 +601,11 @@ export class GarageService {
   }
 
   private serializeVehicleSummary(vehicle: GarageVehicleSummaryRecord) {
+    const firstMediaUrl = this.normalizeMediaUrl(vehicle.media[0]?.url, vehicle.media[0]?.mediaAsset);
+
     return {
       id: vehicle.id,
-      firstMediaUrl: vehicle.media[0]?.url ?? null,
+      firstMediaUrl,
       brand:
         vehicle.vehiclePackage?.model.brand.name ??
         vehicle.model?.brand.name ??
@@ -586,15 +626,16 @@ export class GarageService {
 
   private serializeVehicleDetail(vehicle: GarageVehicleDetailRecord) {
     const spec = this.selectPrimaryPackageSpec(vehicle.vehiclePackage?.specs);
+    const media = vehicle.media.map((mediaItem) => ({
+      id: mediaItem.id,
+      url: this.normalizeMediaUrl(mediaItem.url, mediaItem.mediaAsset),
+      mediaType: mediaItem.mediaType,
+      sortOrder: mediaItem.sortOrder,
+    }));
 
     return {
       id: vehicle.id,
-      media: vehicle.media.map((mediaItem) => ({
-        id: mediaItem.id,
-        url: mediaItem.url,
-        mediaType: mediaItem.mediaType,
-        sortOrder: mediaItem.sortOrder,
-      })),
+      media,
       brand:
         vehicle.vehiclePackage?.model.brand.name ??
         vehicle.model?.brand.name ??
@@ -643,16 +684,24 @@ export class GarageService {
 
   private serializeExploreVehicle(vehicle: GarageVehicleExploreRecord) {
     const spec = this.selectPrimaryPackageSpec(vehicle.vehiclePackage?.specs);
+    const media = vehicle.media.map((mediaItem) => ({
+      id: mediaItem.id,
+      url: this.normalizeMediaUrl(mediaItem.url, mediaItem.mediaAsset),
+      mediaType: mediaItem.mediaType,
+      sortOrder: mediaItem.sortOrder,
+    }));
+
+    if (shouldLogMediaDebug()) {
+      console.info('[explore.feed] media', {
+        vehicleId: vehicle.id,
+        media,
+      });
+    }
 
     return {
       id: vehicle.id,
-      firstMediaUrl: vehicle.media[0]?.url ?? null,
-      media: vehicle.media.map((mediaItem) => ({
-        id: mediaItem.id,
-        url: mediaItem.url,
-        mediaType: mediaItem.mediaType,
-        sortOrder: mediaItem.sortOrder,
-      })),
+      firstMediaUrl: media[0]?.url ?? null,
+      media,
       owner: {
         id: vehicle.owner.id,
         username: vehicle.owner.username,
@@ -683,6 +732,17 @@ export class GarageService {
       showInExplore: vehicle.showInExplore,
       openToOffers: vehicle.openToOffers,
     };
+  }
+
+  private normalizeMediaUrl(
+    value: string | null | undefined,
+    mediaAsset?: MediaAssetReference | null,
+  ) {
+    return (
+      normalizePersistedMediaUrl(value, {
+        mediaAsset: mediaAsset ?? null,
+      }) ?? value ?? null
+    );
   }
 
   private normalizePlate(plateNumber?: string | null) {

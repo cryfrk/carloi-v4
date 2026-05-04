@@ -1,6 +1,7 @@
 ﻿import type {
   DamageStatus,
   FuelType,
+  ListingSortOption,
   ListingStatus,
   SellerType,
   TransmissionType,
@@ -80,21 +81,40 @@ export interface UpdateListingRequest {
 }
 
 export interface ListingFeedQuery {
+  q?: string;
+  cities?: string[];
+  districts?: string[];
+  vehicleType?: VehicleCatalogType;
   brandId?: string;
   modelId?: string;
   packageId?: string;
   minPrice?: number;
   maxPrice?: number;
+  minYear?: number;
+  maxYear?: number;
+  minKm?: number;
+  maxKm?: number;
+  fuelTypes?: FuelType[];
+  transmissionTypes?: TransmissionType[];
+  bodyTypes?: string[];
+  colors?: string[];
+  sellerTypes?: SellerType[];
+  onlyVerifiedSeller?: boolean;
+  noPaint?: boolean;
+  noChangedParts?: boolean;
+  noHeavyDamage?: boolean;
+  tradeAvailable?: boolean;
+  guaranteed?: boolean;
+  sort?: ListingSortOption;
   city?: string;
   district?: string;
   sellerType?: SellerType;
-  minKm?: number;
-  maxKm?: number;
   fuelType?: FuelType;
   transmissionType?: TransmissionType;
   bodyType?: string;
   yearMin?: number;
   yearMax?: number;
+  limit?: number;
   cursor?: string;
 }
 
@@ -109,14 +129,26 @@ export interface ListingFeedItem {
   city: string;
   district: string | null;
   price: number;
+  year: number | null;
   km: number | null;
+  fuelType: FuelType | null;
+  transmissionType: TransmissionType | null;
+  bodyType: string | null;
+  color: string | null;
   sellerType: SellerType;
+  tradeAvailable: boolean;
+  isVerifiedSeller: boolean;
   isSaved: boolean;
 }
 
 export interface ListingFeedResponse {
   items: ListingFeedItem[];
   nextCursor: string | null;
+  totalCount: number;
+}
+
+export interface ListingFeedCountResponse {
+  count: number;
 }
 
 export interface ListingOwnerProfile {

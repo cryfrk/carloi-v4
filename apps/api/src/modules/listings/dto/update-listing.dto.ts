@@ -17,6 +17,10 @@ import { ListingDamagePartDto } from './create-listing.dto';
 export class UpdateListingMediaDto {
   @IsUrl({ require_tld: false })
   url!: string;
+
+  @IsOptional()
+  @IsString()
+  mediaAssetId?: string;
 }
 
 export class UpdateListingDto {

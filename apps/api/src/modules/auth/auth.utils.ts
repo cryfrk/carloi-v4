@@ -18,6 +18,8 @@ export type SessionContext = {
   ipAddress?: string;
   userAgent?: string;
   deviceName?: string;
+  platform?: string;
+  approximateLocation?: string;
 };
 
 export const authUserSelect = {

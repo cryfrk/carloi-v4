@@ -4,11 +4,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   MediaAssetPurpose,
+  type AuthSessionDevice,
   type CommercialApplicationView,
   type SettingsMeResponse,
 } from '@carloi-v4/types';
 import { AppShell } from './app-shell';
 import { useAuth } from './auth-provider';
+import { webAuthApi } from '../lib/auth-api';
 import { webCommercialApi } from '../lib/commercial-api';
 import { webMediaApi } from '../lib/media-api';
 import { webProfileApi } from '../lib/profile-api';
@@ -18,6 +20,8 @@ export function SettingsClient() {
   const { session, sessions, isReady, switchAccount, signOut, signOutAll } = useAuth();
   const [settings, setSettings] = useState<SettingsMeResponse | null>(null);
   const [application, setApplication] = useState<CommercialApplicationView | null>(null);
+  const [sessionDevices, setSessionDevices] = useState<AuthSessionDevice[]>([]);
+  const [sessionDevicesLoading, setSessionDevicesLoading] = useState(false);
   const [profileForm, setProfileForm] = useState({
     avatarUrl: '',
     firstName: '',
@@ -76,6 +80,14 @@ export function SettingsClient() {
       });
   }, [session?.accessToken]);
 
+  useEffect(() => {
+    if (!session?.accessToken) {
+      return;
+    }
+
+    void reloadSessionDevices(session.accessToken);
+  }, [session?.accessToken]);
+
   const hasPendingApplication = application?.status === 'PENDING';
   const isApproved = session?.user.isCommercialApproved || application?.status === 'APPROVED';
   const otherDocumentUrls = useMemo(
@@ -96,6 +108,43 @@ export function SettingsClient() {
     const response = await webProfileApi.getSettings(session.accessToken);
     setSettings(response);
     setPrivacy(response.privacy);
+  }
+
+  async function reloadSessionDevices(accessToken = session?.accessToken) {
+    if (!accessToken) {
+      return;
+    }
+
+    setSessionDevicesLoading(true);
+
+    try {
+      const response = await webAuthApi.getSessions(accessToken);
+      setSessionDevices(response.items);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Aktif cihazlar getirilemedi.');
+    } finally {
+      setSessionDevicesLoading(false);
+    }
+  }
+
+  async function handleRevokeSession(device: AuthSessionDevice) {
+    if (!session?.accessToken) {
+      return;
+    }
+
+    try {
+      await webAuthApi.revokeSession(session.accessToken, device.id);
+      setNotice(device.isCurrent ? 'Bu cihaz oturumu kapatildi.' : 'Cihaz oturumu kapatildi.');
+      if (device.isCurrent) {
+        await signOut();
+        router.replace('/login');
+        return;
+      }
+
+      await reloadSessionDevices(session.accessToken);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Cihaz oturumu kapatilamadi.');
+    }
   }
 
   async function handleProfileSave() {
@@ -272,6 +321,23 @@ export function SettingsClient() {
     }
   }
 
+  function formatSessionMeta(device: AuthSessionDevice) {
+    return [device.deviceName ?? device.platform ?? 'Carloi Device', device.platform, device.approximateLocation, device.ip]
+      .filter(Boolean)
+      .join(' | ');
+  }
+
+  function formatSessionDate(value: string | null) {
+    if (!value) {
+      return 'Simdi';
+    }
+
+    return new Date(value).toLocaleString('tr-TR', {
+      dateStyle: 'short',
+      timeStyle: 'short',
+    });
+  }
+
   return (
     <AppShell>
       <section className="settings-stack">
@@ -307,13 +373,41 @@ export function SettingsClient() {
                   </div>
                 </div>
                 <div className="settings-status-list">
-                  <div><strong>Aktif oturum</strong><span>{settings?.accountCenter.activeSessionCount ?? sessions.length}</span></div>
+                  <div><strong>Aktif oturum</strong><span>{sessionDevices.length || settings?.accountCenter.activeSessionCount || sessions.length}</span></div>
                   <div><strong>Kaydedilen gonderi</strong><span>{settings?.accountCenter.savedPostsCount ?? 0}</span></div>
                   <div><strong>Kaydedilen ilan</strong><span>{settings?.accountCenter.savedListingsCount ?? 0}</span></div>
                 </div>
                 <div className="gate-actions">
                   <a className="secondary-link" href="/saved">Kaydedilenler</a>
                   <a className="secondary-link" href="/login">Hesap ekle</a>
+                </div>
+              </article>
+
+              <article className="settings-card">
+                <div className="settings-card-head">
+                  <div>
+                    <div className="settings-kicker">Sessions</div>
+                    <h3>Aktif cihazlar</h3>
+                  </div>
+                </div>
+                {sessionDevicesLoading ? <p>Cihaz oturumlari getiriliyor...</p> : null}
+                {!sessionDevicesLoading && sessionDevices.length === 0 ? <p>Bu hesaba bagli aktif cihaz bulunamadi.</p> : null}
+                <div className="settings-stack compact">
+                  {sessionDevices.map((device) => (
+                    <div key={device.id} className="session-device-row">
+                      <div className="session-device-copy">
+                        <strong>
+                          {device.deviceName ?? device.platform ?? 'Carloi Device'}
+                          {device.isCurrent ? ' · Bu cihaz' : ''}
+                        </strong>
+                        <span>{formatSessionMeta(device)}</span>
+                        <span>Son gorulme: {formatSessionDate(device.lastSeenAt)}</span>
+                      </div>
+                      <button className="secondary-link subtle-button" type="button" onClick={() => void handleRevokeSession(device)}>
+                        {device.isCurrent ? 'Cikis yap' : 'Cihazi kapat'}
+                      </button>
+                    </div>
+                  ))}
                 </div>
               </article>
 

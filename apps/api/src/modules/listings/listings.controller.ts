@@ -32,6 +32,11 @@ export class ListingsController {
     return this.listingsService.getListingsFeed(user.userId, query);
   }
 
+  @Get('count')
+  getListingsCount(@CurrentUser() user: AuthenticatedUser, @Query() query: ListingsFeedQueryDto) {
+    return this.listingsService.getListingsCount(user.userId, query).then((count) => ({ count }));
+  }
+
   @Get(':id')
   getListingDetail(@CurrentUser() user: AuthenticatedUser, @Param('id') listingId: string) {
     return this.listingsService.getListingDetail(user.userId, listingId);

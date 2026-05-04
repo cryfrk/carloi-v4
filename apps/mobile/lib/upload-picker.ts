@@ -66,7 +66,65 @@ export async function pickMediaFiles(options?: {
     return [];
   }
 
-  return result.assets.map((asset) => normalizeFile(asset.uri, asset.mimeType, asset.fileName));
+  return result.assets.map((asset) => {
+    if (
+      options?.videoMaxDuration &&
+      asset.type === 'video' &&
+      asset.duration &&
+      asset.duration / 1000 > options.videoMaxDuration
+    ) {
+      throw new Error(`Video en fazla ${options.videoMaxDuration} saniye olabilir.`);
+    }
+
+    return {
+      ...normalizeFile(asset.uri, asset.mimeType, asset.fileName),
+      size: asset.fileSize ?? null,
+      durationMs: asset.duration ?? null,
+    };
+  });
+}
+
+export async function pickCameraMedia(options?: {
+  videoMaxDuration?: number;
+  preferredType?: 'photo' | 'video';
+}) {
+  const permission = await ImagePicker.requestCameraPermissionsAsync();
+
+  if (!permission.granted) {
+    throw new Error('Kamera kullanmak icin izin vermelisiniz.');
+  }
+
+  const result = await ImagePicker.launchCameraAsync({
+    mediaTypes:
+      options?.preferredType === 'video'
+        ? ImagePicker.MediaTypeOptions.Videos
+        : options?.preferredType === 'photo'
+          ? ImagePicker.MediaTypeOptions.Images
+          : ImagePicker.MediaTypeOptions.All,
+    quality: 0.9,
+    videoMaxDuration: options?.videoMaxDuration,
+  });
+
+  if (result.canceled) {
+    return [];
+  }
+
+  return result.assets.map((asset) => {
+    if (
+      options?.videoMaxDuration &&
+      asset.type === 'video' &&
+      asset.duration &&
+      asset.duration / 1000 > options.videoMaxDuration
+    ) {
+      throw new Error(`Video en fazla ${options.videoMaxDuration} saniye olabilir.`);
+    }
+
+    return {
+      ...normalizeFile(asset.uri, asset.mimeType, asset.fileName),
+      size: asset.fileSize ?? null,
+      durationMs: asset.duration ?? null,
+    };
+  });
 }
 
 export async function pickDocumentFiles(options?: {

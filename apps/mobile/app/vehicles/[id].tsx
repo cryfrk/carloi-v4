@@ -1,7 +1,7 @@
 ﻿import { Ionicons } from '@expo/vector-icons';
-import type { VehicleShowcaseDetailResponse } from '@carloi-v4/types';
+import { SharedContentType, type VehicleShowcaseDetailResponse } from '@carloi-v4/types';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -12,11 +12,18 @@ import {
   View,
 } from 'react-native';
 import { MobileShell } from '../../components/mobile-shell';
+import { ShareContentSheet } from '../../components/share-content-sheet';
+import { MobileMediaView } from '../../components/mobile-media-view';
 import { useAuth } from '../../context/auth-context';
+import { buildDemoMessageFixtures, demoExploreVehicleById } from '../../lib/demo-content';
 import { mobileTheme } from '../../lib/design-system';
 import { mobileExploreApi } from '../../lib/explore-api';
 import { vehicleEquipmentCategoryLabels } from '../../lib/listings-ui';
 import { mobileMessagesApi } from '../../lib/messages-api';
+
+function sharedCardMatchesTarget(card: unknown, targetId: string): boolean {
+  return Boolean(card && typeof card === 'object' && 'targetId' in card && card.targetId === targetId);
+}
 
 export default function VehicleDetailScreen() {
   const router = useRouter();
@@ -26,6 +33,22 @@ export default function VehicleDetailScreen() {
   const [vehicle, setVehicle] = useState<VehicleShowcaseDetailResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [shareOpen, setShareOpen] = useState(false);
+  const demoMessages = useMemo(
+    () =>
+      buildDemoMessageFixtures(
+        session
+          ? {
+              id: session.user.id,
+              username: session.user.username,
+              firstName: session.user.firstName,
+              lastName: session.user.lastName,
+            }
+          : null,
+      ),
+    [session],
+  );
 
   useEffect(() => {
     if (!session?.accessToken || !id) {
@@ -34,6 +57,12 @@ export default function VehicleDetailScreen() {
 
     setLoading(true);
     setErrorMessage(null);
+
+    if (id.startsWith('demo-vehicle-')) {
+      setVehicle(demoExploreVehicleById[id] ?? null);
+      setLoading(false);
+      return;
+    }
 
     void mobileExploreApi
       .getVehicleShowcase(session.accessToken, id)
@@ -62,6 +91,21 @@ export default function VehicleDetailScreen() {
       return;
     }
 
+    if (vehicle.id.startsWith('demo-vehicle-')) {
+      const demoThread =
+        demoMessages.threads.find((thread) =>
+          thread.participants.some((participant) => participant.id === vehicle.owner.id),
+        ) ??
+        Object.values(demoMessages.threadDetails).find((thread) =>
+          thread.messages.some((message) => sharedCardMatchesTarget(message.systemCard, vehicle.id)),
+        );
+
+      if (demoThread) {
+        router.push(`/messages/${demoThread.id}`);
+        return;
+      }
+    }
+
     try {
       const response = await mobileMessagesApi.createDirectThread(accessToken, {
         targetUserId: vehicle.owner.id,
@@ -74,6 +118,7 @@ export default function VehicleDetailScreen() {
 
   return (
     <MobileShell title="Arac detayi" subtitle="Profil icindeki arac koleksiyonunda daha temiz bir detay deneyimi.">
+      {notice ? <Text style={styles.notice}>{notice}</Text> : null}
       {errorMessage ? <Text style={styles.error}>{errorMessage}</Text> : null}
       {loading ? (
         <View style={styles.loadingWrap}>
@@ -87,7 +132,15 @@ export default function VehicleDetailScreen() {
             {(vehicle.media.length ? vehicle.media : [{ id: 'fallback', url: vehicle.firstMediaUrl ?? '', mediaType: 'IMAGE', sortOrder: 0 }]).map((mediaItem) => (
               <View key={mediaItem.id} style={styles.galleryItem}>
                 {mediaItem.url ? (
-                  <Image source={{ uri: mediaItem.url }} style={styles.galleryImage} />
+                  <MobileMediaView
+                    autoPlay={mediaItem.mediaType === 'VIDEO'}
+                    loop={mediaItem.mediaType === 'VIDEO'}
+                    mediaType={mediaItem.mediaType === 'VIDEO' ? 'VIDEO' : 'IMAGE'}
+                    muted={mediaItem.mediaType === 'VIDEO'}
+                    nativeControls={mediaItem.mediaType === 'VIDEO'}
+                    style={styles.galleryImage}
+                    uri={mediaItem.url}
+                  />
                 ) : (
                   <View style={styles.galleryFallback}>
                     <Text style={styles.galleryFallbackLabel}>{vehicle.brand} {vehicle.model}</Text>
@@ -176,8 +229,22 @@ export default function VehicleDetailScreen() {
                 <Text style={styles.primaryButtonLabel}>{vehicle.openToOffers ? 'Teklif ver' : 'Mesaj gonder'}</Text>
               </Pressable>
             )}
+            <Pressable style={styles.secondaryButton} onPress={() => setShareOpen(true)}>
+              <Text style={styles.secondaryButtonLabel}>Paylas</Text>
+            </Pressable>
           </View>
         </ScrollView>
+      ) : null}
+      {vehicle ? (
+        <ShareContentSheet
+          accessToken={accessToken}
+          contentId={vehicle.id}
+          contentType={SharedContentType.VEHICLE}
+          currentUserId={session.user.id}
+          onClose={() => setShareOpen(false)}
+          onShared={(count) => setNotice(`${count} kisiye gonderildi.`)}
+          visible={shareOpen}
+        />
       ) : null}
     </MobileShell>
   );
@@ -372,6 +439,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   actionRow: {
+    gap: 10,
     paddingTop: 20,
   },
   primaryButton: {
@@ -387,10 +455,29 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontWeight: '800',
   },
+  secondaryButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 46,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    backgroundColor: '#ffffff',
+  },
+  secondaryButtonLabel: {
+    color: mobileTheme.colors.textStrong,
+    fontWeight: '700',
+  },
+  notice: {
+    color: '#2563eb',
+    textAlign: 'center',
+    paddingBottom: 12,
+  },
   error: {
     color: '#dc2626',
     textAlign: 'center',
     paddingBottom: 12,
   },
 });
+
 

@@ -6,6 +6,7 @@ import type { ExploreVehicleItem } from '@carloi-v4/types';
 import { AppShell } from './app-shell';
 import { useAuth } from './auth-provider';
 import { HeartIcon, MessageIcon, ShareIcon } from './app-icons';
+import { WebMediaView } from './web-media-view';
 import { demoExploreVehicles } from '../lib/demo-content';
 import { webExploreApi } from '../lib/explore-api';
 import { webMessagesApi } from '../lib/messages-api';
@@ -87,9 +88,17 @@ export function ExploreClient() {
               return (
                 <article className="explore-reel" key={item.id}>
                   <div className="explore-media">
-                    <Link className="explore-media-link" href={item.id.startsWith('demo-') ? '/vehicles/create' : `/vehicles/${item.id}`}>
+                    <Link className="explore-media-link" href={`/vehicles/${item.id}`}>
                       {media?.url ? (
-                        <img alt={`${item.brand} ${item.model}`} loading="lazy" src={media.url} />
+                        <WebMediaView
+                          alt={`${item.brand} ${item.model}`}
+                          autoPlay={media.mediaType === 'VIDEO'}
+                          className="explore-media-image"
+                          loop={media.mediaType === 'VIDEO'}
+                          mediaType={media.mediaType}
+                          muted={media.mediaType === 'VIDEO'}
+                          uri={media.url}
+                        />
                       ) : (
                         <div className="profile-tile-fallback">ARAC</div>
                       )}

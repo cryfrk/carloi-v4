@@ -18,7 +18,7 @@ import {
 } from 'react-native';
 import { MobileShell } from '../components/mobile-shell';
 import { useAuth } from '../context/auth-context';
-import { loiAiSuggestedPrompts } from '../lib/demo-content';
+import { demoLoiAiWelcomeConversation, loiAiSuggestedPrompts } from '../lib/demo-content';
 import { mobileLoiAiApi } from '../lib/loi-ai-api';
 
 const ATTACHMENT_SEQUENCE: AttachmentType[] = [
@@ -68,6 +68,7 @@ export default function LoiAiScreen() {
     () => conversations.find((item) => item.id === activeConversationId) ?? null,
     [activeConversationId, conversations],
   );
+  const displayConversation = activeConversation ?? demoLoiAiWelcomeConversation;
 
   useEffect(() => {
     if (!accessToken) {
@@ -302,7 +303,7 @@ export default function LoiAiScreen() {
             </View>
           ) : null}
 
-          {activeConversation?.messages.map((message) => (
+          {displayConversation.messages.map((message) => (
             <View key={message.id} style={styles.messageBlock}>
               <Text style={styles.messageMeta}>
                 {message.role === 'USER' ? 'Siz' : 'Loi AI'} | {formatTime(message.createdAt)}
@@ -360,7 +361,7 @@ export default function LoiAiScreen() {
             {sending ? <Text style={styles.primaryButtonLabel}>...</Text> : <Ionicons color="#ffffff" name="arrow-up" size={16} />}
           </Pressable>
         </View>
-        {activeSummary ? <Text style={styles.footerHint}>Aktif sohbet: {activeSummary.title}</Text> : null}
+        <Text style={styles.footerHint}>Aktif sohbet: {activeSummary?.title ?? demoLoiAiWelcomeConversation.title}</Text>
       </View>
     </MobileShell>
   );

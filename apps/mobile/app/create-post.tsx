@@ -1,4 +1,4 @@
-import { MediaAssetPurpose, type CreatePostMediaInput, type MediaAssetUploadResponse } from '@carloi-v4/types';
+﻿import { MediaAssetPurpose, type CreatePostMediaInput, type MediaAssetUploadResponse } from '@carloi-v4/types';
 import { Redirect, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import {
@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { MobileShell } from '../components/mobile-shell';
+import { MobileMediaView } from '../components/mobile-media-view';
 import { useAuth } from '../context/auth-context';
 import { mobileTheme } from '../lib/design-system';
 import { mobileMediaApi } from '../lib/media-api';
@@ -148,17 +149,17 @@ export default function CreatePostScreen() {
             <View key={item.id} style={styles.mediaCard}>
               <View style={styles.mediaHead}>
                 <Text style={styles.mediaIndex}>Medya {index + 1}</Text>
-                <Text style={styles.mediaMeta}>{item.mimeType} � {(item.size / 1024 / 1024).toFixed(2)} MB</Text>
+                <Text style={styles.mediaMeta}>{item.mimeType} · {(item.size / 1024 / 1024).toFixed(2)} MB</Text>
               </View>
               <View style={styles.previewFrame}>
-                {inferMediaType(item.mimeType) === 'IMAGE' ? (
-                  <Image source={{ uri: item.url }} style={styles.previewImage} resizeMode="cover" />
-                ) : (
-                  <View style={styles.previewVideo}>
-                    <Text style={styles.previewVideoLabel}>VIDEO</Text>
-                    <Text style={styles.previewVideoUrl}>{item.url}</Text>
-                  </View>
-                )}
+                <MobileMediaView
+                  autoPlay={(inferMediaType(item.mimeType) ?? 'IMAGE') === 'VIDEO'}
+                  loop={(inferMediaType(item.mimeType) ?? 'IMAGE') === 'VIDEO'}
+                  mediaType={inferMediaType(item.mimeType) ?? 'IMAGE'}
+                  muted
+                  style={styles.previewImage}
+                  uri={item.url}
+                />
               </View>
               <View style={styles.toolsRow}>
                 <Pressable
@@ -417,3 +418,5 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
 });
+
+

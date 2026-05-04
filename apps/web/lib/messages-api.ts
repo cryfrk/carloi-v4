@@ -11,6 +11,8 @@ import type {
   RequestInsuranceResponse,
   SendMessageRequest,
   SendMessageResponse,
+  ShareContentRequest,
+  ShareContentResponse,
   ShareLicenseResponse,
 } from '@carloi-v4/types';
 
@@ -112,6 +114,13 @@ export const webMessagesApi = {
     return requestJson<RequestInsuranceResponse>(`/messages/listing-deal/${threadId}/request-insurance`, {
       method: 'POST',
       accessToken,
+    });
+  },
+  shareContent(accessToken: string, body: ShareContentRequest) {
+    return requestJson<ShareContentResponse>('/messages/share', {
+      method: 'POST',
+      accessToken,
+      body,
     });
   },
 };

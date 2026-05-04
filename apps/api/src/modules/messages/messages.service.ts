@@ -6,6 +6,7 @@ import {
   MessageThreadType,
   MessageType,
   Prisma,
+  SharedContentType,
 } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { getUserOwnedMediaAssetMap } from '../media/media-asset.helpers';
@@ -17,6 +18,7 @@ import {
   CreateGroupThreadDto,
   SendMessageDto,
 } from './dto/thread-actions.dto';
+import { ShareContentDto } from './dto/share-content.dto';
 
 const threadSummaryInclude = {
   listing: {
@@ -90,6 +92,7 @@ const threadSummaryInclude = {
           sortOrder: 'asc',
         },
       },
+      sharedContent: true,
     },
   },
 } as const satisfies Prisma.MessageThreadInclude;
@@ -117,6 +120,7 @@ const threadDetailInclude = {
           sortOrder: 'asc',
         },
       },
+      sharedContent: true,
     },
   },
 } as const satisfies Prisma.MessageThreadInclude;
@@ -203,11 +207,52 @@ type PolicyDocumentSystemCardPayload = {
   buttonLabel: string;
 };
 
+type SharedPostSystemCardPayload = {
+  type: 'POST_CARD';
+  contentType: 'POST';
+  targetId: string;
+  previewTitle: string;
+  previewImageUrl: string | null;
+  previewSubtitle: string | null;
+};
+
+type SharedListingSystemCardPayload = {
+  type: 'LISTING_CARD';
+  contentType: 'LISTING';
+  targetId: string;
+  previewTitle: string;
+  previewImageUrl: string | null;
+  previewSubtitle: string | null;
+};
+
+type SharedVehicleSystemCardPayload = {
+  type: 'VEHICLE_CARD';
+  contentType: 'VEHICLE';
+  targetId: string;
+  previewTitle: string;
+  previewImageUrl: string | null;
+  previewSubtitle: string | null;
+};
+
 type SystemCardPayload =
   | LicenseInfoSystemCardPayload
   | InsuranceOfferSystemCardPayload
   | PaymentStatusSystemCardPayload
-  | PolicyDocumentSystemCardPayload;
+  | PolicyDocumentSystemCardPayload
+  | SharedPostSystemCardPayload
+  | SharedListingSystemCardPayload
+  | SharedVehicleSystemCardPayload;
+
+type SharedContentPreview = {
+  type: SharedContentType;
+  targetId: string;
+  previewTitle: string;
+  previewImageUrl: string | null;
+  previewSubtitle: string | null;
+  messageBody: string;
+  notificationTitle: string;
+  systemCard: SharedPostSystemCardPayload | SharedListingSystemCardPayload | SharedVehicleSystemCardPayload;
+};
 
 @Injectable()
 export class MessagesService {
@@ -347,6 +392,72 @@ export class MessagesService {
       success: true,
       threadId,
       message,
+    };
+  }
+
+  async shareContent(userId: string, dto: ShareContentDto) {
+    const targetUserIds = [...new Set(dto.targetUserIds.filter((targetUserId) => targetUserId && targetUserId !== userId))];
+
+    if (targetUserIds.length === 0) {
+      throw new BadRequestException('Paylasim icin en az bir kullanici secmelisiniz.');
+    }
+
+    const sharePreview = await this.buildSharedContentPreview(dto.contentType, dto.contentId);
+    const existingUsers = await this.prisma.user.findMany({
+      where: {
+        id: {
+          in: targetUserIds,
+        },
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (existingUsers.length !== targetUserIds.length) {
+      throw new NotFoundException('Secilen kullanicilardan biri bulunamadi.');
+    }
+
+    const threadIds = await Promise.all(
+      targetUserIds.map(async (targetUserId) => {
+        const threadId = await this.getOrCreateDirectThreadId(userId, targetUserId);
+        const message = await this.createMessageRecord(this.prisma, {
+          threadId,
+          senderId: userId,
+          messageType: MessageType.SYSTEM_CARD,
+          body: sharePreview.messageBody,
+          allowSystemCard: true,
+          metadata: {
+            systemCard: sharePreview.systemCard,
+          },
+          sharedContent: {
+            type: sharePreview.type,
+            targetId: sharePreview.targetId,
+            previewTitle: sharePreview.previewTitle,
+            previewImageUrl: sharePreview.previewImageUrl,
+            previewSubtitle: sharePreview.previewSubtitle,
+          },
+        });
+
+        await this.notificationsService.create({
+          receiverId: targetUserId,
+          actorId: userId,
+          type: 'message',
+          entityId: message.id,
+          title: sharePreview.notificationTitle,
+          body: sharePreview.messageBody,
+          targetUrl: `/messages?thread=${threadId}`,
+        });
+
+        return threadId;
+      }),
+    );
+
+    return {
+      success: true,
+      sharedCount: threadIds.length,
+      threadIds,
     };
   }
 
@@ -925,6 +1036,13 @@ export class MessagesService {
       attachmentAssetIds?: string[];
       metadata?: Prisma.InputJsonValue;
       allowSystemCard?: boolean;
+      sharedContent?: {
+        type: SharedContentType;
+        targetId: string;
+        previewTitle: string;
+        previewImageUrl?: string | null;
+        previewSubtitle?: string | null;
+      };
     },
   ) {
     const body = trimNullable(input.body);
@@ -979,6 +1097,17 @@ export class MessagesService {
                 })),
               }
             : undefined,
+        sharedContent: input.sharedContent
+          ? {
+              create: {
+                type: input.sharedContent.type,
+                targetId: input.sharedContent.targetId,
+                previewTitle: input.sharedContent.previewTitle,
+                previewImageUrl: input.sharedContent.previewImageUrl ?? null,
+                previewSubtitle: input.sharedContent.previewSubtitle ?? null,
+              },
+            }
+          : undefined,
       },
       include: {
         sender: {
@@ -994,6 +1123,7 @@ export class MessagesService {
             sortOrder: 'asc',
           },
         },
+        sharedContent: true,
       },
     });
 
@@ -1091,6 +1221,202 @@ export class MessagesService {
     );
   }
 
+  private async getOrCreateDirectThreadId(userId: string, targetUserId: string) {
+    await this.ensureUserExists(targetUserId);
+
+    const existingThread = await this.findExistingDirectThread(userId, targetUserId);
+
+    if (existingThread) {
+      return existingThread.id;
+    }
+
+    const createdThread = await this.prisma.messageThread.create({
+      data: {
+        type: MessageThreadType.DIRECT,
+        participants: {
+          create: [{ userId }, { userId: targetUserId }],
+        },
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    return createdThread.id;
+  }
+
+  private async buildSharedContentPreview(contentType: SharedContentType, contentId: string): Promise<SharedContentPreview> {
+    if (contentType === SharedContentType.POST) {
+      const post = await this.prisma.post.findFirst({
+        where: {
+          id: contentId,
+        },
+        select: {
+          id: true,
+          caption: true,
+          owner: {
+            select: {
+              username: true,
+            },
+          },
+          media: {
+            orderBy: {
+              sortOrder: 'asc',
+            },
+            take: 1,
+            select: {
+              url: true,
+            },
+          },
+        },
+      });
+
+      if (!post) {
+        throw new NotFoundException('Paylasilacak gonderi bulunamadi.');
+      }
+
+      const previewTitle = 'Gonderi paylasildi';
+      const previewSubtitle = `@${post.owner.username}`;
+      const messageBody = this.truncateText(post.caption ?? 'Gonderi akista sizi bekliyor.', 140);
+      const systemCard: SharedPostSystemCardPayload = {
+        type: 'POST_CARD',
+        contentType: 'POST',
+        targetId: post.id,
+        previewTitle,
+        previewImageUrl: post.media[0]?.url ?? null,
+        previewSubtitle,
+      };
+
+      return {
+        type: SharedContentType.POST,
+        targetId: post.id,
+        previewTitle,
+        previewImageUrl: post.media[0]?.url ?? null,
+        previewSubtitle,
+        messageBody,
+        notificationTitle: 'Gonderi paylasildi',
+        systemCard,
+      };
+    }
+
+    if (contentType === SharedContentType.LISTING) {
+      const listing = await this.prisma.listing.findFirst({
+        where: {
+          id: contentId,
+          deletedAt: null,
+          listingStatus: ListingStatus.ACTIVE,
+        },
+        select: {
+          id: true,
+          title: true,
+          price: true,
+          currency: true,
+          city: true,
+          district: true,
+          seller: {
+            select: {
+              username: true,
+            },
+          },
+          media: {
+            orderBy: {
+              sortOrder: 'asc',
+            },
+            take: 1,
+            select: {
+              url: true,
+            },
+          },
+        },
+      });
+
+      if (!listing) {
+        throw new NotFoundException('Paylasilacak ilan bulunamadi.');
+      }
+
+      const previewSubtitle = `@${listing.seller.username}`;
+      const messageBody = `${this.formatCurrencyPreview(listing.price, listing.currency)} | ${listing.city}${listing.district ? ` / ${listing.district}` : ''}`;
+      const systemCard: SharedListingSystemCardPayload = {
+        type: 'LISTING_CARD',
+        contentType: 'LISTING',
+        targetId: listing.id,
+        previewTitle: listing.title,
+        previewImageUrl: listing.media[0]?.url ?? null,
+        previewSubtitle,
+      };
+
+      return {
+        type: SharedContentType.LISTING,
+        targetId: listing.id,
+        previewTitle: listing.title,
+        previewImageUrl: listing.media[0]?.url ?? null,
+        previewSubtitle,
+        messageBody,
+        notificationTitle: 'Ilan paylasildi',
+        systemCard,
+      };
+    }
+
+    const vehicle = await this.prisma.garageVehicle.findFirst({
+      where: {
+        id: contentId,
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        brandText: true,
+        modelText: true,
+        packageText: true,
+        year: true,
+        description: true,
+        owner: {
+          select: {
+            username: true,
+          },
+        },
+        media: {
+          orderBy: {
+            sortOrder: 'asc',
+          },
+          take: 1,
+          select: {
+            url: true,
+          },
+        },
+      },
+    });
+
+    if (!vehicle) {
+      throw new NotFoundException('Paylasilacak arac bulunamadi.');
+    }
+
+    const previewTitle = [vehicle.brandText, vehicle.modelText].filter(Boolean).join(' ');
+    const previewSubtitle = `@${vehicle.owner.username}`;
+    const messageBody = this.truncateText(
+      [vehicle.packageText, String(vehicle.year), vehicle.description].filter(Boolean).join(' | '),
+      140,
+    );
+    const systemCard: SharedVehicleSystemCardPayload = {
+      type: 'VEHICLE_CARD',
+      contentType: 'VEHICLE',
+      targetId: vehicle.id,
+      previewTitle,
+      previewImageUrl: vehicle.media[0]?.url ?? null,
+      previewSubtitle,
+    };
+
+    return {
+      type: SharedContentType.VEHICLE,
+      targetId: vehicle.id,
+      previewTitle,
+      previewImageUrl: vehicle.media[0]?.url ?? null,
+      previewSubtitle,
+      messageBody,
+      notificationTitle: 'Arac paylasildi',
+      systemCard,
+    };
+  }
+
   private async ensureUserExists(userId: string) {
     const user = await this.prisma.user.findFirst({
       where: {
@@ -1105,6 +1431,24 @@ export class MessagesService {
     if (!user) {
       throw new NotFoundException('Kullanici bulunamadi.');
     }
+  }
+
+  private truncateText(value: string, maxLength: number) {
+    if (value.length <= maxLength) {
+      return value;
+    }
+
+    return `${value.slice(0, Math.max(0, maxLength - 1)).trimEnd()}...`;
+  }
+
+  private formatCurrencyPreview(value: Prisma.Decimal, currency: string) {
+    const numberValue = Number(value);
+
+    if (Number.isNaN(numberValue)) {
+      return `${value.toString()} ${currency}`;
+    }
+
+    return `${numberValue.toLocaleString('tr-TR')} ${currency}`;
   }
 
   private async getUnreadCount(
@@ -1205,18 +1549,37 @@ export class MessagesService {
         sizeBytes: number | null;
         sortOrder: number;
       }>;
+      sharedContent?: {
+        type: SharedContentType;
+        targetId: string;
+        previewTitle: string;
+        previewImageUrl: string | null;
+        previewSubtitle: string | null;
+      } | null;
     },
   ) {
+    const systemCard = this.parseSystemCard(message.metadata, message.sharedContent);
+    const isSharedContentCard =
+      systemCard?.type === 'POST_CARD' ||
+      systemCard?.type === 'LISTING_CARD' ||
+      systemCard?.type === 'VEHICLE_CARD';
+
     return {
       id: message.id,
       threadId: message.threadId,
       senderId: message.senderId,
-      senderUsername: message.messageType === MessageType.SYSTEM_CARD ? 'system' : message.sender.username,
+      senderUsername:
+        message.messageType === MessageType.SYSTEM_CARD && !isSharedContentCard
+          ? 'system'
+          : message.sender.username,
       senderFullName:
-        message.messageType === MessageType.SYSTEM_CARD
+        message.messageType === MessageType.SYSTEM_CARD && !isSharedContentCard
           ? 'Sistem'
           : `${message.sender.firstName} ${message.sender.lastName}`.trim(),
-      isMine: message.messageType === MessageType.SYSTEM_CARD ? false : message.senderId === userId,
+      isMine:
+        message.messageType === MessageType.SYSTEM_CARD && !isSharedContentCard
+          ? false
+          : message.senderId === userId,
       body: message.body,
       messageType: message.messageType,
       seenAt: message.seenAt?.toISOString() ?? null,
@@ -1230,7 +1593,7 @@ export class MessagesService {
         sizeBytes: attachment.sizeBytes,
         sortOrder: attachment.sortOrder,
       })),
-      systemCard: this.parseSystemCard(message.metadata),
+      systemCard,
     };
   }
 
@@ -1320,6 +1683,10 @@ export class MessagesService {
     }
 
     if (message.messageType === MessageType.SYSTEM_CARD) {
+      if (message.sharedContent?.previewTitle) {
+        return message.sharedContent.previewTitle.slice(0, 160);
+      }
+
       return 'Sistem karti paylasildi.';
     }
 
@@ -1341,7 +1708,49 @@ export class MessagesService {
     }
   }
 
-  private parseSystemCard(metadata: Prisma.JsonValue | null | undefined): SystemCardPayload | null {
+  private parseSystemCard(
+    metadata: Prisma.JsonValue | null | undefined,
+    sharedContent?: {
+      type: SharedContentType;
+      targetId: string;
+      previewTitle: string;
+      previewImageUrl: string | null;
+      previewSubtitle: string | null;
+    } | null,
+  ): SystemCardPayload | null {
+    if (sharedContent) {
+      if (sharedContent.type === SharedContentType.POST) {
+        return {
+          type: 'POST_CARD',
+          contentType: 'POST',
+          targetId: sharedContent.targetId,
+          previewTitle: sharedContent.previewTitle,
+          previewImageUrl: sharedContent.previewImageUrl ?? null,
+          previewSubtitle: sharedContent.previewSubtitle ?? null,
+        };
+      }
+
+      if (sharedContent.type === SharedContentType.LISTING) {
+        return {
+          type: 'LISTING_CARD',
+          contentType: 'LISTING',
+          targetId: sharedContent.targetId,
+          previewTitle: sharedContent.previewTitle,
+          previewImageUrl: sharedContent.previewImageUrl ?? null,
+          previewSubtitle: sharedContent.previewSubtitle ?? null,
+        };
+      }
+
+      return {
+        type: 'VEHICLE_CARD',
+        contentType: 'VEHICLE',
+        targetId: sharedContent.targetId,
+        previewTitle: sharedContent.previewTitle,
+        previewImageUrl: sharedContent.previewImageUrl ?? null,
+        previewSubtitle: sharedContent.previewSubtitle ?? null,
+      };
+    }
+
     if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
       return null;
     }
@@ -1399,6 +1808,39 @@ export class MessagesService {
       };
     }
 
+    if (card.type === 'POST_CARD' && typeof card.targetId === 'string') {
+      return {
+        type: 'POST_CARD',
+        contentType: 'POST',
+        targetId: card.targetId,
+        previewTitle: typeof card.previewTitle === 'string' ? card.previewTitle : 'Gonderi paylasildi',
+        previewImageUrl: typeof card.previewImageUrl === 'string' ? card.previewImageUrl : null,
+        previewSubtitle: typeof card.previewSubtitle === 'string' ? card.previewSubtitle : null,
+      };
+    }
+
+    if (card.type === 'LISTING_CARD' && typeof card.targetId === 'string') {
+      return {
+        type: 'LISTING_CARD',
+        contentType: 'LISTING',
+        targetId: card.targetId,
+        previewTitle: typeof card.previewTitle === 'string' ? card.previewTitle : 'Ilan paylasildi',
+        previewImageUrl: typeof card.previewImageUrl === 'string' ? card.previewImageUrl : null,
+        previewSubtitle: typeof card.previewSubtitle === 'string' ? card.previewSubtitle : null,
+      };
+    }
+
+    if (card.type === 'VEHICLE_CARD' && typeof card.targetId === 'string') {
+      return {
+        type: 'VEHICLE_CARD',
+        contentType: 'VEHICLE',
+        targetId: card.targetId,
+        previewTitle: typeof card.previewTitle === 'string' ? card.previewTitle : 'Arac paylasildi',
+        previewImageUrl: typeof card.previewImageUrl === 'string' ? card.previewImageUrl : null,
+        previewSubtitle: typeof card.previewSubtitle === 'string' ? card.previewSubtitle : null,
+      };
+    }
+
     return null;
   }
 
@@ -1436,3 +1878,4 @@ export class MessagesService {
     return `${normalized.slice(0, 2)}${'*'.repeat(normalized.length - 4)}${normalized.slice(-2)}`;
   }
 }
+

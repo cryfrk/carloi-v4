@@ -3,6 +3,7 @@ import {
   ForbiddenException,
   Injectable,
   InternalServerErrorException,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -354,6 +355,59 @@ export class AuthService {
     };
   }
 
+  async getSessions(userId: string, currentSessionId: string) {
+    const sessions = await this.prisma.accountSession.findMany({
+      where: {
+        userId,
+        revokedAt: null,
+        expiresAt: {
+          gt: new Date(),
+        },
+      },
+      orderBy: [{ lastSeenAt: 'desc' }, { createdAt: 'desc' }],
+    });
+
+    return {
+      items: sessions.map((session) => {
+        const platform = session.platform ?? this.derivePlatform(session);
+        return {
+          id: session.id,
+          deviceName: session.deviceName ?? this.defaultDeviceName(platform),
+          platform,
+          userAgent: session.userAgent ?? null,
+          ip: session.ipAddress ?? null,
+          approximateLocation: session.approximateLocation ?? null,
+          lastSeenAt: session.lastSeenAt?.toISOString() ?? null,
+          createdAt: session.createdAt.toISOString(),
+          revokedAt: session.revokedAt?.toISOString() ?? null,
+          isCurrent: session.id === currentSessionId,
+        };
+      }),
+    };
+  }
+
+  async revokeSession(userId: string, sessionId: string) {
+    const result = await this.prisma.accountSession.updateMany({
+      where: {
+        id: sessionId,
+        userId,
+        revokedAt: null,
+      },
+      data: {
+        revokedAt: new Date(),
+      },
+    });
+
+    if (!result.count) {
+      throw new NotFoundException('Oturum bulunamadi.');
+    }
+
+    return {
+      success: true,
+      revokedSessionId: sessionId,
+    };
+  }
+
   async forgotPassword(dto: ForgotPasswordDto, ipAddress?: string) {
     await this.rateLimitService.consume({
       key: `auth:forgot-password:${ipAddress ?? 'unknown'}`,
@@ -629,7 +683,9 @@ export class AuthService {
         sessionTokenHash: temporaryHash,
         ipAddress: sessionContext.ipAddress,
         userAgent: sessionContext.userAgent,
-        deviceName: sessionContext.deviceName,
+        deviceName: sessionContext.deviceName ?? this.defaultDeviceName(this.derivePlatform(sessionContext)),
+        platform: sessionContext.platform ?? this.derivePlatform(sessionContext),
+        approximateLocation: sessionContext.approximateLocation ?? null,
         expiresAt,
         lastSeenAt: new Date(),
       },
@@ -741,6 +797,58 @@ export class AuthService {
     return value;
   }
 
+  private derivePlatform(sessionContext: {
+    platform?: string | null;
+    deviceName?: string | null;
+    userAgent?: string | null;
+  }) {
+    const explicitPlatform = sessionContext.platform?.trim().toLowerCase();
+
+    if (explicitPlatform) {
+      if (explicitPlatform.includes('ios')) {
+        return 'iOS';
+      }
+
+      if (explicitPlatform.includes('android')) {
+        return 'Android';
+      }
+
+      if (explicitPlatform.includes('web')) {
+        return 'Web';
+      }
+    }
+
+    const deviceName = sessionContext.deviceName?.toLowerCase() ?? '';
+    const userAgent = sessionContext.userAgent?.toLowerCase() ?? '';
+
+    if (deviceName.includes('mobile') || userAgent.includes('android')) {
+      return 'Android';
+    }
+
+    if (userAgent.includes('iphone') || userAgent.includes('ipad') || userAgent.includes('ios')) {
+      return 'iOS';
+    }
+
+    if (deviceName.includes('web') || userAgent.includes('mozilla') || userAgent.includes('chrome')) {
+      return 'Web';
+    }
+
+    return 'Unknown';
+  }
+
+  private defaultDeviceName(platform: string) {
+    switch (platform) {
+      case 'Android':
+        return 'Carloi Mobile';
+      case 'iOS':
+        return 'Carloi iPhone';
+      case 'Web':
+        return 'Carloi Web';
+      default:
+        return 'Carloi Device';
+    }
+  }
+
   private getJwtExpiresIn(key: string, fallback: StringValue) {
     const value = this.configService.get<string>(key)?.trim();
     return (value && value.length > 0 ? value : fallback) as StringValue;
@@ -758,7 +866,7 @@ export class AuthService {
           : [];
 
         if (targets.includes('username')) {
-          throw new BadRequestException({ message: 'Bu kullanıcı adı zaten kullanılıyor' });
+          throw new BadRequestException({ message: 'Bu kullanici adi zaten kullaniliyor' });
         }
 
         if (targets.includes('email')) {
@@ -769,10 +877,11 @@ export class AuthService {
           throw new BadRequestException({ message: 'Bu telefon zaten kullanılıyor' });
         }
 
-        throw new BadRequestException({ message: 'Bu bilgi zaten kullanılıyor' });
+        throw new BadRequestException({ message: 'Bu bilgi zaten kullaniliyor' });
       }
     }
 
-    throw new BadRequestException({ message: 'İşlem tamamlanamadı' });
+    throw new BadRequestException({ message: 'Islem tamamlanamadi' });
   }
 }
+

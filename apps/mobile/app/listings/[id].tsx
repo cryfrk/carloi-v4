@@ -1,6 +1,6 @@
-import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
-import type { ListingDetailResponse } from '@carloi-v4/types';
+﻿import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useMemo, useState } from 'react';
+import { SharedContentType, type ListingDetailResponse } from '@carloi-v4/types';
 import {
   ActivityIndicator,
   Dimensions,
@@ -13,14 +13,21 @@ import {
   View,
 } from 'react-native';
 import { MobileShell } from '../../components/mobile-shell';
+import { MobileMediaView } from '../../components/mobile-media-view';
+import { ShareContentSheet } from '../../components/share-content-sheet';
 import { VehicleDamageMap } from '../../components/vehicle-damage-map';
 import { useAuth } from '../../context/auth-context';
+import { buildDemoMessageFixtures, demoListingById } from '../../lib/demo-content';
 import { mobileTheme } from '../../lib/design-system';
 import { mobileListingsApi } from '../../lib/listings-api';
 import { fuelTypeLabels, formatKm, formatPrice, sellerTypeLabels, transmissionLabels } from '../../lib/listings-ui';
 import { mobileMessagesApi } from '../../lib/messages-api';
 
 const FULL_BLEED_WIDTH = Dimensions.get('window').width;
+
+function sharedCardMatchesTarget(card: unknown, targetId: string): boolean {
+  return Boolean(card && typeof card === 'object' && 'targetId' in card && card.targetId === targetId);
+}
 
 export default function ListingDetailScreen() {
   const router = useRouter();
@@ -32,6 +39,21 @@ export default function ListingDetailScreen() {
   const [notice, setNotice] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [activeMediaIndex, setActiveMediaIndex] = useState(0);
+  const [shareOpen, setShareOpen] = useState(false);
+  const demoMessages = useMemo(
+    () =>
+      buildDemoMessageFixtures(
+        session
+          ? {
+              id: session.user.id,
+              username: session.user.username,
+              firstName: session.user.firstName,
+              lastName: session.user.lastName,
+            }
+          : null,
+      ),
+    [session],
+  );
 
   const accessToken = session?.accessToken;
 
@@ -42,6 +64,12 @@ export default function ListingDetailScreen() {
 
     setLoading(true);
     setErrorMessage(null);
+
+    if (id.startsWith('demo-listing-')) {
+      setListing(demoListingById[id] ?? null);
+      setLoading(false);
+      return;
+    }
 
     void mobileListingsApi
       .getDetail(accessToken, id)
@@ -77,6 +105,22 @@ export default function ListingDetailScreen() {
   async function startListingConversation() {
     if (!listing) {
       return;
+    }
+
+    if (listing.id.startsWith('demo-listing-')) {
+      const demoThread =
+        Object.values(demoMessages.threadDetails).find((thread) =>
+          thread.messages.some((message) => sharedCardMatchesTarget(message.systemCard, listing.id)),
+        ) ??
+        demoMessages.threads.find((thread) =>
+          thread.participants.some((participant) => participant.id === listing.owner.id),
+        ) ??
+        demoMessages.threads[0];
+
+      if (demoThread) {
+        router.push(`/messages/${demoThread.id}` as never);
+        return;
+      }
     }
 
     try {
@@ -163,14 +207,15 @@ export default function ListingDetailScreen() {
                 >
                   {listing.media.map((mediaItem) => (
                     <View key={mediaItem.id} style={styles.galleryFrame}>
-                      {mediaItem.mediaType === 'IMAGE' ? (
-                        <Image source={{ uri: mediaItem.url }} style={styles.galleryImage} resizeMode="cover" />
-                      ) : (
-                        <View style={styles.videoTile}>
-                          <Text style={styles.videoBadge}>VIDEO</Text>
-                          <Text style={styles.videoUrl}>{mediaItem.url}</Text>
-                        </View>
-                      )}
+                      <MobileMediaView
+                        autoPlay={mediaItem.mediaType === 'VIDEO'}
+                        loop={mediaItem.mediaType === 'VIDEO'}
+                        mediaType={mediaItem.mediaType}
+                        muted={mediaItem.mediaType === 'VIDEO'}
+                        nativeControls={mediaItem.mediaType === 'VIDEO'}
+                        style={styles.galleryImage}
+                        uri={mediaItem.url}
+                      />
                     </View>
                   ))}
                 </ScrollView>
@@ -265,10 +310,24 @@ export default function ListingDetailScreen() {
             <Pressable onPress={() => void startListingConversation()} style={styles.actionSecondary}>
               <Text style={styles.actionSecondaryLabel}>Mesaj</Text>
             </Pressable>
+            <Pressable onPress={() => setShareOpen(true)} style={styles.actionSecondary}>
+              <Text style={styles.actionSecondaryLabel}>Paylas</Text>
+            </Pressable>
             <Pressable onPress={() => void toggleSave()} style={styles.actionSecondary}>
               <Text style={styles.actionSecondaryLabel}>{listing.isSaved ? 'Kayitli' : 'Kaydet'}</Text>
             </Pressable>
           </View>
+        ) : null}
+        {listing ? (
+          <ShareContentSheet
+            accessToken={token}
+            contentId={listing.id}
+            contentType={SharedContentType.LISTING}
+            currentUserId={session.user.id}
+            onClose={() => setShareOpen(false)}
+            onShared={(count) => setNotice(`${count} kisiye gonderildi.`)}
+            visible={shareOpen}
+          />
         ) : null}
       </View>
     </MobileShell>
@@ -351,23 +410,6 @@ const styles = StyleSheet.create({
   galleryImage: {
     width: '100%',
     height: '100%',
-  },
-  videoTile: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 10,
-    padding: 22,
-    backgroundColor: mobileTheme.colors.surfaceMuted,
-  },
-  videoBadge: {
-    color: mobileTheme.colors.textStrong,
-    fontWeight: '800',
-    letterSpacing: 1.4,
-  },
-  videoUrl: {
-    color: mobileTheme.colors.textMuted,
-    textAlign: 'center',
   },
   paginationRow: {
     flexDirection: 'row',
@@ -525,5 +567,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 });
+
 
 

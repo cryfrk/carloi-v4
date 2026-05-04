@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { ContentVisibility, MediaAssetPurpose, MediaType, Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { normalizePersistedMediaUrl, shouldLogMediaDebug } from '../media/media-url.utils';
 import { CreateStoryDto } from './dto/create-story.dto';
 
 type StoryRecord = Prisma.StoryGetPayload<{
@@ -26,7 +27,18 @@ type StoryRecord = Prisma.StoryGetPayload<{
         };
       };
     };
-    media: true;
+    media: {
+      include: {
+        mediaAsset: {
+          select: {
+            id: true;
+            url: true;
+            storageKey: true;
+            visibility: true;
+          };
+        };
+      };
+    };
     views: {
       where: { viewerId: string };
       select: { id: true };
@@ -87,6 +99,20 @@ export class StoriesService {
       },
       include: this.storyInclude(userId),
     });
+
+    if (shouldLogMediaDebug()) {
+      console.info('[stories.create] media payload', {
+        userId,
+        storyId: story.id,
+        media: story.media.map((item) => ({
+          id: item.id,
+          mediaAssetId: item.mediaAssetId,
+          mediaType: item.mediaType,
+          storedUrl: item.url,
+          normalizedUrl: this.normalizeMediaUrl(item.url, item.mediaAsset),
+        })),
+      });
+    }
 
     return {
       success: true,
@@ -338,6 +364,16 @@ export class StoriesService {
       },
       media: {
         orderBy: { sortOrder: 'asc' },
+        include: {
+          mediaAsset: {
+            select: {
+              id: true,
+              url: true,
+              storageKey: true,
+              visibility: true,
+            },
+          },
+        },
       },
       views: {
         where: { viewerId: userId },
@@ -387,7 +423,7 @@ export class StoriesService {
       media: primaryMedia
         ? {
             id: primaryMedia.id,
-            url: primaryMedia.url,
+            url: this.normalizeMediaUrl(primaryMedia.url, primaryMedia.mediaAsset),
             mediaType: primaryMedia.mediaType,
             sortOrder: primaryMedia.sortOrder,
           }
@@ -399,6 +435,17 @@ export class StoriesService {
       viewedByMe: story.ownerId === currentUserId ? false : Boolean(story.views.length),
       viewerCount: includeViewerCount ? story._count.views : null,
     };
+  }
+
+  private normalizeMediaUrl(
+    value: string | null | undefined,
+    mediaAsset?: StoryRecord['media'][number]['mediaAsset'] | null,
+  ) {
+    return (
+      normalizePersistedMediaUrl(value, {
+        mediaAsset: mediaAsset ?? null,
+      }) ?? value ?? ''
+    );
   }
 
   private inferMediaType(url: string) {

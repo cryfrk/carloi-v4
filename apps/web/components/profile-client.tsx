@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type {
   ProfileDetailResponse,
   ProfileListingItem,
@@ -11,9 +11,12 @@ import type {
 } from '@carloi-v4/types';
 import { useAuth } from './auth-provider';
 import { AppShell } from './app-shell';
+import { buildDemoMessageFixtures, buildDemoProfileFixtures } from '../lib/demo-content';
 import { webMessagesApi } from '../lib/messages-api';
+import { resolveWebMediaUrl } from '../lib/media-url';
 import { webProfileApi } from '../lib/profile-api';
 import { webSocialApi } from '../lib/social-api';
+import { WebMediaView } from './web-media-view';
 
 type TabKey = 'posts' | 'listings' | 'vehicles';
 
@@ -34,6 +37,36 @@ export function ProfileClient({
   const [activeTab, setActiveTab] = useState<TabKey>(defaultTab);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const demoProfile = useMemo(
+    () =>
+      buildDemoProfileFixtures({
+        currentUser: session
+          ? {
+              id: session.user.id,
+              username: session.user.username,
+              firstName: session.user.firstName,
+              lastName: session.user.lastName,
+            }
+          : null,
+        identifier: identifier ?? null,
+        isOwnProfile: !identifier,
+      }),
+    [identifier, session],
+  );
+  const demoMessages = useMemo(
+    () =>
+      buildDemoMessageFixtures(
+        session
+          ? {
+              id: session.user.id,
+              username: session.user.username,
+              firstName: session.user.firstName,
+              lastName: session.user.lastName,
+            }
+          : null,
+      ),
+    [session],
+  );
 
   useEffect(() => {
     setActiveTab(defaultTab);
@@ -69,19 +102,30 @@ export function ProfileClient({
       .finally(() => setLoading(false));
   }, [identifier, session?.accessToken, session?.user.username]);
 
+  const showDemoProfile = !loading && (!profile || (posts.length === 0 && listings.length === 0 && vehicles.length === 0));
+  const displayProfile = showDemoProfile ? demoProfile.profile : profile;
+  const displayPosts = showDemoProfile ? demoProfile.posts : posts;
+  const displayListings = showDemoProfile ? demoProfile.listings : listings;
+  const displayVehicles = showDemoProfile ? demoProfile.vehicles : vehicles;
+
   async function handleFollowToggle() {
-    if (!session?.accessToken || !profile || profile.isOwnProfile) {
+    if (!session?.accessToken || !displayProfile || displayProfile.isOwnProfile) {
+      return;
+    }
+
+    if (showDemoProfile || displayProfile.id.startsWith('demo-owner-')) {
+      setErrorMessage('Bu demo profil Carloi akisinin nasil gorunecegini gostermek icin hazirlandi.');
       return;
     }
 
     try {
-      if (profile.isFollowing) {
-        await webSocialApi.unfollowUser(session.accessToken, profile.id);
+      if (displayProfile.isFollowing) {
+        await webSocialApi.unfollowUser(session.accessToken, displayProfile.id);
       } else {
-        await webSocialApi.followUser(session.accessToken, profile.id);
+        await webSocialApi.followUser(session.accessToken, displayProfile.id);
       }
 
-      const refreshed = await webProfileApi.getProfile(session.accessToken, identifier ?? profile.username);
+      const refreshed = await webProfileApi.getProfile(session.accessToken, identifier ?? displayProfile.username);
       setProfile(refreshed);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Takip islemi tamamlanamadi.');
@@ -89,13 +133,23 @@ export function ProfileClient({
   }
 
   async function handleMessageStart() {
-    if (!session?.accessToken || !profile || profile.isOwnProfile) {
+    if (!session?.accessToken || !displayProfile || displayProfile.isOwnProfile) {
       return;
+    }
+
+    if (showDemoProfile || displayProfile.id.startsWith('demo-owner-')) {
+      const demoThread = demoMessages.threads.find((thread) =>
+        thread.participants.some((participant) => participant.id === displayProfile.id),
+      );
+      if (demoThread) {
+        router.push(`/messages?thread=${demoThread.id}`);
+        return;
+      }
     }
 
     try {
       const response = await webMessagesApi.createDirectThread(session.accessToken, {
-        targetUserId: profile.id,
+        targetUserId: displayProfile.id,
       });
       router.push(`/messages?thread=${response.thread.id}`);
     } catch (error) {
@@ -103,10 +157,10 @@ export function ProfileClient({
     }
   }
 
-  const profileUsername = profile?.username ?? session?.user.username ?? '-';
-  const profileInitial = (profile?.firstName?.[0] ?? session?.user.firstName?.[0] ?? '?').toUpperCase();
-  const canViewContent = profile?.canViewContent ?? true;
-  const isOwnProfile = profile?.isOwnProfile ?? !identifier;
+  const profileUsername = displayProfile?.username ?? session?.user.username ?? '-';
+  const profileInitial = (displayProfile?.firstName?.[0] ?? session?.user.firstName?.[0] ?? '?').toUpperCase();
+  const canViewContent = displayProfile?.canViewContent ?? true;
+  const isOwnProfile = displayProfile?.isOwnProfile ?? !identifier;
 
   return (
     <AppShell>
@@ -117,31 +171,35 @@ export function ProfileClient({
           <>
             <section className="profile-ig-top vehicle-profile-top">
               <div className="profile-ig-avatar-wrap">
-                {profile?.avatarUrl ? (
-                  <img alt={profileUsername} className="profile-ig-avatar" src={profile.avatarUrl} />
+                {resolveWebMediaUrl(displayProfile?.avatarUrl) ? (
+                  <img
+                    alt={profileUsername}
+                    className="profile-ig-avatar"
+                    src={resolveWebMediaUrl(displayProfile?.avatarUrl) ?? undefined}
+                  />
                 ) : (
                   <div className="profile-ig-avatar fallback">{profileInitial}</div>
                 )}
               </div>
 
               <h1 className="profile-ig-username">@{profileUsername}</h1>
-              {profile ? <p className="profile-ig-name">{profile.firstName} {profile.lastName}</p> : null}
+              {displayProfile ? <p className="profile-ig-name">{displayProfile.firstName} {displayProfile.lastName}</p> : null}
 
               <div className="profile-ig-stats compact-stats">
-                <StatChip label="posts" value={profile?.postCount ?? posts.length} />
-                <StatChip label="listings" value={profile?.listingCount ?? listings.length} />
-                <StatChip label="vehicles" value={profile?.vehicleCount ?? vehicles.length} />
+                <StatChip label="posts" value={displayProfile?.postCount ?? displayPosts.length} />
+                <StatChip label="listings" value={displayProfile?.listingCount ?? displayListings.length} />
+                <StatChip label="vehicles" value={displayProfile?.vehicleCount ?? displayVehicles.length} />
               </div>
 
               <div className="profile-ig-meta">
-                {profile?.bio ? <p>{profile.bio}</p> : null}
-                {profile?.websiteUrl ? (
-                  <a className="inline-link" href={profile.websiteUrl} rel="noreferrer" target="_blank">
-                    {profile.websiteUrl}
+                {displayProfile?.bio ? <p>{displayProfile.bio}</p> : null}
+                {displayProfile?.websiteUrl ? (
+                  <a className="inline-link" href={displayProfile.websiteUrl} rel="noreferrer" target="_blank">
+                    {displayProfile.websiteUrl}
                   </a>
                 ) : null}
-                {profile?.locationText ? <p>{profile.locationText}</p> : null}
-                <p>{profile?.followerCount ?? 0} takipci · {profile?.followingCount ?? 0} takip edilen</p>
+                {displayProfile?.locationText ? <p>{displayProfile.locationText}</p> : null}
+                <p>{displayProfile?.followerCount ?? 0} takipci · {displayProfile?.followingCount ?? 0} takip edilen</p>
               </div>
 
               <div className="profile-ig-actions compact-actions">
@@ -153,7 +211,7 @@ export function ProfileClient({
                 ) : (
                   <>
                     <button className="primary-link button-reset" type="button" onClick={() => void handleFollowToggle()}>
-                      {profile?.isFollowing ? 'Takiptesin' : 'Takip et'}
+                      {displayProfile?.isFollowing ? 'Takiptesin' : 'Takip et'}
                     </button>
                     <button className="secondary-link button-reset" type="button" onClick={() => void handleMessageStart()}>
                       Mesaj
@@ -187,25 +245,35 @@ export function ProfileClient({
 
             {!loading && activeTab === 'posts' ? (
               <section className="profile-post-grid">
-                {posts.map((post) => (
+                {displayPosts.map((post) => (
                   <Link key={post.id} className="profile-post-tile" href={`/posts/${post.id}`}>
                     {post.thumbnailUrl ? (
-                      <img alt="Post" loading="lazy" src={post.thumbnailUrl} />
+                      <WebMediaView
+                        alt="Post"
+                        className="profile-post-media"
+                        mediaType={post.mediaType}
+                        uri={post.thumbnailUrl}
+                      />
                     ) : (
                       <div className="profile-tile-fallback">POST</div>
                     )}
                   </Link>
                 ))}
-                {!posts.length ? <div className="profile-ig-helper">Bu sekmede gosterilecek gonderi yok.</div> : null}
+                {!displayPosts.length ? <div className="profile-ig-helper">Bu sekmede gosterilecek gonderi yok.</div> : null}
               </section>
             ) : null}
 
             {!loading && activeTab === 'listings' ? (
               <section className="profile-post-grid vehicle-grid">
-                {listings.map((listing) => (
+                {displayListings.map((listing) => (
                   <Link key={listing.listingId} className="profile-post-tile" href={`/listings/${listing.listingId}`}>
                     {listing.firstMediaUrl ? (
-                      <img alt={listing.title} loading="lazy" src={listing.firstMediaUrl} />
+                      <WebMediaView
+                        alt={listing.title}
+                        className="profile-post-media"
+                        mediaType="IMAGE"
+                        uri={listing.firstMediaUrl}
+                      />
                     ) : (
                       <div className="profile-tile-fallback">ILAN</div>
                     )}
@@ -215,7 +283,7 @@ export function ProfileClient({
                     </span>
                   </Link>
                 ))}
-                {!listings.length ? <div className="profile-ig-helper">Bu sekmede gosterilecek ilan yok.</div> : null}
+                {!displayListings.length ? <div className="profile-ig-helper">Bu sekmede gosterilecek ilan yok.</div> : null}
               </section>
             ) : null}
 
@@ -227,10 +295,15 @@ export function ProfileClient({
                     <strong>Arac ekle</strong>
                   </Link>
                 ) : null}
-                {vehicles.map((vehicle) => (
+                {displayVehicles.map((vehicle) => (
                   <Link key={vehicle.id} className="profile-post-tile" href={`/vehicles/${vehicle.id}`}>
                     {vehicle.firstMediaUrl ? (
-                      <img alt={`${vehicle.brand} ${vehicle.model}`} loading="lazy" src={vehicle.firstMediaUrl} />
+                      <WebMediaView
+                        alt={`${vehicle.brand} ${vehicle.model}`}
+                        className="profile-post-media"
+                        mediaType={vehicle.media[0]?.mediaType ?? 'IMAGE'}
+                        uri={vehicle.firstMediaUrl}
+                      />
                     ) : (
                       <div className="profile-tile-fallback">ARAC</div>
                     )}
@@ -244,7 +317,7 @@ export function ProfileClient({
                     </span>
                   </Link>
                 ))}
-                {!vehicles.length ? <div className="profile-ig-helper">Bu sekmede gosterilecek arac yok.</div> : null}
+                {!displayVehicles.length ? <div className="profile-ig-helper">Bu sekmede gosterilecek arac yok.</div> : null}
               </section>
             ) : null}
           </>

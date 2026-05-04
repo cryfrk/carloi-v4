@@ -25,6 +25,7 @@ import {
   MIME_SIZE_LIMITS,
   PURPOSE_VISIBILITY_MAP,
 } from './media.constants';
+import { buildCanonicalAssetUrl, shouldLogMediaDebug } from './media-url.utils';
 import { LocalStorageProvider } from './providers/local-storage.provider';
 import { S3StorageProvider } from './providers/s3-storage.provider';
 import type { MediaStorageProvider } from './providers/media-storage.provider';
@@ -84,11 +85,21 @@ export class MediaService {
       },
     });
 
-    const url = this.buildAssetUrl(createdAsset.id, createdAsset.visibility, createdAsset.storageKey, originBaseUrl);
+    const url = this.buildAssetUrl(createdAsset, originBaseUrl);
     const asset = await this.prisma.mediaAsset.update({
       where: { id: createdAsset.id },
       data: { url },
     });
+
+    if (shouldLogMediaDebug()) {
+      console.info('[media.upload] user upload normalized', {
+        assetId: asset.id,
+        purpose: asset.purpose,
+        visibility: asset.visibility,
+        storageKey: asset.storageKey,
+        url: asset.url,
+      });
+    }
 
     return this.serializeAsset(asset);
   }
@@ -127,11 +138,21 @@ export class MediaService {
       },
     });
 
-    const url = this.buildAssetUrl(createdAsset.id, createdAsset.visibility, createdAsset.storageKey, originBaseUrl);
+    const url = this.buildAssetUrl(createdAsset, originBaseUrl);
     const asset = await this.prisma.mediaAsset.update({
       where: { id: createdAsset.id },
       data: { url },
     });
+
+    if (shouldLogMediaDebug()) {
+      console.info('[media.upload] admin upload normalized', {
+        assetId: asset.id,
+        purpose: asset.purpose,
+        visibility: asset.visibility,
+        storageKey: asset.storageKey,
+        url: asset.url,
+      });
+    }
 
     return this.serializeAsset(asset);
   }
@@ -200,22 +221,10 @@ export class MediaService {
   }
 
   private buildAssetUrl(
-    assetId: string,
-    visibility: MediaVisibility,
-    storageKey: string,
+    asset: Pick<MediaAsset, 'id' | 'storageKey' | 'visibility' | 'url'>,
     originBaseUrl: string,
   ) {
-    if (visibility === MediaVisibility.PUBLIC) {
-      const providerPublicUrl = this.getStorageProvider().getPublicUrl(storageKey);
-      if (providerPublicUrl) {
-        return providerPublicUrl;
-      }
-
-      const relativePublicKey = storageKey.replace(/^public\//, '');
-      return `${originBaseUrl}/uploads/${relativePublicKey}`;
-    }
-
-    return `${originBaseUrl}/media/assets/${assetId}/file`;
+    return buildCanonicalAssetUrl(asset, originBaseUrl);
   }
 
   private serializeAsset(asset: MediaAsset): UploadResult {

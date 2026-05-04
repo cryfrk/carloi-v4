@@ -11,6 +11,7 @@ import bcrypt from 'bcryptjs';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { maskPlateNumber } from '../listings/listings.utils';
 import { getUserOwnedMediaAssetMap } from '../media/media-asset.helpers';
+import { normalizePersistedMediaUrl, shouldLogMediaDebug } from '../media/media-url.utils';
 import { ChangePasswordDto, UpdatePrivacyDto, UpdateProfileDto } from './dto/profile-settings.dto';
 
 const gridPostInclude = Prisma.validator<Prisma.PostInclude>()({
@@ -19,6 +20,16 @@ const gridPostInclude = Prisma.validator<Prisma.PostInclude>()({
       sortOrder: 'asc',
     },
     take: 1,
+    include: {
+      mediaAsset: {
+        select: {
+          id: true,
+          url: true,
+          storageKey: true,
+          visibility: true,
+        },
+      },
+    },
   },
   _count: {
     select: {
@@ -34,6 +45,16 @@ const listingProfileInclude = Prisma.validator<Prisma.ListingInclude>()({
       sortOrder: 'asc',
     },
     take: 1,
+    include: {
+      mediaAsset: {
+        select: {
+          id: true,
+          url: true,
+          storageKey: true,
+          visibility: true,
+        },
+      },
+    },
   },
   savedItems: true,
   garageVehicle: {
@@ -55,6 +76,16 @@ const profileVehicleInclude = Prisma.validator<Prisma.GarageVehicleInclude>()({
   media: {
     orderBy: {
       sortOrder: 'asc',
+    },
+    include: {
+      mediaAsset: {
+        select: {
+          id: true,
+          url: true,
+          storageKey: true,
+          visibility: true,
+        },
+      },
     },
   },
   vehiclePackage: {
@@ -96,6 +127,16 @@ const savedItemInclude = Prisma.validator<Prisma.SavedItemInclude>()({
       media: {
         orderBy: {
           sortOrder: 'asc',
+        },
+        include: {
+          mediaAsset: {
+            select: {
+              id: true,
+              url: true,
+              storageKey: true,
+              visibility: true,
+            },
+          },
         },
       },
       likes: {
@@ -676,9 +717,18 @@ export class ProfilesService {
   }
 
   private serializeProfilePost(post: GridPostRecord) {
+    const thumbnailUrl = this.normalizeMediaUrl(post.media[0]?.url, post.media[0]?.mediaAsset);
+
+    if (shouldLogMediaDebug()) {
+      console.info('[profiles.posts] thumbnail', {
+        postId: post.id,
+        thumbnailUrl,
+      });
+    }
+
     return {
       id: post.id,
-      thumbnailUrl: post.media[0]?.url ?? null,
+      thumbnailUrl,
       mediaType: post.media[0]?.mediaType ?? 'IMAGE',
       likeCount: post._count.likes,
       commentCount: post._count.comments,
@@ -688,10 +738,19 @@ export class ProfilesService {
 
   private serializeProfileListing(viewerId: string, listing: ListingProfileRecord) {
     const garageVehicle = listing.garageVehicle;
+    const firstMediaUrl = this.normalizeMediaUrl(listing.media[0]?.url, listing.media[0]?.mediaAsset);
+
+    if (shouldLogMediaDebug()) {
+      console.info('[profiles.listings] thumbnail', {
+        listingId: listing.id,
+        firstMediaUrl,
+      });
+    }
+
     return {
       listingId: listing.id,
       listingNo: listing.listingNo,
-      firstMediaUrl: listing.media[0]?.url ?? null,
+      firstMediaUrl,
       title: listing.title,
       brand: garageVehicle?.vehiclePackage?.model.brand.name ?? garageVehicle?.brandText ?? null,
       model: garageVehicle?.vehiclePackage?.model.name ?? garageVehicle?.modelText ?? null,
@@ -709,15 +768,16 @@ export class ProfilesService {
 
   private serializeProfileVehicle(vehicle: ProfileVehicleRecord) {
     const spec = vehicle.vehiclePackage?.specs?.[0] ?? null;
+    const media = vehicle.media.map((item) => ({
+      id: item.id,
+      url: this.normalizeMediaUrl(item.url, item.mediaAsset),
+      mediaType: item.mediaType,
+      sortOrder: item.sortOrder,
+    }));
     return {
       id: vehicle.id,
-      firstMediaUrl: vehicle.media[0]?.url ?? null,
-      media: vehicle.media.map((item) => ({
-        id: item.id,
-        url: item.url,
-        mediaType: item.mediaType,
-        sortOrder: item.sortOrder,
-      })),
+      firstMediaUrl: media[0]?.url ?? null,
+      media,
       brand: vehicle.vehiclePackage?.model.brand.name ?? vehicle.brandText,
       model: vehicle.vehiclePackage?.model.name ?? vehicle.modelText,
       package: vehicle.vehiclePackage?.name ?? vehicle.packageText ?? null,
@@ -742,6 +802,13 @@ export class ProfilesService {
   }
 
   private serializeSavedPost(post: NonNullable<SavedItemRecord['post']>) {
+    const media = post.media.map((item) => ({
+      id: item.id,
+      mediaType: item.mediaType,
+      url: this.normalizeMediaUrl(item.url, item.mediaAsset),
+      sortOrder: item.sortOrder,
+    }));
+
     return {
       id: post.id,
       caption: post.caption,
@@ -757,17 +824,28 @@ export class ProfilesService {
         goldVerified: post.owner.profile?.goldVerified ?? false,
         isFollowing: false,
       },
-      media: post.media.map((item) => ({
-        id: item.id,
-        mediaType: item.mediaType,
-        url: item.url,
-        sortOrder: item.sortOrder,
-      })),
+      media,
       likeCount: post._count.likes,
       commentCount: post._count.comments,
       isLiked: Boolean(post.likes.length),
       isSaved: Boolean(post.savedItems.length),
     };
+  }
+
+  private normalizeMediaUrl(
+    value: string | null | undefined,
+    mediaAsset?:
+      | GridPostRecord['media'][number]['mediaAsset']
+      | ListingProfileRecord['media'][number]['mediaAsset']
+      | ProfileVehicleRecord['media'][number]['mediaAsset']
+      | NonNullable<SavedItemRecord['post']>['media'][number]['mediaAsset']
+      | null,
+  ) {
+    return (
+      normalizePersistedMediaUrl(value, {
+        mediaAsset: mediaAsset ?? null,
+      }) ?? value ?? null
+    );
   }
 
   private async getMutualFollowers(viewerId: string, targetUserId: string) {

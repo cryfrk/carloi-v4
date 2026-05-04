@@ -1,19 +1,45 @@
 ﻿'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { SharedContentType } from '@carloi-v4/types';
+import { useRouter } from 'next/navigation';
+import { useEffect, useMemo, useState } from 'react';
 import type { VehicleShowcaseDetailResponse } from '@carloi-v4/types';
 import { AppShell } from './app-shell';
+import { ShareContentSheet } from './share-content-sheet';
 import { useAuth } from './auth-provider';
+import { WebMediaView } from './web-media-view';
+import { buildDemoMessageFixtures, demoExploreVehicleById } from '../lib/demo-content';
 import { webExploreApi } from '../lib/explore-api';
 import { vehicleEquipmentCategoryLabels } from '../lib/listings-ui';
 import { webMessagesApi } from '../lib/messages-api';
 
+function sharedCardMatchesTarget(card: unknown, targetId: string): boolean {
+  return Boolean(card && typeof card === 'object' && 'targetId' in card && card.targetId === targetId);
+}
+
 export function VehicleShowcaseDetailClient({ vehicleId }: { vehicleId: string }) {
+  const router = useRouter();
   const { session, isReady } = useAuth();
   const [vehicle, setVehicle] = useState<VehicleShowcaseDetailResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [shareOpen, setShareOpen] = useState(false);
+  const demoMessages = useMemo(
+    () =>
+      buildDemoMessageFixtures(
+        session
+          ? {
+              id: session.user.id,
+              username: session.user.username,
+              firstName: session.user.firstName,
+              lastName: session.user.lastName,
+            }
+          : null,
+      ),
+    [session],
+  );
 
   useEffect(() => {
     if (!session?.accessToken) {
@@ -22,6 +48,12 @@ export function VehicleShowcaseDetailClient({ vehicleId }: { vehicleId: string }
 
     setLoading(true);
     setErrorMessage(null);
+
+    if (vehicleId.startsWith('demo-vehicle-')) {
+      setVehicle(demoExploreVehicleById[vehicleId] ?? null);
+      setLoading(false);
+      return;
+    }
 
     void webExploreApi
       .getVehicleShowcase(session.accessToken, vehicleId)
@@ -37,11 +69,26 @@ export function VehicleShowcaseDetailClient({ vehicleId }: { vehicleId: string }
       return;
     }
 
+    if (vehicle.id.startsWith('demo-vehicle-')) {
+      const demoThread =
+        demoMessages.threads.find((thread) =>
+          thread.participants.some((participant) => participant.id === vehicle.owner.id),
+        ) ??
+        Object.values(demoMessages.threadDetails).find((thread) =>
+          thread.messages.some((message) => sharedCardMatchesTarget(message.systemCard, vehicle.id)),
+        );
+
+      if (demoThread) {
+        router.push(`/messages?thread=${demoThread.id}`);
+        return;
+      }
+    }
+
     try {
       const response = await webMessagesApi.createDirectThread(session.accessToken, {
         targetUserId: vehicle.owner.id,
       });
-      window.location.href = `/messages?thread=${response.thread.id}`;
+      router.push(`/messages?thread=${response.thread.id}`);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Mesaj alani acilamadi.');
     }
@@ -57,6 +104,7 @@ export function VehicleShowcaseDetailClient({ vehicleId }: { vehicleId: string }
           <Link className="secondary-link" href="/explore">Kesfete don</Link>
         </div>
 
+        {notice ? <div className="auth-message success">{notice}</div> : null}
         {errorMessage ? <div className="auth-message error">{errorMessage}</div> : null}
         {!isReady ? <div className="detail-card">Oturum hazirlaniyor...</div> : null}
         {loading ? <div className="detail-card">Arac detayi yukleniyor...</div> : null}
@@ -67,7 +115,16 @@ export function VehicleShowcaseDetailClient({ vehicleId }: { vehicleId: string }
               {(vehicle.media.length ? vehicle.media : [{ id: 'fallback', url: vehicle.firstMediaUrl ?? '', mediaType: 'IMAGE', sortOrder: 0 }]).map((mediaItem) => (
                 <div className="vehicle-gallery-item" key={mediaItem.id}>
                   {mediaItem.url ? (
-                    <img alt={`${vehicle.brand} ${vehicle.model}`} loading="lazy" src={mediaItem.url} />
+                    <WebMediaView
+                      alt={`${vehicle.brand} ${vehicle.model}`}
+                      autoPlay={mediaItem.mediaType === 'VIDEO'}
+                      className="vehicle-gallery-media"
+                      controls={mediaItem.mediaType === 'VIDEO'}
+                      loop={mediaItem.mediaType === 'VIDEO'}
+                      mediaType={mediaItem.mediaType === 'VIDEO' ? 'VIDEO' : 'IMAGE'}
+                      muted={mediaItem.mediaType === 'VIDEO'}
+                      uri={mediaItem.url}
+                    />
                   ) : (
                     <div className="profile-tile-fallback">ARAC</div>
                   )}
@@ -148,9 +205,23 @@ export function VehicleShowcaseDetailClient({ vehicleId }: { vehicleId: string }
                     {vehicle.openToOffers ? 'Teklif ver' : 'Mesaj gonder'}
                   </button>
                 )}
+                <button className="secondary-link subtle-button" type="button" onClick={() => setShareOpen(true)}>
+                  Paylas
+                </button>
               </div>
             </div>
           </section>
+        ) : null}
+        {vehicle ? (
+          <ShareContentSheet
+            accessToken={session?.accessToken ?? null}
+            contentId={vehicle.id}
+            contentType={SharedContentType.VEHICLE}
+            currentUserId={session?.user.id ?? null}
+            onClose={() => setShareOpen(false)}
+            onShared={(count) => setNotice(`${count} kisiye gonderildi.`)}
+            visible={shareOpen}
+          />
         ) : null}
       </section>
     </AppShell>

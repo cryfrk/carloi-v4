@@ -1,4 +1,5 @@
 import type {
+  AuthSessionsResponse,
   ForgotPasswordRequest,
   GenericMessageResponse,
   LoginRequest,
@@ -8,6 +9,7 @@ import type {
   RefreshResponse,
   RegisterRequest,
   RegisterResponse,
+  RevokeAuthSessionResponse,
   ResetPasswordRequest,
   SendVerificationCodeRequest,
   VerifyCodeRequest,
@@ -33,6 +35,7 @@ async function postJson<TRequest extends object, TResponse>(path: string, body: 
       headers: {
         'content-type': 'application/json',
         'x-device-name': 'carloi-mobile',
+        'x-platform': 'android',
       },
       body: JSON.stringify(body),
     });
@@ -64,11 +67,38 @@ async function postJson<TRequest extends object, TResponse>(path: string, body: 
     }
 
     const networkError = new AuthApiError(
-      'Baglanti kurulamadı. API yanit vermiyor veya erisim engellendi.',
+      'Baglanti kurulamadi. API yanit vermiyor veya erisim engellendi.',
     );
     networkError.code = 'NETWORK_ERROR';
     throw networkError;
   }
+}
+
+async function authorizedJson<TResponse>(
+  path: string,
+  accessToken: string,
+  method: 'GET' | 'DELETE' = 'GET',
+) {
+  const url = `${MOBILE_API_BASE_URL}${path}`;
+
+  const response = await fetch(url, {
+    method,
+    headers: {
+      authorization: `Bearer ${accessToken}`,
+      'x-device-name': 'carloi-mobile',
+        'x-platform': 'android',
+    },
+  });
+
+  const payload = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+
+  if (!response.ok) {
+    throw new AuthApiError(
+      typeof payload.message === 'string' ? payload.message : 'Islem tamamlanamadi.',
+    );
+  }
+
+  return payload as TResponse;
 }
 
 export const mobileAuthApi = {
@@ -99,5 +129,12 @@ export const mobileAuthApi = {
   resetPassword(body: ResetPasswordRequest) {
     return postJson<ResetPasswordRequest, GenericMessageResponse>('/auth/reset-password', body);
   },
+  getSessions(accessToken: string) {
+    return authorizedJson<AuthSessionsResponse>('/auth/sessions', accessToken);
+  },
+  revokeSession(accessToken: string, sessionId: string) {
+    return authorizedJson<RevokeAuthSessionResponse>(`/auth/sessions/${sessionId}`, accessToken, 'DELETE');
+  },
 };
+
 

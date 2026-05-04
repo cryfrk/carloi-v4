@@ -1,16 +1,26 @@
-import { Redirect, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
-import type {
-  ListingFeedItem,
-  ListingFeedQuery,
-  VehicleCatalogBrand,
-  VehicleCatalogModel,
-  VehicleCatalogPackage,
+import { Ionicons } from '@expo/vector-icons';
+import {
+  FuelType,
+  LISTING_BODY_TYPE_OPTIONS,
+  LISTING_COLOR_OPTIONS,
+  LISTING_FUEL_OPTIONS,
+  LISTING_SELLER_OPTIONS,
+  LISTING_SORT_LABELS,
+  LISTING_TRANSMISSION_OPTIONS,
+  LISTING_VEHICLE_TYPE_OPTIONS,
+  ListingSortOption,
+  TURKIYE_CITIES,
+  TURKIYE_DISTRICT_SUGGESTIONS,
+  type ListingFeedItem,
+  type ListingFeedQuery,
+  type VehicleCatalogBrand,
+  type VehicleCatalogModel,
+  type VehicleCatalogPackage,
 } from '@carloi-v4/types';
-import { FuelType, SellerType, TransmissionType } from '@carloi-v4/types';
+import { Redirect, useRouter } from 'expo-router';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Image,
   Modal,
   Pressable,
   ScrollView,
@@ -19,27 +29,94 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { MobileMediaView } from '../components/mobile-media-view';
 import { MobileShell } from '../components/mobile-shell';
 import { useAuth } from '../context/auth-context';
+import { mobileTheme } from '../lib/design-system';
 import { mobileListingsApi } from '../lib/listings-api';
-import { formatKm, formatPrice, fuelTypeLabels, sellerTypeLabels, transmissionLabels } from '../lib/listings-ui';
+import {
+  formatKm,
+  formatPrice,
+  fuelTypeLabels,
+  sellerTypeLabels,
+  transmissionLabels,
+} from '../lib/listings-ui';
+
+type ArrayFilterKey =
+  | 'cities'
+  | 'districts'
+  | 'fuelTypes'
+  | 'transmissionTypes'
+  | 'bodyTypes'
+  | 'colors'
+  | 'sellerTypes';
+
+type ActiveFilterChip = {
+  id: string;
+  label: string;
+  onRemove: () => void;
+};
 
 const initialFilters: ListingFeedQuery = {
-  city: '',
-  district: '',
+  q: '',
+  cities: [],
+  districts: [],
+  vehicleType: undefined,
   brandId: '',
   modelId: '',
   packageId: '',
-  sellerType: undefined,
-  fuelType: undefined,
-  transmissionType: undefined,
   minPrice: undefined,
   maxPrice: undefined,
-  yearMin: undefined,
-  yearMax: undefined,
+  minYear: undefined,
+  maxYear: undefined,
   minKm: undefined,
   maxKm: undefined,
+  fuelTypes: [],
+  transmissionTypes: [],
+  bodyTypes: [],
+  colors: [],
+  sellerTypes: [],
+  onlyVerifiedSeller: false,
+  noPaint: false,
+  noChangedParts: false,
+  noHeavyDamage: false,
+  tradeAvailable: false,
+  guaranteed: false,
+  sort: ListingSortOption.NEWEST,
 };
+
+function normalizeFilters(filters: ListingFeedQuery): ListingFeedQuery {
+  const keepArray = (values?: string[]) => (values && values.length > 0 ? values : undefined);
+
+  return {
+    q: filters.q?.trim() || undefined,
+    cities: keepArray(filters.cities),
+    districts: keepArray(filters.districts),
+    vehicleType: filters.vehicleType,
+    brandId: filters.brandId || undefined,
+    modelId: filters.modelId || undefined,
+    packageId: filters.packageId || undefined,
+    minPrice: filters.minPrice,
+    maxPrice: filters.maxPrice,
+    minYear: filters.minYear,
+    maxYear: filters.maxYear,
+    minKm: filters.minKm,
+    maxKm: filters.maxKm,
+    fuelTypes: (filters.fuelTypes?.length ?? 0) > 0 ? filters.fuelTypes : undefined,
+    transmissionTypes:
+      (filters.transmissionTypes?.length ?? 0) > 0 ? filters.transmissionTypes : undefined,
+    bodyTypes: keepArray(filters.bodyTypes),
+    colors: keepArray(filters.colors),
+    sellerTypes: (filters.sellerTypes?.length ?? 0) > 0 ? filters.sellerTypes : undefined,
+    onlyVerifiedSeller: filters.onlyVerifiedSeller || undefined,
+    noPaint: filters.noPaint || undefined,
+    noChangedParts: filters.noChangedParts || undefined,
+    noHeavyDamage: filters.noHeavyDamage || undefined,
+    tradeAvailable: filters.tradeAvailable || undefined,
+    guaranteed: filters.guaranteed || undefined,
+    sort: filters.sort,
+  };
+}
 
 export default function ListingsScreen() {
   const router = useRouter();
@@ -50,21 +127,64 @@ export default function ListingsScreen() {
   const [brands, setBrands] = useState<VehicleCatalogBrand[]>([]);
   const [models, setModels] = useState<VehicleCatalogModel[]>([]);
   const [packages, setPackages] = useState<VehicleCatalogPackage[]>([]);
+  const [citySearch, setCitySearch] = useState('');
+  const [districtDraft, setDistrictDraft] = useState('');
+  const [brandSearch, setBrandSearch] = useState('');
+  const [modelSearch, setModelSearch] = useState('');
+  const [packageSearch, setPackageSearch] = useState('');
   const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [totalCount, setTotalCount] = useState(0);
+  const [draftCount, setDraftCount] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
   const [filterModalVisible, setFilterModalVisible] = useState(false);
 
   const accessToken = session?.accessToken;
+  const token = accessToken ?? '';
+
+  const filteredCities = useMemo(() => {
+    const search = citySearch.trim().toLocaleLowerCase('tr-TR');
+    return TURKIYE_CITIES.filter((city) => city.toLocaleLowerCase('tr-TR').includes(search)).slice(
+      0,
+      24,
+    );
+  }, [citySearch]);
+
+  const visibleBrands = useMemo(() => {
+    const search = brandSearch.trim().toLocaleLowerCase('tr-TR');
+    return brands.filter((brand) => brand.name.toLocaleLowerCase('tr-TR').includes(search));
+  }, [brandSearch, brands]);
+
+  const visibleModels = useMemo(() => {
+    const search = modelSearch.trim().toLocaleLowerCase('tr-TR');
+    return models.filter((model) => model.name.toLocaleLowerCase('tr-TR').includes(search));
+  }, [modelSearch, models]);
+
+  const visiblePackages = useMemo(() => {
+    const search = packageSearch.trim().toLocaleLowerCase('tr-TR');
+    return packages.filter((item) => item.name.toLocaleLowerCase('tr-TR').includes(search));
+  }, [packageSearch, packages]);
+
+  const districtSuggestions = useMemo(() => {
+    const all =
+      draftFilters.cities?.flatMap((city) => TURKIYE_DISTRICT_SUGGESTIONS[city] ?? []) ?? [];
+    return all.filter((value, index) => all.indexOf(value) === index);
+  }, [draftFilters.cities]);
 
   useEffect(() => {
     void mobileListingsApi
-      .getBrands()
-      .then(setBrands)
-      .catch(() => setBrands([]));
-  }, []);
+      .getBrands(draftFilters.vehicleType)
+      .then((response) => {
+        setBrands(response);
+        setCatalogError(response.length === 0 ? 'Marka listesi bos geldi. Tekrar deneyin.' : null);
+      })
+      .catch(() => {
+        setBrands([]);
+        setCatalogError('Marka listesi yuklenemedi. Tekrar deneyin.');
+      });
+  }, [draftFilters.vehicleType]);
 
   useEffect(() => {
     if (!draftFilters.brandId) {
@@ -74,10 +194,16 @@ export default function ListingsScreen() {
     }
 
     void mobileListingsApi
-      .getModels(draftFilters.brandId)
-      .then(setModels)
-      .catch(() => setModels([]));
-  }, [draftFilters.brandId]);
+      .getModels(draftFilters.brandId, draftFilters.vehicleType)
+      .then((response) => {
+        setModels(response);
+        setCatalogError(response.length === 0 ? 'Secilen marka icin model bulunamadi.' : null);
+      })
+      .catch(() => {
+        setModels([]);
+        setCatalogError('Model listesi yuklenemedi.');
+      });
+  }, [draftFilters.brandId, draftFilters.vehicleType]);
 
   useEffect(() => {
     if (!draftFilters.modelId) {
@@ -87,8 +213,14 @@ export default function ListingsScreen() {
 
     void mobileListingsApi
       .getPackages(draftFilters.modelId)
-      .then(setPackages)
-      .catch(() => setPackages([]));
+      .then((response) => {
+        setPackages(response);
+        setCatalogError(response.length === 0 ? 'Paket listesi yuklenemedi.' : null);
+      })
+      .catch(() => {
+        setPackages([]);
+        setCatalogError('Paket listesi yuklenemedi.');
+      });
   }, [draftFilters.modelId]);
 
   useEffect(() => {
@@ -97,14 +229,29 @@ export default function ListingsScreen() {
     }
   }, [accessToken, filters]);
 
+  useEffect(() => {
+    if (!filterModalVisible || !accessToken) {
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      void mobileListingsApi
+        .getCount(token, normalizeFilters(draftFilters))
+        .then((response) => setDraftCount(response.count))
+        .catch(() => setDraftCount(null));
+    }, 250);
+
+    return () => clearTimeout(timeout);
+  }, [accessToken, draftFilters, filterModalVisible, token]);
+
   if (!accessToken) {
     return <Redirect href="/login" />;
   }
 
-  const token: string = accessToken;
-
-  async function loadFeed(reset: boolean, activeFilters: ListingFeedQuery) {
-    const query = reset ? activeFilters : { ...activeFilters, cursor: nextCursor ?? undefined };
+  async function loadFeed(reset: boolean, sourceFilters: ListingFeedQuery) {
+    const query = reset
+      ? normalizeFilters(sourceFilters)
+      : { ...normalizeFilters(sourceFilters), cursor: nextCursor ?? undefined };
 
     if (reset) {
       setLoading(true);
@@ -118,6 +265,7 @@ export default function ListingsScreen() {
       const response = await mobileListingsApi.getFeed(token, query);
       setItems((current) => (reset ? response.items : [...current, ...response.items]));
       setNextCursor(response.nextCursor);
+      setTotalCount(response.totalCount);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Ilanlar yuklenemedi.');
     } finally {
@@ -126,11 +274,70 @@ export default function ListingsScreen() {
     }
   }
 
-  function patchDraft<K extends keyof ListingFeedQuery>(key: K, value: ListingFeedQuery[K]) {
+  function updateDraft<K extends keyof ListingFeedQuery>(key: K, value: ListingFeedQuery[K]) {
     setDraftFilters((current) => ({
       ...current,
       [key]: value,
     }));
+  }
+
+  function toggleArrayValue(key: ArrayFilterKey, value: string) {
+    setDraftFilters((current) => {
+      const existing = ([...(current[key] as string[] | undefined ?? [])]) as string[];
+      const next = existing.includes(value)
+        ? existing.filter((item) => item !== value)
+        : [...existing, value];
+
+      return {
+        ...current,
+        [key]: next,
+      };
+    });
+  }
+
+  function addDistrict(value: string) {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return;
+    }
+
+    setDraftFilters((current) => ({
+      ...current,
+      districts: current.districts?.includes(trimmed)
+        ? current.districts
+        : [...(current.districts ?? []), trimmed],
+    }));
+    setDistrictDraft('');
+  }
+
+  function clearAllFilters() {
+    setDraftFilters(initialFilters);
+    setFilters(initialFilters);
+    setCitySearch('');
+    setDistrictDraft('');
+    setBrandSearch('');
+    setModelSearch('');
+    setPackageSearch('');
+    setFilterModalVisible(false);
+  }
+
+  function clearLocationOnly() {
+    const next = {
+      ...filters,
+      cities: [],
+      districts: [],
+    };
+    setFilters(next);
+    setDraftFilters(next);
+  }
+
+  function applyFilters() {
+    setFilters({
+      ...draftFilters,
+      ...normalizeFilters(draftFilters),
+      cursor: undefined,
+    });
+    setFilterModalVisible(false);
   }
 
   async function toggleSave(item: ListingFeedItem) {
@@ -149,26 +356,147 @@ export default function ListingsScreen() {
     }
   }
 
+  const activeFilterChips = useMemo<ActiveFilterChip[]>(() => {
+    const chips: ActiveFilterChip[] = [];
+    const brand = brands.find((item) => item.id === filters.brandId)?.name;
+    const model = models.find((item) => item.id === filters.modelId)?.name;
+    const packageName = packages.find((item) => item.id === filters.packageId)?.name;
+
+    const removeArrayValue = (key: ArrayFilterKey, value: string) => {
+      setFilters((current) => ({
+        ...current,
+        [key]: (current[key] as string[] | undefined)?.filter((item) => item !== value) ?? [],
+      }));
+      setDraftFilters((current) => ({
+        ...current,
+        [key]: (current[key] as string[] | undefined)?.filter((item) => item !== value) ?? [],
+      }));
+    };
+
+    (filters.cities ?? []).forEach((city) => {
+      chips.push({
+        id: `city:${city}`,
+        label: city,
+        onRemove: () => removeArrayValue('cities', city),
+      });
+    });
+
+    (filters.districts ?? []).forEach((district) => {
+      chips.push({
+        id: `district:${district}`,
+        label: district,
+        onRemove: () => removeArrayValue('districts', district),
+      });
+    });
+
+    if (brand) {
+      chips.push({
+        id: 'brand',
+        label: brand,
+        onRemove: () => {
+          setFilters((current) => ({ ...current, brandId: '', modelId: '', packageId: '' }));
+          setDraftFilters((current) => ({ ...current, brandId: '', modelId: '', packageId: '' }));
+        },
+      });
+    }
+
+    if (model) {
+      chips.push({
+        id: 'model',
+        label: model,
+        onRemove: () => {
+          setFilters((current) => ({ ...current, modelId: '', packageId: '' }));
+          setDraftFilters((current) => ({ ...current, modelId: '', packageId: '' }));
+        },
+      });
+    }
+
+    if (packageName) {
+      chips.push({
+        id: 'package',
+        label: packageName,
+        onRemove: () => {
+          setFilters((current) => ({ ...current, packageId: '' }));
+          setDraftFilters((current) => ({ ...current, packageId: '' }));
+        },
+      });
+    }
+
+    if (filters.minPrice || filters.maxPrice) {
+      chips.push({
+        id: 'price',
+        label: `${filters.minPrice ? formatPrice(filters.minPrice) : '0'} - ${filters.maxPrice ? formatPrice(filters.maxPrice) : 'Sinirsiz'}`,
+        onRemove: () => {
+          setFilters((current) => ({ ...current, minPrice: undefined, maxPrice: undefined }));
+          setDraftFilters((current) => ({ ...current, minPrice: undefined, maxPrice: undefined }));
+        },
+      });
+    }
+
+    (filters.fuelTypes ?? []).forEach((value) => {
+      chips.push({
+        id: `fuel:${value}`,
+        label: fuelTypeLabels[value],
+        onRemove: () => removeArrayValue('fuelTypes', value),
+      });
+    });
+
+    (filters.transmissionTypes ?? []).forEach((value) => {
+      chips.push({
+        id: `transmission:${value}`,
+        label: transmissionLabels[value],
+        onRemove: () => removeArrayValue('transmissionTypes', value),
+      });
+    });
+
+    if (filters.onlyVerifiedSeller) {
+      chips.push({
+        id: 'verified',
+        label: 'Dogrulanmis satici',
+        onRemove: () => {
+          setFilters((current) => ({ ...current, onlyVerifiedSeller: false }));
+          setDraftFilters((current) => ({ ...current, onlyVerifiedSeller: false }));
+        },
+      });
+    }
+
+    return chips;
+  }, [brands, filters, models, packages]);
+
   return (
     <MobileShell
       title="Ilanlar"
-      subtitle="Yakinindaki ilanlari kesfet, filtrele ve tek akis icinde detaylara ulas."
-      actionLabel="Olustur"
+      subtitle="Sahibinden mantiginda filtrele, coklu il sec ve sonucu akista takip et."
+      actionLabel="Ilan ver"
       onActionPress={() => router.push('/create-listing')}
     >
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
-        <View style={styles.headerRow}>
+        <View style={styles.toolbar}>
+          <View>
+            <Text style={styles.resultTitle}>{totalCount} ilan bulundu</Text>
+            <Text style={styles.resultMeta}>Yuklenen: {items.length}</Text>
+          </View>
           <Pressable onPress={() => setFilterModalVisible(true)} style={styles.filterButton}>
-            <Text style={styles.filterButtonLabel}>Filtrele</Text>
+            <Ionicons color="#111111" name="options-outline" size={18} />
+            <Text style={styles.filterButtonLabel}>Filtre</Text>
           </Pressable>
-          <Text style={styles.metaText}>{items.length} ilan yuklendi</Text>
         </View>
 
-        {notice ? (
-          <View style={[styles.banner, styles.noticeBanner]}>
-            <Text style={styles.bannerText}>{notice}</Text>
-          </View>
+        {activeFilterChips.length > 0 ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.activeChipsRow}
+          >
+            {activeFilterChips.map((chip) => (
+              <Pressable key={chip.id} onPress={chip.onRemove} style={styles.activeChip}>
+                <Text style={styles.activeChipLabel}>{chip.label}</Text>
+                <Ionicons color="#475569" name="close" size={14} />
+              </Pressable>
+            ))}
+          </ScrollView>
         ) : null}
+
         {errorMessage ? (
           <View style={[styles.banner, styles.errorBanner]}>
             <Text style={styles.bannerText}>{errorMessage}</Text>
@@ -177,15 +505,25 @@ export default function ListingsScreen() {
 
         {loading ? (
           <View style={styles.loadingCard}>
-            <ActivityIndicator color="#ef8354" />
+            <ActivityIndicator color={mobileTheme.colors.accent} />
             <Text style={styles.loadingText}>Ilanlar getiriliyor...</Text>
           </View>
         ) : null}
 
         {!loading && items.length === 0 ? (
           <View style={styles.emptyCard}>
-            <Text style={styles.emptyTitle}>Sonuc bulunamadi</Text>
-            <Text style={styles.emptyCopy}>Filtreleri genisletip tekrar deneyin.</Text>
+            <Text style={styles.emptyTitle}>Bu filtrelere uygun ilan bulunamadi</Text>
+            <Text style={styles.emptyCopy}>
+              Filtreleri genisletin veya Tum Turkiye secenegine donun.
+            </Text>
+            <View style={styles.emptyActions}>
+              <Pressable onPress={() => setFilterModalVisible(true)} style={styles.secondaryButton}>
+                <Text style={styles.secondaryButtonLabel}>Filtreleri genislet</Text>
+              </Pressable>
+              <Pressable onPress={clearLocationOnly} style={styles.primaryButton}>
+                <Text style={styles.primaryButtonLabel}>Tum Turkiye'de ara</Text>
+              </Pressable>
+            </View>
           </View>
         ) : null}
 
@@ -193,40 +531,49 @@ export default function ListingsScreen() {
           <Pressable
             key={item.listingId}
             onPress={() => router.push(`/listings/${item.listingId}`)}
-            style={styles.card}
+            style={styles.listingCard}
           >
-            <View style={styles.imageWrap}>
-              {item.firstMediaUrl ? (
-                <Image source={{ uri: item.firstMediaUrl }} style={styles.cardImage} resizeMode="cover" />
-              ) : (
-                <View style={styles.imageFallback}>
-                  <Text style={styles.imageFallbackLabel}>FOTO</Text>
-                </View>
-              )}
+            <View style={styles.mediaWrap}>
+              <MobileMediaView
+                mediaType="IMAGE"
+                resizeMode="cover"
+                style={styles.cardImage}
+                uri={item.firstMediaUrl}
+              />
             </View>
             <View style={styles.cardBody}>
               <View style={styles.cardTop}>
                 <Text numberOfLines={2} style={styles.cardTitle}>
                   {item.title}
                 </Text>
-                <Pressable
-                  onPress={() => {
-                    void toggleSave(item);
-                  }}
-                  style={styles.savePill}
-                >
-                  <Text style={styles.savePillLabel}>{item.isSaved ? 'Kayitli' : 'Kaydet'}</Text>
+                <Pressable onPress={() => void toggleSave(item)} style={styles.saveButton}>
+                  <Ionicons
+                    color="#111111"
+                    name={item.isSaved ? 'bookmark' : 'bookmark-outline'}
+                    size={16}
+                  />
                 </Pressable>
               </View>
-              <Text numberOfLines={2} style={styles.cardMeta}>
-                {[item.brand, item.model, item.package].filter(Boolean).join(' / ') || 'Paket bilgisi yok'}
+              <Text numberOfLines={1} style={styles.cardMeta}>
+                {[item.brand, item.model, item.package].filter(Boolean).join(' / ')}
               </Text>
               <Text style={styles.cardMeta}>
                 {item.city}
                 {item.district ? ` / ${item.district}` : ''} · {sellerTypeLabels[item.sellerType]}
               </Text>
+              <Text style={styles.cardMeta}>
+                {[
+                  item.fuelType ? fuelTypeLabels[item.fuelType] : null,
+                  item.transmissionType ? transmissionLabels[item.transmissionType] : null,
+                  item.bodyType,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </Text>
               <View style={styles.cardBottom}>
-                <Text style={styles.cardKm}>{formatKm(item.km)}</Text>
+                <Text style={styles.cardSecondary}>
+                  {item.year ?? '-'} · {formatKm(item.km)}
+                </Text>
                 <Text style={styles.cardPrice}>{formatPrice(item.price)}</Text>
               </View>
             </View>
@@ -236,9 +583,7 @@ export default function ListingsScreen() {
         {!loading && nextCursor ? (
           <Pressable
             disabled={loadingMore}
-            onPress={() => {
-              void loadFeed(false, filters);
-            }}
+            onPress={() => void loadFeed(false, filters)}
             style={styles.loadMoreButton}
           >
             <Text style={styles.loadMoreLabel}>
@@ -248,154 +593,351 @@ export default function ListingsScreen() {
         ) : null}
       </ScrollView>
 
-      <Modal visible={filterModalVisible} animationType="slide" transparent>
+      <Modal animationType="slide" transparent visible={filterModalVisible}>
         <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Filtrele</Text>
-            <ScrollView contentContainerStyle={styles.modalContent}>
-              <TextInput
-                style={styles.input}
-                value={String(draftFilters.city ?? '')}
-                onChangeText={(value) => patchDraft('city', value)}
-                placeholder="Sehir"
-                placeholderTextColor="#6d8090"
-              />
-              <TextInput
-                style={styles.input}
-                value={String(draftFilters.district ?? '')}
-                onChangeText={(value) => patchDraft('district', value)}
-                placeholder="Ilce"
-                placeholderTextColor="#6d8090"
-              />
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.choiceRow}>
-                {brands.map((brand) => (
-                  <Pressable
-                    key={brand.id}
-                    onPress={() => {
-                      patchDraft('brandId', brand.id);
-                      patchDraft('modelId', '');
-                      patchDraft('packageId', '');
-                    }}
-                    style={[
-                      styles.choiceChip,
-                      draftFilters.brandId === brand.id ? styles.choiceChipActive : null,
-                    ]}
-                  >
-                    <Text style={styles.choiceChipLabel}>{brand.name}</Text>
-                  </Pressable>
-                ))}
-              </ScrollView>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.choiceRow}>
-                {models.map((model) => (
-                  <Pressable
-                    key={model.id}
-                    onPress={() => {
-                      patchDraft('modelId', model.id);
-                      patchDraft('packageId', '');
-                    }}
-                    style={[
-                      styles.choiceChip,
-                      draftFilters.modelId === model.id ? styles.choiceChipActive : null,
-                    ]}
-                  >
-                    <Text style={styles.choiceChipLabel}>{model.name}</Text>
-                  </Pressable>
-                ))}
-              </ScrollView>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.choiceRow}>
-                {packages.map((item) => (
-                  <Pressable
-                    key={item.id}
-                    onPress={() => patchDraft('packageId', item.id)}
-                    style={[
-                      styles.choiceChip,
-                      draftFilters.packageId === item.id ? styles.choiceChipActive : null,
-                    ]}
-                  >
-                    <Text style={styles.choiceChipLabel}>{item.name}</Text>
-                  </Pressable>
-                ))}
-              </ScrollView>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHeader}>
+              <View>
+                <Text style={styles.modalTitle}>Detayli filtre</Text>
+                <Text style={styles.modalSubtitle}>{draftCount ?? totalCount} ilan bulundu</Text>
+              </View>
+              <Pressable onPress={() => setFilterModalVisible(false)} style={styles.closeButton}>
+                <Ionicons color="#111111" name="close" size={20} />
+              </Pressable>
+            </View>
 
-              <TextInput
-                style={styles.input}
-                value={draftFilters.minPrice ? String(draftFilters.minPrice) : ''}
-                onChangeText={(value) => patchDraft('minPrice', value ? Number(value) : undefined)}
-                placeholder="Min fiyat"
-                keyboardType="numeric"
-                placeholderTextColor="#6d8090"
-              />
-              <TextInput
-                style={styles.input}
-                value={draftFilters.maxPrice ? String(draftFilters.maxPrice) : ''}
-                onChangeText={(value) => patchDraft('maxPrice', value ? Number(value) : undefined)}
-                placeholder="Max fiyat"
-                keyboardType="numeric"
-                placeholderTextColor="#6d8090"
-              />
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.choiceRow}>
-                {Object.values(SellerType).map((sellerType) => (
+            <ScrollView contentContainerStyle={styles.modalContent}>
+              <FilterSection title="Arama kelimesi">
+                <TextInput
+                  onChangeText={(value) => updateDraft('q', value)}
+                  placeholder="Egea urban, dizel otomatik..."
+                  placeholderTextColor="#94a3b8"
+                  style={styles.textInput}
+                  value={draftFilters.q ?? ''}
+                />
+              </FilterSection>
+
+              <FilterSection title="Konum">
+                <View style={styles.inlineRow}>
+                  <TextInput
+                    onChangeText={setCitySearch}
+                    placeholder="Il ara"
+                    placeholderTextColor="#94a3b8"
+                    style={[styles.textInput, styles.inlineInput]}
+                    value={citySearch}
+                  />
                   <Pressable
-                    key={sellerType}
-                    onPress={() => patchDraft('sellerType', sellerType)}
-                    style={[
-                      styles.choiceChip,
-                      draftFilters.sellerType === sellerType ? styles.choiceChipActive : null,
-                    ]}
+                    onPress={() => {
+                      updateDraft('cities', []);
+                      updateDraft('districts', []);
+                    }}
+                    style={styles.ghostButton}
                   >
-                    <Text style={styles.choiceChipLabel}>{sellerTypeLabels[sellerType]}</Text>
+                    <Text style={styles.ghostButtonLabel}>Tum Turkiye</Text>
                   </Pressable>
-                ))}
-              </ScrollView>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.choiceRow}>
-                {Object.values(FuelType).map((fuelType) => (
-                  <Pressable
-                    key={fuelType}
-                    onPress={() => patchDraft('fuelType', fuelType)}
-                    style={[
-                      styles.choiceChip,
-                      draftFilters.fuelType === fuelType ? styles.choiceChipActive : null,
-                    ]}
-                  >
-                    <Text style={styles.choiceChipLabel}>{fuelTypeLabels[fuelType]}</Text>
-                  </Pressable>
-                ))}
-              </ScrollView>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.choiceRow}>
-                {Object.values(TransmissionType).map((transmissionType) => (
-                  <Pressable
-                    key={transmissionType}
-                    onPress={() => patchDraft('transmissionType', transmissionType)}
-                    style={[
-                      styles.choiceChip,
-                      draftFilters.transmissionType === transmissionType ? styles.choiceChipActive : null,
-                    ]}
-                  >
-                    <Text style={styles.choiceChipLabel}>{transmissionLabels[transmissionType]}</Text>
-                  </Pressable>
-                ))}
-              </ScrollView>
+                </View>
+                <View style={styles.wrapRow}>
+                  {(draftFilters.cities ?? []).map((city) => (
+                    <ChoiceChip
+                      key={city}
+                      active
+                      label={city}
+                      onPress={() => toggleArrayValue('cities', city)}
+                    />
+                  ))}
+                </View>
+                <View style={styles.wrapRow}>
+                  {filteredCities.map((city) => (
+                    <ChoiceChip
+                      key={city}
+                      active={(draftFilters.cities ?? []).includes(city)}
+                      label={city}
+                      onPress={() => toggleArrayValue('cities', city)}
+                    />
+                  ))}
+                </View>
+
+                {(draftFilters.cities?.length ?? 0) > 0 ? (
+                  <>
+                    <View style={styles.inlineRow}>
+                      <TextInput
+                        onChangeText={setDistrictDraft}
+                        placeholder="Ilce ekle"
+                        placeholderTextColor="#94a3b8"
+                        style={[styles.textInput, styles.inlineInput]}
+                        value={districtDraft}
+                      />
+                      <Pressable onPress={() => addDistrict(districtDraft)} style={styles.ghostButton}>
+                        <Text style={styles.ghostButtonLabel}>Ekle</Text>
+                      </Pressable>
+                    </View>
+                    <View style={styles.wrapRow}>
+                      {(draftFilters.districts ?? []).map((district) => (
+                        <ChoiceChip
+                          key={district}
+                          active
+                          label={district}
+                          onPress={() => toggleArrayValue('districts', district)}
+                        />
+                      ))}
+                    </View>
+                    <View style={styles.wrapRow}>
+                      {districtSuggestions.map((district) => (
+                        <ChoiceChip
+                          key={district}
+                          active={(draftFilters.districts ?? []).includes(district)}
+                          label={district}
+                          onPress={() => toggleArrayValue('districts', district)}
+                        />
+                      ))}
+                    </View>
+                  </>
+                ) : null}
+              </FilterSection>
+
+              <FilterSection title="Arac">
+                <View style={styles.wrapRow}>
+                  {LISTING_VEHICLE_TYPE_OPTIONS.map((option) => (
+                    <ChoiceChip
+                      key={option.value}
+                      active={draftFilters.vehicleType === option.value}
+                      label={option.label}
+                      onPress={() => {
+                        updateDraft(
+                          'vehicleType',
+                          draftFilters.vehicleType === option.value ? undefined : option.value,
+                        );
+                        updateDraft('brandId', '');
+                        updateDraft('modelId', '');
+                        updateDraft('packageId', '');
+                      }}
+                    />
+                  ))}
+                </View>
+                <TextInput
+                  onChangeText={setBrandSearch}
+                  placeholder="Marka ara"
+                  placeholderTextColor="#94a3b8"
+                  style={styles.textInput}
+                  value={brandSearch}
+                />
+                <View style={styles.wrapRow}>
+                  {visibleBrands.map((brand) => (
+                    <ChoiceChip
+                      key={brand.id}
+                      active={draftFilters.brandId === brand.id}
+                      label={brand.name}
+                      onPress={() => {
+                        updateDraft('brandId', draftFilters.brandId === brand.id ? '' : brand.id);
+                        updateDraft('modelId', '');
+                        updateDraft('packageId', '');
+                      }}
+                    />
+                  ))}
+                </View>
+
+                {draftFilters.brandId ? (
+                  <>
+                    <TextInput
+                      onChangeText={setModelSearch}
+                      placeholder="Model ara"
+                      placeholderTextColor="#94a3b8"
+                      style={styles.textInput}
+                      value={modelSearch}
+                    />
+                    <View style={styles.wrapRow}>
+                      {visibleModels.map((model) => (
+                        <ChoiceChip
+                          key={model.id}
+                          active={draftFilters.modelId === model.id}
+                          label={model.name}
+                          onPress={() => {
+                            updateDraft('modelId', draftFilters.modelId === model.id ? '' : model.id);
+                            updateDraft('packageId', '');
+                          }}
+                        />
+                      ))}
+                    </View>
+                  </>
+                ) : null}
+
+                {draftFilters.modelId ? (
+                  <>
+                    <TextInput
+                      onChangeText={setPackageSearch}
+                      placeholder="Paket ara"
+                      placeholderTextColor="#94a3b8"
+                      style={styles.textInput}
+                      value={packageSearch}
+                    />
+                    <View style={styles.wrapRow}>
+                      {visiblePackages.map((item) => (
+                        <ChoiceChip
+                          key={item.id}
+                          active={draftFilters.packageId === item.id}
+                          label={item.name}
+                          onPress={() =>
+                            updateDraft('packageId', draftFilters.packageId === item.id ? '' : item.id)
+                          }
+                        />
+                      ))}
+                    </View>
+                  </>
+                ) : null}
+
+                {catalogError ? <Text style={styles.helperError}>{catalogError}</Text> : null}
+              </FilterSection>
+
+              <FilterSection title="Fiyat">
+                <RangeRow
+                  maxPlaceholder="Max fiyat"
+                  maxValue={draftFilters.maxPrice}
+                  minPlaceholder="Min fiyat"
+                  minValue={draftFilters.minPrice}
+                  onMaxChange={(value) => updateDraft('maxPrice', value ? Number(value) : undefined)}
+                  onMinChange={(value) => updateDraft('minPrice', value ? Number(value) : undefined)}
+                />
+              </FilterSection>
+
+              <FilterSection title="Yil">
+                <RangeRow
+                  maxPlaceholder="Max yil"
+                  maxValue={draftFilters.maxYear}
+                  minPlaceholder="Min yil"
+                  minValue={draftFilters.minYear}
+                  onMaxChange={(value) => updateDraft('maxYear', value ? Number(value) : undefined)}
+                  onMinChange={(value) => updateDraft('minYear', value ? Number(value) : undefined)}
+                />
+              </FilterSection>
+
+              <FilterSection title="KM">
+                <RangeRow
+                  maxPlaceholder="Max km"
+                  maxValue={draftFilters.maxKm}
+                  minPlaceholder="Min km"
+                  minValue={draftFilters.minKm}
+                  onMaxChange={(value) => updateDraft('maxKm', value ? Number(value) : undefined)}
+                  onMinChange={(value) => updateDraft('minKm', value ? Number(value) : undefined)}
+                />
+              </FilterSection>
+
+              <FilterSection title="Teknik">
+                <Text style={styles.sectionHint}>Yakit</Text>
+                <View style={styles.wrapRow}>
+                  {LISTING_FUEL_OPTIONS.map((option) => (
+                    <ChoiceChip
+                      key={option}
+                      active={(draftFilters.fuelTypes ?? []).includes(option)}
+                      label={fuelTypeLabels[option]}
+                      onPress={() => toggleArrayValue('fuelTypes', option)}
+                    />
+                  ))}
+                </View>
+                <Text style={styles.sectionHint}>Vites</Text>
+                <View style={styles.wrapRow}>
+                  {LISTING_TRANSMISSION_OPTIONS.map((option) => (
+                    <ChoiceChip
+                      key={option}
+                      active={(draftFilters.transmissionTypes ?? []).includes(option)}
+                      label={transmissionLabels[option]}
+                      onPress={() => toggleArrayValue('transmissionTypes', option)}
+                    />
+                  ))}
+                </View>
+                <Text style={styles.sectionHint}>Kasa tipi</Text>
+                <View style={styles.wrapRow}>
+                  {LISTING_BODY_TYPE_OPTIONS.map((option) => (
+                    <ChoiceChip
+                      key={option}
+                      active={(draftFilters.bodyTypes ?? []).includes(option)}
+                      label={option}
+                      onPress={() => toggleArrayValue('bodyTypes', option)}
+                    />
+                  ))}
+                </View>
+                <Text style={styles.sectionHint}>Renk</Text>
+                <View style={styles.wrapRow}>
+                  {LISTING_COLOR_OPTIONS.map((option) => (
+                    <ChoiceChip
+                      key={option}
+                      active={(draftFilters.colors ?? []).includes(option)}
+                      label={option}
+                      onPress={() => toggleArrayValue('colors', option)}
+                    />
+                  ))}
+                </View>
+              </FilterSection>
+
+              <FilterSection title="Durum">
+                <View style={styles.wrapRow}>
+                  <ChoiceChip
+                    active={Boolean(draftFilters.noPaint)}
+                    label="Boyasiz"
+                    onPress={() => updateDraft('noPaint', !draftFilters.noPaint)}
+                  />
+                  <ChoiceChip
+                    active={Boolean(draftFilters.noChangedParts)}
+                    label="Degisensiz"
+                    onPress={() => updateDraft('noChangedParts', !draftFilters.noChangedParts)}
+                  />
+                  <ChoiceChip
+                    active={Boolean(draftFilters.noHeavyDamage)}
+                    label="Agir hasar kayitli degil"
+                    onPress={() => updateDraft('noHeavyDamage', !draftFilters.noHeavyDamage)}
+                  />
+                  <ChoiceChip
+                    active={Boolean(draftFilters.tradeAvailable)}
+                    label="Takasa acik"
+                    onPress={() => updateDraft('tradeAvailable', !draftFilters.tradeAvailable)}
+                  />
+                  <ChoiceChip
+                    active={Boolean(draftFilters.guaranteed)}
+                    label="Garantili"
+                    onPress={() => updateDraft('guaranteed', !draftFilters.guaranteed)}
+                  />
+                </View>
+              </FilterSection>
+
+              <FilterSection title="Satici">
+                <View style={styles.wrapRow}>
+                  {LISTING_SELLER_OPTIONS.map((option) => (
+                    <ChoiceChip
+                      key={option.value}
+                      active={(draftFilters.sellerTypes ?? []).includes(option.value)}
+                      label={option.label}
+                      onPress={() => toggleArrayValue('sellerTypes', option.value)}
+                    />
+                  ))}
+                  <ChoiceChip
+                    active={Boolean(draftFilters.onlyVerifiedSeller)}
+                    label="Dogrulanmis satici"
+                    onPress={() => updateDraft('onlyVerifiedSeller', !draftFilters.onlyVerifiedSeller)}
+                  />
+                </View>
+              </FilterSection>
+
+              <FilterSection title="Siralama">
+                <View style={styles.wrapRow}>
+                  {Object.values(ListingSortOption).map((option) => (
+                    <ChoiceChip
+                      key={option}
+                      active={draftFilters.sort === option}
+                      label={LISTING_SORT_LABELS[option]}
+                      onPress={() => updateDraft('sort', option)}
+                    />
+                  ))}
+                </View>
+              </FilterSection>
             </ScrollView>
 
-            <View style={styles.modalActions}>
-              <Pressable
-                onPress={() => {
-                  setDraftFilters(initialFilters);
-                  setFilters(initialFilters);
-                  setFilterModalVisible(false);
-                }}
-                style={styles.modalSecondary}
-              >
-                <Text style={styles.modalSecondaryLabel}>Temizle</Text>
+            <View style={styles.modalFooter}>
+              <Pressable onPress={clearAllFilters} style={styles.footerSecondary}>
+                <Text style={styles.footerSecondaryLabel}>Temizle</Text>
               </Pressable>
-              <Pressable
-                onPress={() => {
-                  setFilters(draftFilters);
-                  setFilterModalVisible(false);
-                }}
-                style={styles.modalPrimary}
-              >
-                <Text style={styles.modalPrimaryLabel}>Uygula</Text>
+              <Pressable onPress={applyFilters} style={styles.footerPrimary}>
+                <Text style={styles.footerPrimaryLabel}>
+                  {draftCount ?? totalCount} sonucu goster
+                </Text>
               </Pressable>
             </View>
           </View>
@@ -405,230 +947,279 @@ export default function ListingsScreen() {
   );
 }
 
+function FilterSection({ children, title }: { children: React.ReactNode; title: string }) {
+  return (
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>{title}</Text>
+      {children}
+    </View>
+  );
+}
+
+function ChoiceChip({
+  active,
+  label,
+  onPress,
+}: {
+  active?: boolean;
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable onPress={onPress} style={[styles.choiceChip, active ? styles.choiceChipActive : null]}>
+      <Text style={[styles.choiceChipLabel, active ? styles.choiceChipLabelActive : null]}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+function RangeRow({
+  maxPlaceholder,
+  maxValue,
+  minPlaceholder,
+  minValue,
+  onMaxChange,
+  onMinChange,
+}: {
+  maxPlaceholder: string;
+  maxValue?: number;
+  minPlaceholder: string;
+  minValue?: number;
+  onMaxChange: (value: string) => void;
+  onMinChange: (value: string) => void;
+}) {
+  return (
+    <View style={styles.rangeRow}>
+      <TextInput
+        keyboardType="numeric"
+        onChangeText={onMinChange}
+        placeholder={minPlaceholder}
+        placeholderTextColor="#94a3b8"
+        style={[styles.textInput, styles.rangeInput]}
+        value={minValue ? String(minValue) : ''}
+      />
+      <TextInput
+        keyboardType="numeric"
+        onChangeText={onMaxChange}
+        placeholder={maxPlaceholder}
+        placeholderTextColor="#94a3b8"
+        style={[styles.textInput, styles.rangeInput]}
+        value={maxValue ? String(maxValue) : ''}
+      />
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  scroll: {
-    flex: 1,
-  },
-  content: {
-    gap: 14,
-    paddingBottom: 10,
-  },
-  headerRow: {
+  scroll: { flex: 1 },
+  content: { gap: 14, paddingBottom: 18 },
+  toolbar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 12,
   },
+  resultTitle: { color: '#0f172a', fontSize: 18, fontWeight: '700' },
+  resultMeta: { color: '#64748b', fontSize: 12, marginTop: 2 },
   filterButton: {
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderRadius: 18,
-    backgroundColor: '#ef8354',
-  },
-  filterButtonLabel: {
-    color: '#08131d',
-    fontWeight: '800',
-  },
-  metaText: {
-    color: '#6b7280',
-  },
-  banner: {
-    borderRadius: 18,
-    padding: 14,
-  },
-  noticeBanner: {
-    backgroundColor: '#ffffff',
-  },
-  errorBanner: {
-    backgroundColor: '#fff1f2',
-  },
-  bannerText: {
-    color: '#374151',
-    lineHeight: 20,
-  },
-  loadingCard: {
-    paddingVertical: 28,
-    alignItems: 'center',
-    gap: 10,
-    borderRadius: 24,
-    backgroundColor: '#ffffff',
-  },
-  loadingText: {
-    color: '#6b7280',
-  },
-  emptyCard: {
-    padding: 22,
-    borderRadius: 24,
-    backgroundColor: '#ffffff',
-    gap: 8,
-  },
-  emptyTitle: {
-    color: '#374151',
-    fontSize: 20,
-    fontWeight: '800',
-  },
-  emptyCopy: {
-    color: '#6b7280',
-  },
-  card: {
     flexDirection: 'row',
-    gap: 14,
-    padding: 14,
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 999,
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  filterButtonLabel: { color: '#111111', fontSize: 13, fontWeight: '700' },
+  activeChipsRow: { gap: 8, paddingRight: 6 },
+  activeChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#dbe4ea',
+  },
+  activeChipLabel: { color: '#334155', fontSize: 12, fontWeight: '600' },
+  banner: { borderRadius: 18, padding: 14 },
+  errorBanner: { backgroundColor: '#fee2e2' },
+  bannerText: { color: '#991b1b', fontSize: 13, fontWeight: '600' },
+  loadingCard: {
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 26,
+    borderRadius: 22,
+    backgroundColor: '#f8fafc',
+  },
+  loadingText: { color: '#64748b', fontSize: 13, fontWeight: '600' },
+  emptyCard: {
+    gap: 10,
+    padding: 22,
+    borderRadius: 22,
+    backgroundColor: '#f8fafc',
+  },
+  emptyTitle: { color: '#0f172a', fontSize: 18, fontWeight: '700' },
+  emptyCopy: { color: '#64748b', fontSize: 13, lineHeight: 19 },
+  emptyActions: { flexDirection: 'row', gap: 10 },
+  secondaryButton: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#dbe4ea',
+    backgroundColor: '#ffffff',
+  },
+  secondaryButtonLabel: { color: '#334155', fontSize: 13, fontWeight: '700' },
+  primaryButton: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 14,
+    backgroundColor: '#111111',
+  },
+  primaryButtonLabel: { color: '#ffffff', fontSize: 13, fontWeight: '700' },
+  listingCard: {
+    overflow: 'hidden',
     borderRadius: 22,
     backgroundColor: '#ffffff',
     borderWidth: 1,
-    borderColor: '#e8ebee',
+    borderColor: '#eef2f6',
   },
-  imageWrap: {
-    width: 108,
-    aspectRatio: 1,
-    borderRadius: 20,
-    overflow: 'hidden',
-    backgroundColor: '#e5e7eb',
-  },
-  cardImage: {
-    width: '100%',
-    height: '100%',
-  },
-  imageFallback: {
-    flex: 1,
+  mediaWrap: { backgroundColor: '#eef2f6' },
+  cardImage: { width: '100%', aspectRatio: 1.42, backgroundColor: '#eef2f6' },
+  cardBody: { gap: 7, padding: 14 },
+  cardTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  cardTitle: { flex: 1, color: '#0f172a', fontSize: 16, fontWeight: '700', lineHeight: 22 },
+  saveButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#f8fafc',
   },
-  imageFallbackLabel: {
-    color: '#6b7280',
-    fontWeight: '800',
-    letterSpacing: 1.8,
-  },
-  cardBody: {
-    flex: 1,
-    gap: 8,
-  },
-  cardTop: {
-    flexDirection: 'row',
-    gap: 10,
-    justifyContent: 'space-between',
-  },
-  cardTitle: {
-    flex: 1,
-    color: '#374151',
-    fontSize: 16,
-    fontWeight: '800',
-    lineHeight: 22,
-  },
-  savePill: {
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderRadius: 14,
-    backgroundColor: '#f3f4f6',
-  },
-  savePillLabel: {
-    color: '#6b7280',
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  cardMeta: {
-    color: '#6b7280',
-    lineHeight: 19,
-  },
+  cardMeta: { color: '#64748b', fontSize: 12, lineHeight: 18 },
   cardBottom: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'flex-end',
-    marginTop: 4,
+    gap: 8,
   },
-  cardKm: {
-    color: '#6b7280',
-    fontWeight: '700',
-  },
-  cardPrice: {
-    color: '#374151',
-    fontWeight: '800',
-    fontSize: 18,
-  },
+  cardSecondary: { color: '#475569', fontSize: 12, fontWeight: '600' },
+  cardPrice: { color: '#0f172a', fontSize: 16, fontWeight: '800' },
   loadMoreButton: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 15,
-    borderRadius: 20,
-    backgroundColor: '#ef8354',
+    paddingVertical: 14,
+    borderRadius: 16,
+    backgroundColor: '#111111',
   },
-  loadMoreLabel: {
-    color: '#08131d',
-    fontWeight: '800',
-  },
+  loadMoreLabel: { color: '#ffffff', fontSize: 13, fontWeight: '700' },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(4,10,16,0.72)',
+    backgroundColor: 'rgba(15, 23, 42, 0.34)',
     justifyContent: 'flex-end',
   },
-  modalCard: {
-    maxHeight: '88%',
+  modalSheet: {
+    maxHeight: '92%',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
-    padding: 18,
-    gap: 16,
     backgroundColor: '#ffffff',
+    paddingHorizontal: 18,
+    paddingTop: 18,
+    paddingBottom: 18,
   },
-  modalTitle: {
-    color: '#374151',
-    fontSize: 22,
-    fontWeight: '800',
-  },
-  modalContent: {
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     gap: 12,
-    paddingBottom: 8,
+    paddingBottom: 12,
   },
-  input: {
-    borderRadius: 18,
-    paddingHorizontal: 14,
-    paddingVertical: 13,
-    color: '#374151',
-    backgroundColor: '#e5e7eb',
+  modalTitle: { color: '#0f172a', fontSize: 22, fontWeight: '800' },
+  modalSubtitle: { color: '#64748b', fontSize: 12, marginTop: 3 },
+  closeButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f8fafc',
+  },
+  modalContent: { gap: 18, paddingBottom: 20 },
+  section: { gap: 10, paddingVertical: 4 },
+  sectionTitle: { color: '#0f172a', fontSize: 15, fontWeight: '800' },
+  sectionHint: { color: '#475569', fontSize: 12, fontWeight: '700' },
+  helperError: { color: '#b91c1c', fontSize: 12, fontWeight: '600' },
+  textInput: {
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: '#dbe4ea',
+    borderRadius: 16,
+    backgroundColor: '#f8fafc',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    color: '#0f172a',
+    fontSize: 14,
   },
-  choiceRow: {
-    gap: 10,
+  inlineRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  inlineInput: { flex: 1 },
+  ghostButton: {
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    borderRadius: 14,
+    backgroundColor: '#eef2f6',
   },
+  ghostButtonLabel: { color: '#334155', fontSize: 12, fontWeight: '700' },
+  wrapRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   choiceChip: {
     paddingHorizontal: 12,
     paddingVertical: 10,
-    borderRadius: 16,
-    backgroundColor: '#f3f4f6',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#dbe4ea',
+    backgroundColor: '#ffffff',
   },
   choiceChipActive: {
-    backgroundColor: 'rgba(239,131,84,0.2)',
+    borderColor: '#111111',
+    backgroundColor: '#111111',
   },
-  choiceChipLabel: {
-    color: '#374151',
-    fontWeight: '700',
-  },
-  modalActions: {
+  choiceChipLabel: { color: '#334155', fontSize: 12, fontWeight: '700' },
+  choiceChipLabelActive: { color: '#ffffff' },
+  rangeRow: { flexDirection: 'row', gap: 10 },
+  rangeInput: { flex: 1 },
+  modalFooter: {
     flexDirection: 'row',
     gap: 10,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#eef2f6',
   },
-  modalPrimary: {
+  footerSecondary: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: 18,
-    backgroundColor: '#ef8354',
+    paddingVertical: 13,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#dbe4ea',
   },
-  modalPrimaryLabel: {
-    color: '#08131d',
-    fontWeight: '800',
-  },
-  modalSecondary: {
-    flex: 1,
+  footerSecondaryLabel: { color: '#334155', fontSize: 13, fontWeight: '700' },
+  footerPrimary: {
+    flex: 1.4,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: 18,
-    backgroundColor: '#f3f4f6',
+    paddingVertical: 13,
+    borderRadius: 16,
+    backgroundColor: '#111111',
   },
-  modalSecondaryLabel: {
-    color: '#6b7280',
-    fontWeight: '800',
-  },
+  footerPrimaryLabel: { color: '#ffffff', fontSize: 13, fontWeight: '800' },
 });

@@ -24,6 +24,7 @@ import {
   View,
 } from 'react-native';
 import { MobileShell } from '../components/mobile-shell';
+import { MobileMediaView } from '../components/mobile-media-view';
 import { VehicleDamageMap } from '../components/vehicle-damage-map';
 import { useAuth } from '../context/auth-context';
 import { mobileTheme } from '../lib/design-system';
@@ -225,7 +226,7 @@ export default function CreateListingScreen() {
                     style={[styles.vehicleTile, form.garageVehicleId === vehicle.id ? styles.vehicleTileActive : null]}
                   >
                     {vehicle.firstMediaUrl ? (
-                      <Image source={{ uri: vehicle.firstMediaUrl }} style={styles.vehicleTileImage} />
+                      <MobileMediaView mediaType={MediaType.IMAGE} style={styles.vehicleTileImage} uri={vehicle.firstMediaUrl} />
                     ) : (
                       <View style={styles.vehicleTileFallback}><Text style={styles.vehicleTileFallbackLabel}>ARAC</Text></View>
                     )}
@@ -285,7 +286,7 @@ export default function CreateListingScreen() {
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.previewRow}>
                 {listingUploads.map((item) => (
                   <Pressable key={item.id} onPress={() => setListingUploads((current) => current.filter((entry) => entry.id !== item.id))} style={styles.previewCard}>
-                    <Image source={{ uri: item.url }} style={styles.previewImage} />
+                    <MobileMediaView autoPlay={item.mimeType.startsWith('video/')} loop={item.mimeType.startsWith('video/')} mediaType={inferMediaType(item.mimeType)} muted style={styles.previewImage} uri={item.url} />
                   </Pressable>
                 ))}
               </ScrollView>
@@ -490,4 +491,5 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
 });
+
 

@@ -20,7 +20,7 @@ ENV NODE_ENV=production
 
 COPY --from=build /app /app
 
-RUN pnpm prune --prod && mkdir -p /app/uploads /app/logs && chown -R node:node /app
+RUN mkdir -p /app/uploads /app/logs && chown -R node:node /app
 
 USER node
 

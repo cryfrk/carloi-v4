@@ -17,10 +17,12 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { useAuth } from '../context/auth-context';
+import { buildDemoMessageFixtures, buildDemoProfileFixtures } from '../lib/demo-content';
 import { mobileMessagesApi } from '../lib/messages-api';
 import { mobileProfileApi } from '../lib/profile-api';
 import { mobileSocialApi } from '../lib/social-api';
 import { MobileShell } from './mobile-shell';
+import { MobileMediaView } from './mobile-media-view';
 
 type TabKey = 'posts' | 'listings' | 'vehicles';
 
@@ -42,6 +44,36 @@ export function MobileProfileScreen({
   const [activeTab, setActiveTab] = useState<TabKey>(defaultTab);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const demoProfile = useMemo(
+    () =>
+      buildDemoProfileFixtures({
+        currentUser: session
+          ? {
+              id: session.user.id,
+              username: session.user.username,
+              firstName: session.user.firstName,
+              lastName: session.user.lastName,
+            }
+          : null,
+        identifier: identifier ?? null,
+        isOwnProfile: !identifier,
+      }),
+    [identifier, session],
+  );
+  const demoMessages = useMemo(
+    () =>
+      buildDemoMessageFixtures(
+        session
+          ? {
+              id: session.user.id,
+              username: session.user.username,
+              firstName: session.user.firstName,
+              lastName: session.user.lastName,
+            }
+          : null,
+      ),
+    [session],
+  );
 
   useEffect(() => {
     setActiveTab(defaultTab);
@@ -49,6 +81,11 @@ export function MobileProfileScreen({
 
   const tileSize = useMemo(() => Math.floor((width - 4) / 3), [width]);
   const profileKey = identifier ?? 'me';
+  const showDemoProfile = !loading && (!profile || (posts.length === 0 && listings.length === 0 && vehicles.length === 0));
+  const displayProfile = showDemoProfile ? demoProfile.profile : profile;
+  const displayPosts = showDemoProfile ? demoProfile.posts : posts;
+  const displayListings = showDemoProfile ? demoProfile.listings : listings;
+  const displayVehicles = showDemoProfile ? demoProfile.vehicles : vehicles;
 
   useEffect(() => {
     if (!session?.accessToken) {
@@ -82,18 +119,23 @@ export function MobileProfileScreen({
   }, [identifier, profileKey, session?.accessToken, session?.user.username]);
 
   async function handleFollowToggle() {
-    if (!session?.accessToken || !profile || profile.isOwnProfile) {
+    if (!session?.accessToken || !displayProfile || displayProfile.isOwnProfile) {
+      return;
+    }
+
+    if (showDemoProfile || displayProfile.id.startsWith('demo-owner-')) {
+      setErrorMessage('Bu demo profil Carloi akisinin nasil gorunecegini gostermek icin hazirlandi.');
       return;
     }
 
     try {
-      if (profile.isFollowing) {
-        await mobileSocialApi.unfollowUser(session.accessToken, profile.id);
+      if (displayProfile.isFollowing) {
+        await mobileSocialApi.unfollowUser(session.accessToken, displayProfile.id);
       } else {
-        await mobileSocialApi.followUser(session.accessToken, profile.id);
+        await mobileSocialApi.followUser(session.accessToken, displayProfile.id);
       }
 
-      const refreshed = await mobileProfileApi.getProfile(session.accessToken, identifier ?? profile.username);
+      const refreshed = await mobileProfileApi.getProfile(session.accessToken, identifier ?? displayProfile.username);
       setProfile(refreshed);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Takip islemi tamamlanamadi.');
@@ -101,13 +143,23 @@ export function MobileProfileScreen({
   }
 
   async function handleMessageStart() {
-    if (!session?.accessToken || !profile || profile.isOwnProfile) {
+    if (!session?.accessToken || !displayProfile || displayProfile.isOwnProfile) {
       return;
+    }
+
+    if (showDemoProfile || displayProfile.id.startsWith('demo-owner-')) {
+      const demoThread = demoMessages.threads.find((thread) =>
+        thread.participants.some((participant) => participant.id === displayProfile.id),
+      );
+      if (demoThread) {
+        router.push(`/messages/${demoThread.id}`);
+        return;
+      }
     }
 
     try {
       const response = await mobileMessagesApi.createDirectThread(session.accessToken, {
-        targetUserId: profile.id,
+        targetUserId: displayProfile.id,
       });
       router.push(`/messages/${response.thread.id}`);
     } catch (error) {
@@ -115,10 +167,10 @@ export function MobileProfileScreen({
     }
   }
 
-  const profileUsername = profile?.username ?? session?.user.username ?? '-';
-  const displayInitial = (profile?.firstName?.[0] ?? session?.user.firstName?.[0] ?? '?').toUpperCase();
-  const canViewContent = profile?.canViewContent ?? true;
-  const isOwnProfile = profile?.isOwnProfile ?? !identifier;
+  const profileUsername = displayProfile?.username ?? session?.user.username ?? '-';
+  const displayInitial = (displayProfile?.firstName?.[0] ?? session?.user.firstName?.[0] ?? '?').toUpperCase();
+  const canViewContent = displayProfile?.canViewContent ?? true;
+  const isOwnProfile = displayProfile?.isOwnProfile ?? !identifier;
 
   return (
     <MobileShell
@@ -130,34 +182,34 @@ export function MobileProfileScreen({
 
         <View style={styles.topSection}>
           <View style={styles.avatarShell}>
-            {profile?.avatarUrl ? (
-              <Image source={{ uri: profile.avatarUrl }} style={styles.avatarImage} />
+            {displayProfile?.avatarUrl ? (
+              <Image source={{ uri: displayProfile.avatarUrl }} style={styles.avatarImage} />
             ) : (
               <Text style={styles.avatarText}>{displayInitial}</Text>
             )}
           </View>
 
           <Text style={styles.username}>@{profileUsername}</Text>
-          {profile ? <Text style={styles.nameText}>{profile.firstName} {profile.lastName}</Text> : null}
+          {displayProfile ? <Text style={styles.nameText}>{displayProfile.firstName} {displayProfile.lastName}</Text> : null}
 
           <View style={styles.statsRow}>
-            <StatItem label="posts" value={profile?.postCount ?? posts.length} />
+            <StatItem label="posts" value={displayProfile?.postCount ?? displayPosts.length} />
             <Text style={styles.statsDivider}>|</Text>
-            <StatItem label="listings" value={profile?.listingCount ?? listings.length} />
+            <StatItem label="listings" value={displayProfile?.listingCount ?? displayListings.length} />
             <Text style={styles.statsDivider}>|</Text>
-            <StatItem label="vehicles" value={profile?.vehicleCount ?? vehicles.length} />
+            <StatItem label="vehicles" value={displayProfile?.vehicleCount ?? displayVehicles.length} />
           </View>
 
           <View style={styles.metaStack}>
-            {profile?.bio ? <Text style={styles.bioText}>{profile.bio}</Text> : null}
-            {profile?.websiteUrl ? (
-              <Pressable onPress={() => void Linking.openURL(profile.websiteUrl!)}>
-                <Text style={styles.linkText}>{profile.websiteUrl}</Text>
+            {displayProfile?.bio ? <Text style={styles.bioText}>{displayProfile.bio}</Text> : null}
+            {displayProfile?.websiteUrl ? (
+              <Pressable onPress={() => void Linking.openURL(displayProfile.websiteUrl!)}>
+                <Text style={styles.linkText}>{displayProfile.websiteUrl}</Text>
               </Pressable>
             ) : null}
-            {profile?.locationText ? <Text style={styles.metaText}>{profile.locationText}</Text> : null}
+            {displayProfile?.locationText ? <Text style={styles.metaText}>{displayProfile.locationText}</Text> : null}
             <Text style={styles.metaText}>
-              {profile?.followerCount ?? 0} takipci · {profile?.followingCount ?? 0} takip edilen
+              {displayProfile?.followerCount ?? 0} takipci · {displayProfile?.followingCount ?? 0} takip edilen
             </Text>
           </View>
 
@@ -174,7 +226,7 @@ export function MobileProfileScreen({
             ) : (
               <>
                 <Pressable style={styles.primaryButton} onPress={() => void handleFollowToggle()}>
-                  <Text style={styles.primaryButtonLabel}>{profile?.isFollowing ? 'Takiptesin' : 'Takip et'}</Text>
+                  <Text style={styles.primaryButtonLabel}>{displayProfile?.isFollowing ? 'Takiptesin' : 'Takip et'}</Text>
                 </Pressable>
                 <Pressable style={styles.secondaryButton} onPress={() => void handleMessageStart()}>
                   <Text style={styles.secondaryButtonLabel}>Mesaj</Text>
@@ -210,14 +262,14 @@ export function MobileProfileScreen({
 
         {!loading && activeTab === 'posts' ? (
           <View style={styles.gridWrap}>
-            {posts.map((post) => (
+            {displayPosts.map((post) => (
               <Pressable
                 key={post.id}
                 style={[styles.squareTile, { width: tileSize, height: tileSize }]}
                 onPress={() => router.push(`/posts/${post.id}`)}
               >
                 {post.thumbnailUrl ? (
-                  <Image source={{ uri: post.thumbnailUrl }} style={styles.tileImage} />
+                  <MobileMediaView mediaType={post.mediaType} style={styles.tileImage} uri={post.thumbnailUrl} />
                 ) : (
                   <View style={styles.tileFallback}>
                     <Text style={styles.tileFallbackLabel}>POST</Text>
@@ -225,20 +277,20 @@ export function MobileProfileScreen({
                 )}
               </Pressable>
             ))}
-            {!posts.length ? <EmptyState text="Bu sekmede gosterilecek gonderi yok." /> : null}
+            {!displayPosts.length ? <EmptyState text="Bu sekmede gosterilecek gonderi yok." /> : null}
           </View>
         ) : null}
 
         {!loading && activeTab === 'listings' ? (
           <View style={styles.gridWrap}>
-            {listings.map((listing) => (
+            {displayListings.map((listing) => (
               <Pressable
                 key={listing.listingId}
                 style={[styles.squareTile, { width: tileSize, height: tileSize }]}
                 onPress={() => router.push(`/listings/${listing.listingId}`)}
               >
                 {listing.firstMediaUrl ? (
-                  <Image source={{ uri: listing.firstMediaUrl }} style={styles.tileImage} />
+                  <MobileMediaView mediaType={'IMAGE'} style={styles.tileImage} uri={listing.firstMediaUrl} />
                 ) : (
                   <View style={styles.tileFallback}>
                     <Text style={styles.tileFallbackLabel}>ILAN</Text>
@@ -250,7 +302,7 @@ export function MobileProfileScreen({
                 </View>
               </Pressable>
             ))}
-            {!listings.length ? <EmptyState text="Bu sekmede gosterilecek ilan yok." /> : null}
+            {!displayListings.length ? <EmptyState text="Bu sekmede gosterilecek ilan yok." /> : null}
           </View>
         ) : null}
 
@@ -265,14 +317,14 @@ export function MobileProfileScreen({
                 <Text style={styles.addTileLabel}>Arac ekle</Text>
               </Pressable>
             ) : null}
-            {vehicles.map((vehicle) => (
+            {displayVehicles.map((vehicle) => (
               <Pressable
                 key={vehicle.id}
                 style={[styles.squareTile, { width: tileSize, height: tileSize }]}
                 onPress={() => router.push(`/vehicles/${vehicle.id}`)}
               >
                 {vehicle.firstMediaUrl ? (
-                  <Image source={{ uri: vehicle.firstMediaUrl }} style={styles.tileImage} />
+                  <MobileMediaView mediaType={vehicle.media[0]?.mediaType ?? 'IMAGE'} style={styles.tileImage} uri={vehicle.firstMediaUrl} />
                 ) : (
                   <View style={styles.tileFallback}>
                     <Text style={styles.tileFallbackLabel}>ARAC</Text>
@@ -288,7 +340,7 @@ export function MobileProfileScreen({
                 </View>
               </Pressable>
             ))}
-            {!vehicles.length ? <EmptyState text="Bu sekmede gosterilecek arac yok." /> : null}
+            {!displayVehicles.length ? <EmptyState text="Bu sekmede gosterilecek arac yok." /> : null}
           </View>
         ) : null}
       </ScrollView>
@@ -608,4 +660,5 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
   },
 });
+
 

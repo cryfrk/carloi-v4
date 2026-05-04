@@ -1,16 +1,23 @@
+ï»¿import { Ionicons } from '@expo/vector-icons';
 import { MediaAssetPurpose, type MediaAssetUploadResponse } from '@carloi-v4/types';
 import { Redirect, useRouter } from 'expo-router';
-import { useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { MobileShell } from '../components/mobile-shell';
+import { MobileMediaView } from '../components/mobile-media-view';
 import { useAuth } from '../context/auth-context';
 import { mobileTheme } from '../lib/design-system';
 import { mobileMediaApi } from '../lib/media-api';
 import { SocialApiError, mobileSocialApi } from '../lib/social-api';
-import { pickMediaFiles } from '../lib/upload-picker';
+import { pickCameraMedia, pickMediaFiles } from '../lib/upload-picker';
 
 function inferMediaType(mimeType: string) {
   return mimeType.startsWith('video/') ? 'VIDEO' : 'IMAGE';
+}
+
+function formatUploadMeta(uploadedMedia: MediaAssetUploadResponse) {
+  const sizeInMb = uploadedMedia.size / 1024 / 1024;
+  return `${uploadedMedia.mimeType} - ${sizeInMb.toFixed(2)} MB`;
 }
 
 export default function CreateStoryScreen() {
@@ -31,14 +38,29 @@ export default function CreateStoryScreen() {
   }
 
   const token = accessToken;
+  const shareDisabled = !uploadedMedia || submitting || uploading;
+  const previewCaption = caption.trim() || 'Hikaye notun burada gorunecek';
+  const previewLocation = locationText.trim() || 'Konum etiketi eklenmedi';
+  const helperChips = useMemo(
+    () => [
+      'Text ekle',
+      'Emoji / sticker',
+      'Konum etiketi',
+      'Kirp / dondur',
+    ],
+    [],
+  );
 
-  async function handlePickStoryMedia() {
+  async function uploadStoryFile(kind: 'gallery' | 'camera') {
     setUploading(true);
     setErrorMessage(null);
     setMessage(null);
 
     try {
-      const files = await pickMediaFiles({ videoMaxDuration: 15 });
+      const files =
+        kind === 'camera'
+          ? await pickCameraMedia({ videoMaxDuration: 15 })
+          : await pickMediaFiles({ videoMaxDuration: 15 });
       const selectedFile = files[0];
 
       if (!selectedFile) {
@@ -47,7 +69,7 @@ export default function CreateStoryScreen() {
 
       const upload = await mobileMediaApi.uploadFile(token, selectedFile, MediaAssetPurpose.STORY_MEDIA);
       setUploadedMedia(upload);
-      setMessage('Hikaye medyasi yuklendi.');
+      setMessage(kind === 'camera' ? 'Kamera medyasi hazirlandi.' : 'Galeri medyasi yuklendi.');
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Hikaye medyasi yuklenemedi.');
     } finally {
@@ -87,43 +109,77 @@ export default function CreateStoryScreen() {
     }
   }
 
+  function showPlaceholderAction(label: string) {
+    setMessage(`${label} alani hazir. Native editor baglandiginda bu aksiyon dogrudan calisacak.`);
+  }
+
   return (
-    <MobileShell title="Hikaye olustur" subtitle="24 saatlik story akisi icin tek medya sec ve aninda paylas.">
+    <MobileShell title="Hikaye olustur" subtitle="Galeriden ya da kameradan sec, onizle ve birkac dokunusla paylas.">
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.section}>
-          <View style={styles.rowBetween}>
+          <View style={styles.sectionHead}>
             <View>
-              <Text style={styles.sectionTitle}>Story medyasi</Text>
-              <Text style={styles.sectionMeta}>Foto veya 15 saniyelik video</Text>
+              <Text style={styles.sectionTitle}>Medya secimi</Text>
+              <Text style={styles.sectionMeta}>Foto veya maksimum 15 saniyelik video</Text>
             </View>
-            <Pressable style={styles.ghostButton} onPress={() => void handlePickStoryMedia()}>
-              <Text style={styles.ghostLabel}>{uploading ? 'Yukleniyor...' : 'Sec'}</Text>
-            </Pressable>
+            <View style={styles.actionCluster}>
+              <Pressable style={styles.ghostButton} onPress={() => void uploadStoryFile('gallery')}>
+                <Ionicons color={mobileTheme.colors.textStrong} name="images-outline" size={16} />
+                <Text style={styles.ghostLabel}>{uploading ? 'Yukleniyor...' : 'Galeri'}</Text>
+              </Pressable>
+              <Pressable style={styles.ghostButton} onPress={() => void uploadStoryFile('camera')}>
+                <Ionicons color={mobileTheme.colors.textStrong} name="camera-outline" size={16} />
+                <Text style={styles.ghostLabel}>Kamera</Text>
+              </Pressable>
+            </View>
           </View>
 
           {uploadedMedia ? (
             <View style={styles.previewCard}>
-              {uploadedMedia.mimeType.startsWith('image/') ? (
-                <Image source={{ uri: uploadedMedia.url }} style={styles.previewImage} resizeMode="cover" />
-              ) : (
-                <View style={styles.videoPlaceholder}>
-                  <Text style={styles.videoLabel}>VIDEO STORY</Text>
-                  <Text style={styles.videoUrl}>{uploadedMedia.url}</Text>
-                </View>
-              )}
-              <Text style={styles.meta}>{uploadedMedia.mimeType} · {(uploadedMedia.size / 1024 / 1024).toFixed(2)} MB</Text>
+              <MobileMediaView
+                autoPlay={uploadedMedia.mimeType.startsWith('video/')}
+                loop={uploadedMedia.mimeType.startsWith('video/')}
+                mediaType={inferMediaType(uploadedMedia.mimeType)}
+                muted
+                style={styles.previewImage}
+                uri={uploadedMedia.url}
+              />
+              <View style={styles.previewOverlay}>
+                <Text style={styles.previewUsername}>@{session.user.username}</Text>
+                <Text style={styles.previewCaption}>{previewCaption}</Text>
+                <Text style={styles.previewLocation}>{previewLocation}</Text>
+              </View>
             </View>
           ) : (
             <View style={styles.placeholderCard}>
-              <View style={styles.placeholderTile} />
-              <Text style={styles.placeholderTitle}>Henuz hikaye medyasi secilmedi</Text>
-              <Text style={styles.placeholderCopy}>Foto veya video secildiginde burada onizleme goreceksiniz.</Text>
+              <View style={styles.placeholderTile}>
+                <Ionicons color="#9aa3af" name="sparkles-outline" size={28} />
+              </View>
+              <Text style={styles.placeholderTitle}>Hikaye onizlemesi burada belirecek</Text>
+              <Text style={styles.placeholderCopy}>
+                Once galeri ya da kamera sec. Medya geldikten sonra text, sticker ve konum alanlari anlamli hale gelecek.
+              </Text>
             </View>
           )}
+          {uploadedMedia ? <Text style={styles.meta}>{formatUploadMeta(uploadedMedia)}</Text> : null}
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.label}>Caption</Text>
+          <Text style={styles.sectionTitle}>Hikaye ustune eklenecekler</Text>
+          <View style={styles.chipRow}>
+            {helperChips.map((label) => (
+              <Pressable key={label} style={styles.helperChip} onPress={() => showPlaceholderAction(label)}>
+                <Text style={styles.helperChipLabel}>{label}</Text>
+              </Pressable>
+            ))}
+          </View>
+          <Text style={styles.sectionMeta}>
+            Bu alanlar su an guvenli placeholder akisi olarak duruyor; native editor baglandiginda ayni yerden devam edecegiz.
+          </Text>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.label}>Story metni</Text>
           <TextInput
             value={caption}
             onChangeText={setCaption}
@@ -133,7 +189,7 @@ export default function CreateStoryScreen() {
             maxLength={280}
             style={[styles.input, styles.textarea]}
           />
-          <Text style={styles.label}>Konum</Text>
+          <Text style={styles.label}>Konum etiketi</Text>
           <TextInput
             value={locationText}
             onChangeText={setLocationText}
@@ -154,11 +210,7 @@ export default function CreateStoryScreen() {
           </View>
         ) : null}
 
-        <Pressable
-          style={[styles.submitButton, !uploadedMedia || submitting ? styles.submitButtonDisabled : null]}
-          onPress={() => void handleSubmit()}
-          disabled={!uploadedMedia || submitting || uploading}
-        >
+        <Pressable style={[styles.submitButton, shareDisabled ? styles.submitButtonDisabled : null]} onPress={() => void handleSubmit()} disabled={shareDisabled}>
           <Text style={styles.submitLabel}>{submitting ? 'Paylasiliyor...' : 'Hikayeyi paylas'}</Text>
         </Pressable>
       </ScrollView>
@@ -179,11 +231,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: mobileTheme.colors.border,
   },
-  rowBetween: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 10,
+  sectionHead: {
+    gap: 12,
   },
   sectionTitle: {
     color: mobileTheme.colors.textStrong,
@@ -193,9 +242,18 @@ const styles = StyleSheet.create({
   sectionMeta: {
     color: mobileTheme.colors.textMuted,
     fontSize: 12,
+    lineHeight: 18,
     marginTop: 2,
   },
+  actionCluster: {
+    flexDirection: 'row',
+    gap: 10,
+    flexWrap: 'wrap',
+  },
   ghostButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     borderRadius: mobileTheme.radius.md,
     paddingHorizontal: 12,
     paddingVertical: 10,
@@ -207,46 +265,54 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   previewCard: {
-    gap: 10,
+    position: 'relative',
+    overflow: 'hidden',
+    borderRadius: mobileTheme.radius.xl,
+    backgroundColor: '#0f172a',
   },
   previewImage: {
     width: '100%',
-    aspectRatio: 0.72,
-    borderRadius: mobileTheme.radius.lg,
+    aspectRatio: 0.62,
   },
-  videoPlaceholder: {
-    aspectRatio: 0.72,
-    borderRadius: mobileTheme.radius.lg,
-    backgroundColor: mobileTheme.colors.surfaceMuted,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
-    gap: 8,
+  previewOverlay: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    bottom: 16,
+    gap: 6,
   },
-  videoLabel: {
-    color: mobileTheme.colors.textStrong,
+  previewUsername: {
+    color: '#ffffff',
     fontWeight: '800',
   },
-  videoUrl: {
-    color: mobileTheme.colors.textMuted,
-    textAlign: 'center',
+  previewCaption: {
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: '600',
+    lineHeight: 20,
+  },
+  previewLocation: {
+    color: 'rgba(255,255,255,0.82)',
+    fontSize: 12,
   },
   meta: {
     color: mobileTheme.colors.textMuted,
     fontSize: 12,
   },
   placeholderCard: {
-    gap: 8,
+    gap: 10,
     paddingVertical: 18,
     alignItems: 'center',
   },
   placeholderTile: {
-    width: 96,
-    height: 136,
+    width: 120,
+    height: 182,
     borderRadius: mobileTheme.radius.lg,
     backgroundColor: mobileTheme.colors.surfaceMuted,
     borderWidth: 1,
     borderColor: mobileTheme.colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   placeholderTitle: {
     color: mobileTheme.colors.textStrong,
@@ -256,6 +322,22 @@ const styles = StyleSheet.create({
     color: mobileTheme.colors.textMuted,
     lineHeight: 20,
     textAlign: 'center',
+  },
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  helperChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 999,
+    backgroundColor: mobileTheme.colors.surfaceMuted,
+  },
+  helperChipLabel: {
+    color: mobileTheme.colors.textStrong,
+    fontSize: 12,
+    fontWeight: '700',
   },
   label: {
     color: mobileTheme.colors.textStrong,
@@ -306,3 +388,4 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
 });
+

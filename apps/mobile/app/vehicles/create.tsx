@@ -1,4 +1,4 @@
-import type {
+﻿import type {
   CreateGarageVehicleRequest,
   VehicleCatalogBrand,
   VehicleCatalogEquipmentResponse,
@@ -31,6 +31,7 @@ import {
   View,
 } from 'react-native';
 import { MobileShell } from '../../components/mobile-shell';
+import { MobileMediaView } from '../../components/mobile-media-view';
 import { useAuth } from '../../context/auth-context';
 import { mobileTheme } from '../../lib/design-system';
 import {
@@ -321,7 +322,16 @@ export default function VehicleCreateScreen() {
       return;
     }
 
-    void mobileListingsApi.getBrands(category).then(setBrands).catch(() => setBrands([]));
+    void mobileListingsApi
+      .getBrands(category)
+      .then((items) => {
+        setBrands(items);
+        setErrorMessage(null);
+      })
+      .catch((error) => {
+        setBrands([]);
+        setErrorMessage(error instanceof Error ? error.message : 'Marka listesi yuklenemedi.');
+      });
   }, [category]);
 
   useEffect(() => {
@@ -342,7 +352,16 @@ export default function VehicleCreateScreen() {
       return;
     }
 
-    void mobileListingsApi.getModels(selectedBrandId, category).then(setModels).catch(() => setModels([]));
+    void mobileListingsApi
+      .getModels(selectedBrandId, category)
+      .then((items) => {
+        setModels(items);
+        setErrorMessage(null);
+      })
+      .catch((error) => {
+        setModels([]);
+        setErrorMessage(error instanceof Error ? error.message : 'Model listesi yuklenemedi.');
+      });
   }, [selectedBrandId, category]);
 
   useEffect(() => {
@@ -358,7 +377,16 @@ export default function VehicleCreateScreen() {
       return;
     }
 
-    void mobileListingsApi.getPackages(selectedModelId).then(setPackages).catch(() => setPackages([]));
+    void mobileListingsApi
+      .getPackages(selectedModelId)
+      .then((items) => {
+        setPackages(items);
+        setErrorMessage(null);
+      })
+      .catch((error) => {
+        setPackages([]);
+        setErrorMessage(error instanceof Error ? error.message : 'Paket listesi yuklenemedi.');
+      });
   }, [selectedModelId]);
 
   useEffect(() => {
@@ -413,8 +441,12 @@ export default function VehicleCreateScreen() {
       .getPackageSpecs(selectedPackageId)
       .then((response) => {
         setSpecsResponse(response);
+        setErrorMessage(null);
       })
-      .catch(() => setSpecsResponse(null));
+      .catch((error) => {
+        setSpecsResponse(null);
+        setErrorMessage(error instanceof Error ? error.message : 'Motor secenekleri yuklenemedi.');
+      });
   }, [selectedPackageId]);
 
   useEffect(() => {
@@ -428,8 +460,12 @@ export default function VehicleCreateScreen() {
       .getPackageEquipment(selectedPackageId)
       .then((response) => {
         setEquipmentResponse(response);
+        setErrorMessage(null);
       })
-      .catch(() => setEquipmentResponse(null));
+      .catch((error) => {
+        setEquipmentResponse(null);
+        setErrorMessage(error instanceof Error ? error.message : 'Standart donanim bilgisi yuklenemedi.');
+      });
   }, [selectedPackageId]);
 
   const selectedBrand = brands.find((item) => item.id === selectedBrandId) ?? null;
@@ -1144,7 +1180,7 @@ export default function VehicleCreateScreen() {
                           <Text style={styles.toggleTitle}>{item.name}</Text>
                           <Text style={styles.toggleMeta}>
                             {(item.category ? vehicleEquipmentCategoryLabels[item.category] : 'Diger') +
-                              (item.note ? ` · ${item.note}` : '')}
+                              (item.note ? ` Â· ${item.note}` : '')}
                           </Text>
                         </View>
                         <Text style={styles.toggleBadge}>Sil</Text>
@@ -1230,7 +1266,7 @@ export default function VehicleCreateScreen() {
                           )
                         }
                       >
-                        <Image source={{ uri: item.url }} style={styles.previewImage} />
+                        <MobileMediaView autoPlay={item.mimeType.startsWith('video/')} loop={item.mimeType.startsWith('video/')} mediaType={item.mimeType.startsWith('video/') ? MediaType.VIDEO : MediaType.IMAGE} muted style={styles.previewImage} uri={item.url} />
                       </Pressable>
                     ))}
                   </ScrollView>
@@ -1653,6 +1689,7 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
 });
+
 
 
 

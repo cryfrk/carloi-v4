@@ -15,6 +15,7 @@ const {
   UserType,
   VehicleType,
 } = require('@prisma/client');
+const { seedBackendDemoData } = require('./seed/backend-demo-dataset');
 const { PHASE1_VEHICLE_MODEL_BRANDS } = require('./seed/vehicle-models.phase1');
 const { buildPackageRowsForModel } = require('./seed/vehicle-packages.phase2');
 const { buildSpecRowsForPackage } = require('./seed/vehicle-specs.phase3');
@@ -1991,6 +1992,7 @@ async function upsertUser({
   userType,
   tcIdentityNo,
   isCommercialApproved,
+  isVerified = true,
 }) {
   return prisma.user.upsert({
     where: { username },
@@ -2002,7 +2004,7 @@ async function upsertUser({
       passwordHash,
       userType,
       tcIdentityNo,
-      isVerified: true,
+      isVerified,
       isCommercialApproved,
       isActive: true,
       disabledAt: null,
@@ -2017,7 +2019,7 @@ async function upsertUser({
       passwordHash,
       userType,
       tcIdentityNo,
-      isVerified: true,
+      isVerified,
       isCommercialApproved,
       isActive: true,
     },
@@ -2056,6 +2058,160 @@ async function upsertProfile({
       isPrivate: false,
       showGarageVehicles: true,
     },
+  });
+}
+
+function slugify(value) {
+  return value
+    .toLocaleLowerCase('en-US')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/-{2,}/g, '-');
+}
+
+const vehicleCatalogRefCache = new Map();
+
+async function resolveVehicleCatalogRefs(brandSlug, modelSlug, packageSlug) {
+  const cacheKey = `${brandSlug}::${modelSlug}::${packageSlug}`;
+
+  if (vehicleCatalogRefCache.has(cacheKey)) {
+    return vehicleCatalogRefCache.get(cacheKey);
+  }
+
+  const brand = await prisma.vehicleBrand.findUnique({ where: { slug: brandSlug } });
+
+  if (!brand) {
+    throw new Error(`Missing vehicle brand for demo seed: ${brandSlug}`);
+  }
+
+  const model = await prisma.vehicleModel.findFirst({
+    where: {
+      slug: modelSlug,
+      brandId: brand.id,
+    },
+  });
+
+  if (!model) {
+    throw new Error(`Missing vehicle model for demo seed: ${brandSlug}/${modelSlug}`);
+  }
+
+  let vehiclePackage = await prisma.vehiclePackage.findFirst({
+    where: {
+      slug: packageSlug,
+      modelId: model.id,
+    },
+  });
+
+  if (!vehiclePackage) {
+    vehiclePackage = await prisma.vehiclePackage.findFirst({
+      where: {
+        slug: 'standart',
+        modelId: model.id,
+      },
+    });
+  }
+
+  if (!vehiclePackage) {
+    throw new Error(`Missing vehicle package for demo seed: ${brandSlug}/${modelSlug}/${packageSlug}`);
+  }
+
+  const refs = { brand, model, vehiclePackage };
+  vehicleCatalogRefCache.set(cacheKey, refs);
+  return refs;
+}
+
+async function replaceGarageVehicleMedia(garageVehicleId, mediaUrls) {
+  await prisma.garageVehicleMedia.deleteMany({
+    where: { garageVehicleId },
+  });
+
+  await prisma.garageVehicleMedia.createMany({
+    data: mediaUrls.map((url, index) => ({
+      garageVehicleId,
+      mediaType: MediaType.IMAGE,
+      url,
+      sortOrder: index,
+    })),
+  });
+}
+
+async function replaceListingMedia(listingId, mediaUrls) {
+  await prisma.listingMedia.deleteMany({
+    where: { listingId },
+  });
+
+  await prisma.listingMedia.createMany({
+    data: mediaUrls.map((url, index) => ({
+      listingId,
+      mediaType: MediaType.IMAGE,
+      url,
+      sortOrder: index,
+    })),
+  });
+}
+
+async function replacePostMedia(postId, mediaUrls) {
+  await prisma.postMedia.deleteMany({
+    where: { postId },
+  });
+
+  await prisma.postMedia.createMany({
+    data: mediaUrls.map((url, index) => ({
+      postId,
+      mediaType: MediaType.IMAGE,
+      url,
+      sortOrder: index,
+    })),
+  });
+}
+
+async function replaceVehicleExtraEquipment(vehicleId, notes) {
+  await prisma.userVehicleExtraEquipment.deleteMany({
+    where: { vehicleId },
+  });
+
+  const chips = String(notes ?? '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean)
+    .slice(0, 4);
+
+  if (chips.length === 0) {
+    return;
+  }
+
+  await prisma.userVehicleExtraEquipment.createMany({
+    data: chips.map((name, index) => ({
+      vehicleId,
+      category: index % 2 === 0 ? 'COMFORT' : 'MULTIMEDIA',
+      name,
+    })),
+  });
+}
+
+async function replaceListingDamageParts(listingId, fixture) {
+  await prisma.listingDamagePart.deleteMany({
+    where: { listingId },
+  });
+
+  await prisma.listingDamagePart.createMany({
+    data: [
+      {
+        listingId,
+        partName: 'kaput',
+        damageStatus: fixture.noPaint ? 'NONE' : 'PAINTED',
+      },
+      {
+        listingId,
+        partName: 'sag on camurluk',
+        damageStatus: fixture.noChangedParts ? 'NONE' : 'REPLACED',
+      },
+      {
+        listingId,
+        partName: 'arka tampon',
+        damageStatus: 'NONE',
+      },
+    ],
   });
 }
 
@@ -2686,6 +2842,7 @@ async function main() {
   await seedVehicleCatalog();
   await seedVehicleKnowledge();
   await seedExampleUsersAndContent(sharedPassword);
+  await seedBackendDemoData(prisma);
 
   console.log('Seeded admin users:', adminUsers.map((adminUser) => adminUser.username).join(', '));
   console.log('Seeded vehicle catalog:', 'Fiat/Egea, Renault/Clio, Volkswagen/Golf');

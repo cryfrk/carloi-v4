@@ -25,6 +25,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { AppShell } from './app-shell';
 import { useAuth } from './auth-provider';
+import { WebMediaView } from './web-media-view';
 import {
   fuelTypeLabels,
   transmissionLabels,
@@ -282,7 +283,16 @@ export function VehicleWizardClient() {
       return;
     }
 
-    void webListingsApi.getBrands(category).then(setBrands).catch(() => setBrands([]));
+    void webListingsApi
+      .getBrands(category)
+      .then((items) => {
+        setBrands(items);
+        setErrorMessage(null);
+      })
+      .catch((error) => {
+        setBrands([]);
+        setErrorMessage(error instanceof Error ? error.message : 'Marka listesi yuklenemedi.');
+      });
   }, [category]);
 
   useEffect(() => {
@@ -303,7 +313,16 @@ export function VehicleWizardClient() {
       return;
     }
 
-    void webListingsApi.getModels(selectedBrandId, category).then(setModels).catch(() => setModels([]));
+    void webListingsApi
+      .getModels(selectedBrandId, category)
+      .then((items) => {
+        setModels(items);
+        setErrorMessage(null);
+      })
+      .catch((error) => {
+        setModels([]);
+        setErrorMessage(error instanceof Error ? error.message : 'Model listesi yuklenemedi.');
+      });
   }, [selectedBrandId, category]);
 
   useEffect(() => {
@@ -319,7 +338,16 @@ export function VehicleWizardClient() {
       return;
     }
 
-    void webListingsApi.getPackages(selectedModelId).then(setPackages).catch(() => setPackages([]));
+    void webListingsApi
+      .getPackages(selectedModelId)
+      .then((items) => {
+        setPackages(items);
+        setErrorMessage(null);
+      })
+      .catch((error) => {
+        setPackages([]);
+        setErrorMessage(error instanceof Error ? error.message : 'Paket listesi yuklenemedi.');
+      });
   }, [selectedModelId]);
 
   useEffect(() => {
@@ -374,8 +402,12 @@ export function VehicleWizardClient() {
       .getPackageSpecs(selectedPackageId)
       .then((response) => {
         setSpecsResponse(response);
+        setErrorMessage(null);
       })
-      .catch(() => setSpecsResponse(null));
+      .catch((error) => {
+        setSpecsResponse(null);
+        setErrorMessage(error instanceof Error ? error.message : 'Motor secenekleri yuklenemedi.');
+      });
   }, [selectedPackageId]);
 
   useEffect(() => {
@@ -389,8 +421,12 @@ export function VehicleWizardClient() {
       .getPackageEquipment(selectedPackageId)
       .then((response) => {
         setEquipmentResponse(response);
+        setErrorMessage(null);
       })
-      .catch(() => setEquipmentResponse(null));
+      .catch((error) => {
+        setEquipmentResponse(null);
+        setErrorMessage(error instanceof Error ? error.message : 'Standart donanim bilgisi yuklenemedi.');
+      });
   }, [selectedPackageId]);
 
   const selectedBrand = brands.find((item) => item.id === selectedBrandId) ?? null;
@@ -1154,7 +1190,12 @@ export function VehicleWizardClient() {
                             setUploads((current) => current.filter((entry) => entry.id !== item.id))
                           }
                         >
-                          <img alt="Arac medya" className="upload-preview-image" src={item.url} />
+                          <WebMediaView
+                            alt="Arac medya"
+                            className="upload-preview-image"
+                            mediaType={item.mimeType.startsWith('video/') ? 'VIDEO' : 'IMAGE'}
+                            uri={item.url}
+                          />
                         </button>
                       ))}
                     </div>

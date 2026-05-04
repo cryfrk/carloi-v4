@@ -59,6 +59,9 @@ export const mobileSocialApi = {
     const suffix = search.toString() ? `?${search.toString()}` : '';
     return requestJson<FeedResponse>(`/feed${suffix}`, { accessToken });
   },
+  getPostDetail(accessToken: string, postId: string) {
+    return requestJson<FeedResponse['items'][number]>(`/posts/${postId}`, { accessToken });
+  },
   createPost(accessToken: string, body: CreatePostRequest) {
     return requestJson<CreatePostResponse>('/posts', {
       method: 'POST',

@@ -13,7 +13,9 @@ import { AppShell } from './app-shell';
 import { CommentIcon, HeartIcon, SaveIcon, ShareIcon } from './app-icons';
 import { useAuth } from './auth-provider';
 import { demoFeedComments, demoFeedPosts } from '../lib/demo-content';
+import { resolveWebMediaUrl } from '../lib/media-url';
 import { webSocialApi } from '../lib/social-api';
+import { WebMediaView } from './web-media-view';
 
 type CommentsState = Record<string, SocialComment[]>;
 type DraftState = Record<string, string>;
@@ -23,9 +25,10 @@ type LoadingCommentsState = Record<string, boolean>;
 
 function StoryAvatar({ group }: { group: StoryFeedGroup }) {
   const firstLetter = group.owner.username.slice(0, 1).toUpperCase();
+  const avatarUrl = resolveWebMediaUrl(group.owner.avatarUrl);
 
-  return group.owner.avatarUrl ? (
-    <img alt={group.owner.username} className="story-avatar-image" loading="lazy" src={group.owner.avatarUrl} />
+  return avatarUrl ? (
+    <img alt={group.owner.username} className="story-avatar-image" loading="lazy" src={avatarUrl} />
   ) : (
     <span className="story-avatar-fallback">{firstLetter}</span>
   );
@@ -615,10 +618,16 @@ export function SocialHomeClient() {
               <div className="post-media-track">
                 {post.media.map((item) => (
                   <div key={item.id} className="post-media-frame">
-                    {item.mediaType === 'IMAGE' ? (
-                      <img alt="Post medyasi" className="post-media-image" loading="lazy" src={item.url} />
+                    {item.url ? (
+                      <WebMediaView
+                        alt="Post medyasi"
+                        className="post-media-image"
+                        controls={item.mediaType === 'VIDEO'}
+                        mediaType={item.mediaType}
+                        uri={item.url}
+                      />
                     ) : (
-                      <video className="post-media-image" controls preload="metadata" src={item.url} />
+                      <div className="empty-upload-state"><strong>Medya hazirlaniyor</strong></div>
                     )}
                   </div>
                 ))}
@@ -780,10 +789,16 @@ export function SocialHomeClient() {
             <div className="story-viewer-body">
               <button className="story-nav-zone left button-reset" type="button" onClick={() => moveStory(-1)} />
               <div className="story-viewer-media-shell">
-                {activeStory.media?.mediaType === 'VIDEO' ? (
-                  <video className="story-viewer-media" controls autoPlay preload="metadata" src={activeStory.media.url} />
-                ) : activeStory.media ? (
-                  <img alt="Story medyasi" className="story-viewer-media" src={activeStory.media.url} />
+                {activeStory.media ? (
+                  <WebMediaView
+                    alt="Story medyasi"
+                    autoPlay={activeStory.media.mediaType === 'VIDEO'}
+                    className="story-viewer-media"
+                    controls={activeStory.media.mediaType === 'VIDEO'}
+                    mediaType={activeStory.media.mediaType}
+                    muted={activeStory.media.mediaType === 'VIDEO'}
+                    uri={activeStory.media.url}
+                  />
                 ) : (
                   <div className="empty-upload-state"><strong>Story medyasi yok</strong></div>
                 )}

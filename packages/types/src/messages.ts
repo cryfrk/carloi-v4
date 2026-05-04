@@ -4,7 +4,7 @@ import type {
   MessageThreadType,
   MessageType,
 } from './enums';
-import { SystemMessageCardType } from './enums';
+import { SharedContentType, SystemMessageCardType } from './enums';
 
 export interface MessageParticipantSummary {
   id: string;
@@ -58,6 +58,33 @@ export interface PolicyDocumentSystemCard {
   buttonLabel: string;
 }
 
+export interface SharedPostSystemCard {
+  type: SystemMessageCardType.POST_CARD;
+  contentType: SharedContentType.POST;
+  targetId: string;
+  previewTitle: string;
+  previewImageUrl: string | null;
+  previewSubtitle: string | null;
+}
+
+export interface SharedListingSystemCard {
+  type: SystemMessageCardType.LISTING_CARD;
+  contentType: SharedContentType.LISTING;
+  targetId: string;
+  previewTitle: string;
+  previewImageUrl: string | null;
+  previewSubtitle: string | null;
+}
+
+export interface SharedVehicleSystemCard {
+  type: SystemMessageCardType.VEHICLE_CARD;
+  contentType: SharedContentType.VEHICLE;
+  targetId: string;
+  previewTitle: string;
+  previewImageUrl: string | null;
+  previewSubtitle: string | null;
+}
+
 export interface MessageView {
   id: string;
   threadId: string;
@@ -75,6 +102,9 @@ export interface MessageView {
     | InsuranceOfferSystemCard
     | PaymentStatusSystemCard
     | PolicyDocumentSystemCard
+    | SharedPostSystemCard
+    | SharedListingSystemCard
+    | SharedVehicleSystemCard
     | null;
 }
 
@@ -197,4 +227,16 @@ export interface RequestInsuranceResponse {
   requestId: string;
   status: InsuranceRequestStatus;
   thread: MessageThreadDetail;
+}
+
+export interface ShareContentRequest {
+  targetUserIds: string[];
+  contentType: SharedContentType;
+  contentId: string;
+}
+
+export interface ShareContentResponse {
+  success: true;
+  sharedCount: number;
+  threadIds: string[];
 }

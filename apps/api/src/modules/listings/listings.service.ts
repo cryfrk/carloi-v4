@@ -13,12 +13,16 @@ import {
   Prisma,
   SavedItemType,
   SellerType,
+  FuelType,
+  TransmissionType,
   UserType,
+  VehicleCatalogType,
 } from '@prisma/client';
 import { isObdEnabled } from '../../common/feature-flags';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { LegalComplianceService } from '../legal-compliance/legal-compliance.service';
 import { getUserOwnedMediaAssetMap } from '../media/media-asset.helpers';
+import { normalizePersistedMediaUrl, shouldLogMediaDebug } from '../media/media-url.utils';
 import { NotificationsService } from '../notifications/notifications.service';
 import { serializeObdReport } from '../obd/obd.utils';
 import {
@@ -31,25 +35,32 @@ import {
   trimNullable,
 } from './listings.utils';
 import { CreateListingDto } from './dto/create-listing.dto';
-import { ListingsFeedQueryDto } from './dto/listings-feed-query.dto';
+import {
+  ListingsFeedQueryDto,
+  type ListingSortQuery,
+  type ListingVehicleTypeQuery,
+} from './dto/listings-feed-query.dto';
 import { UpdateListingDto } from './dto/update-listing.dto';
-
-type ListingFeedCursor = {
-  cityPriority: number;
-  createdAt: string;
-  id: string;
-};
 
 type ListingFeedCandidate = {
   id: string;
-  cityPriority: number;
-  createdAt: Date;
+};
+
+type ListingCountResult = {
+  count: bigint | number;
 };
 
 type ComplianceLogPayload = {
   checkType: LegalComplianceCheckType;
   status: LegalComplianceStatus;
   resultJson: Prisma.InputJsonValue;
+};
+
+type MediaAssetReference = {
+  id: string;
+  url: string;
+  storageKey: string;
+  visibility: 'PUBLIC' | 'PRIVATE';
 };
 
 const toJsonObject = (value?: Prisma.InputJsonValue): Record<string, unknown> => {
@@ -279,29 +290,37 @@ export class ListingsService {
 
   async getListingsFeed(userId: string, query: ListingsFeedQueryDto) {
     const limit = query.limit ?? 12;
-    const priorityCity = await this.resolvePriorityCity(userId, query.city);
-    const cursor = query.cursor ? this.decodeFeedCursor(query.cursor) : null;
-    const candidates = await this.getFeedCandidates(query, priorityCity, limit, cursor);
+    const priorityCity = await this.resolvePriorityCity(userId, query);
+    const offset = this.decodeFeedCursor(query.cursor);
+    const [totalCount, candidates] = await Promise.all([
+      this.getListingsCount(userId, query),
+      this.getFeedCandidates(query, priorityCity, limit, offset),
+    ]);
     const hasMore = candidates.length > limit;
     const slice = hasMore ? candidates.slice(0, limit) : candidates;
     const listingIds = slice.map((candidate) => candidate.id);
     const listings = await this.getFeedListings(userId, listingIds);
-    const lastItem = slice.at(-1);
 
     return {
       items: listingIds
         .map((listingId) => listings.find((listing) => listing.id === listingId))
         .filter((listing): listing is NonNullable<typeof listing> => Boolean(listing))
         .map((listing) => this.serializeFeedItem(listing)),
-      nextCursor:
-        hasMore && lastItem
-          ? this.encodeFeedCursor({
-              cityPriority: lastItem.cityPriority,
-              createdAt: lastItem.createdAt.toISOString(),
-              id: lastItem.id,
-            })
-          : null,
+      nextCursor: hasMore ? this.encodeFeedCursor(offset + slice.length) : null,
+      totalCount,
     };
+  }
+
+  async getListingsCount(userId: string, query: ListingsFeedQueryDto) {
+    const priorityCity = await this.resolvePriorityCity(userId, query);
+    const filterQuery = this.buildFeedFilterQuery(query, priorityCity);
+    const [result] = await this.prisma.$queryRaw<ListingCountResult[]>(Prisma.sql`
+      SELECT COUNT(*)::bigint AS count
+      ${filterQuery.fromSql}
+      WHERE ${Prisma.join(filterQuery.filters, ' AND ')}
+    `);
+
+    return Number(result?.count ?? 0);
   }
 
   async getListingDetail(userId: string, listingId: string) {
@@ -328,6 +347,16 @@ export class ListingsService {
         media: {
           orderBy: {
             sortOrder: 'asc',
+          },
+          include: {
+            mediaAsset: {
+              select: {
+                id: true,
+                url: true,
+                storageKey: true,
+                visibility: true,
+              },
+            },
           },
         },
         damageParts: {
@@ -467,6 +496,12 @@ export class ListingsService {
         ? trimNullable(dto.contactPhone)
         : existingListing.contactPhone ?? seller.phone ?? null;
     const nextShowPhone = dto.showPhone ?? existingListing.showPhone;
+    const assetMap = await getUserOwnedMediaAssetMap(
+      this.prisma,
+      userId,
+      dto.media?.map((item) => item.mediaAssetId ?? '').filter(Boolean) ?? [],
+      [MediaAssetPurpose.LISTING_MEDIA],
+    );
 
     if (nextShowPhone && !nextContactPhone) {
       throw new BadRequestException('Telefon gosterilecekse iletisim telefonu girilmelidir.');
@@ -509,11 +544,17 @@ export class ListingsService {
             shouldUpdateExpertise ? Boolean(expertiseReport) : undefined,
           media: dto.media
             ? {
-                create: dto.media.map((item, index) => ({
-                  url: item.url.trim(),
-                  mediaType: inferMediaType(item.url),
-                  sortOrder: index,
-                })),
+                create: dto.media.map((item, index) => {
+                  const asset = item.mediaAssetId ? assetMap.get(item.mediaAssetId) : null;
+                  const url = asset?.url ?? item.url.trim();
+
+                  return {
+                    url,
+                    mediaAssetId: asset?.id ?? null,
+                    mediaType: inferMediaType(url),
+                    sortOrder: index,
+                  };
+                }),
               }
             : undefined,
           damageParts: dto.damageParts
@@ -714,11 +755,18 @@ export class ListingsService {
     }
   }
 
-  private async resolvePriorityCity(userId: string, requestedCity?: string) {
-    const explicitCity = trimNullable(requestedCity);
+  private async resolvePriorityCity(
+    userId: string,
+    query: ListingsFeedQueryDto,
+  ): Promise<string | null> {
+    const explicitCities = this.mergeStringFilters(query.cities, query.city);
 
-    if (explicitCity) {
-      return explicitCity;
+    if (explicitCities.length === 1) {
+      return explicitCities[0] ?? null;
+    }
+
+    if (explicitCities.length > 1) {
+      return null;
     }
 
     const profile = await this.prisma.profile.findUnique({
@@ -736,22 +784,94 @@ export class ListingsService {
       return null;
     }
 
-    return locationText.split(/[\/,\-]/)[0]?.trim() ?? null;
+    return trimNullable(locationText.split(/[\/,\-]/)[0]) ?? null;
   }
 
   private async getFeedCandidates(
     query: ListingsFeedQueryDto,
     priorityCity: string | null,
     limit: number,
-    cursor: ListingFeedCursor | null,
+    offset: number,
   ) {
+    const filterQuery = this.buildFeedFilterQuery(query, priorityCity);
+
+    return this.prisma.$queryRaw<ListingFeedCandidate[]>(Prisma.sql`
+      SELECT l.id
+      ${filterQuery.fromSql}
+      WHERE ${Prisma.join(filterQuery.filters, ' AND ')}
+      ORDER BY ${filterQuery.orderBySql}
+      OFFSET ${offset}
+      LIMIT ${limit + 1}
+    `);
+  }
+
+  private buildFeedFilterQuery(query: ListingsFeedQueryDto, priorityCity: string | null) {
     const cityPrioritySql = priorityCity
-      ? Prisma.sql`CASE WHEN LOWER(l.city) = LOWER(${priorityCity}) THEN 1 ELSE 0 END`
+      ? Prisma.sql`CASE WHEN ${this.normalizedTextSql('l.city')} = ${this.normalizeFilterText(priorityCity)} THEN 1 ELSE 0 END`
       : Prisma.sql`0`;
+    const fromSql = Prisma.sql`
+      FROM "Listing" l
+      LEFT JOIN "User" u
+        ON u.id = l."sellerId"
+      LEFT JOIN "Profile" p
+        ON p."userId" = u.id
+      LEFT JOIN "GarageVehicle" gv
+        ON gv.id = l."garageVehicleId"
+      LEFT JOIN "VehiclePackage" vp
+        ON vp.id = gv."vehiclePackageId"
+      LEFT JOIN "VehicleModel" vm
+        ON vm.id = vp."modelId"
+      LEFT JOIN "VehicleBrand" vb
+        ON vb.id = vm."brandId"
+      LEFT JOIN LATERAL (
+        SELECT *
+        FROM "VehicleSpec" vs
+        WHERE vs."packageId" = vp.id
+          AND vs."isActive" = true
+        ORDER BY vs."manualReviewNeeded" ASC, vs."year" DESC, vs."enginePowerHp" DESC
+        LIMIT 1
+      ) vs ON true
+    `;
     const filters: Prisma.Sql[] = [
       Prisma.sql`l."deletedAt" IS NULL`,
       Prisma.sql`l."listingStatus" = 'ACTIVE'`,
     ];
+    const mergedCities = this.mergeStringFilters(query.cities, query.city);
+    const mergedDistricts = this.mergeStringFilters(query.districts, query.district);
+    const sellerTypes = this.mergeEnumFilters(query.sellerTypes, query.sellerType);
+    const fuelTypes = this.mergeEnumFilters(query.fuelTypes, query.fuelType);
+    const transmissionTypes = this.mergeEnumFilters(query.transmissionTypes, query.transmissionType);
+    const bodyTypes = this.mergeStringFilters(query.bodyTypes, query.bodyType);
+    const minYear = query.minYear ?? query.yearMin;
+    const maxYear = query.maxYear ?? query.yearMax;
+
+    if (query.q) {
+      const searchTerm = `%${this.normalizeFilterText(query.q)}%`;
+      filters.push(
+        Prisma.sql`(
+          ${this.normalizedTextSql('l.title')} LIKE ${searchTerm}
+          OR ${this.normalizedTextSql('l.description')} LIKE ${searchTerm}
+          OR ${this.normalizedTextSql('l."listingNo"')} LIKE ${searchTerm}
+          OR ${this.normalizedTextSql('COALESCE(vb.name, gv."brandText", \'\')')} LIKE ${searchTerm}
+          OR ${this.normalizedTextSql('COALESCE(vm.name, gv."modelText", \'\')')} LIKE ${searchTerm}
+          OR ${this.normalizedTextSql('COALESCE(vp.name, gv."packageText", \'\')')} LIKE ${searchTerm}
+        )`,
+      );
+    }
+
+    if (mergedCities.length > 0) {
+      filters.push(this.buildNormalizedAnyFilter('l.city', mergedCities));
+    }
+
+    if (mergedDistricts.length > 0) {
+      filters.push(this.buildNormalizedAnyFilter('l.district', mergedDistricts));
+    }
+
+    if (query.vehicleType) {
+      filters.push(
+        Prisma.sql`COALESCE(vm."catalogType", vb.type) = ${this.mapVehicleTypeQuery(query.vehicleType)}::"VehicleCatalogType"`,
+      );
+    }
 
     if (query.brandId) {
       filters.push(Prisma.sql`vb.id = ${query.brandId}`);
@@ -773,16 +893,12 @@ export class ListingsService {
       filters.push(Prisma.sql`l.price <= ${query.maxPrice}`);
     }
 
-    if (query.city) {
-      filters.push(Prisma.sql`LOWER(l.city) = LOWER(${query.city})`);
+    if (minYear !== undefined) {
+      filters.push(Prisma.sql`gv.year >= ${minYear}`);
     }
 
-    if (query.district) {
-      filters.push(Prisma.sql`LOWER(COALESCE(l.district, '')) = LOWER(${query.district})`);
-    }
-
-    if (query.sellerType) {
-      filters.push(Prisma.sql`l."sellerType" = ${query.sellerType}::"SellerType"`);
+    if (maxYear !== undefined) {
+      filters.push(Prisma.sql`gv.year <= ${maxYear}`);
     }
 
     if (query.minKm !== undefined) {
@@ -793,68 +909,92 @@ export class ListingsService {
       filters.push(Prisma.sql`gv.km <= ${query.maxKm}`);
     }
 
-    if (query.fuelType) {
-      filters.push(Prisma.sql`gv."fuelType" = ${query.fuelType}::"FuelType"`);
-    }
-
-    if (query.transmissionType) {
+    if (fuelTypes.length > 0) {
       filters.push(
-        Prisma.sql`gv."transmissionType" = ${query.transmissionType}::"TransmissionType"`,
+        this.buildEnumAnyFilter(
+          Prisma.sql`COALESCE(vs."fuelType", gv."fuelType")`,
+          fuelTypes,
+        ),
       );
     }
 
-    if (query.bodyType) {
-      filters.push(Prisma.sql`LOWER(COALESCE(vs."bodyType", '')) = LOWER(${query.bodyType})`);
+    if (transmissionTypes.length > 0) {
+      filters.push(
+        this.buildEnumAnyFilter(
+          Prisma.sql`COALESCE(vs."transmissionType", gv."transmissionType")`,
+          transmissionTypes,
+        ),
+      );
     }
 
-    if (query.yearMin !== undefined) {
-      filters.push(Prisma.sql`gv.year >= ${query.yearMin}`);
+    if (bodyTypes.length > 0) {
+      filters.push(
+        this.buildNormalizedAnyFilter(
+          'COALESCE(vs."bodyType", vm."bodyType", \'\')',
+          bodyTypes,
+        ),
+      );
     }
 
-    if (query.yearMax !== undefined) {
-      filters.push(Prisma.sql`gv.year <= ${query.yearMax}`);
+    if (query.colors?.length) {
+      filters.push(this.buildNormalizedAnyFilter('gv.color', query.colors));
     }
 
-    const cursorFilter = cursor
-      ? Prisma.sql`
-        AND (
-          ${cityPrioritySql} < ${cursor.cityPriority}
-          OR (${cityPrioritySql} = ${cursor.cityPriority} AND l."createdAt" < ${new Date(cursor.createdAt)})
-          OR (${cityPrioritySql} = ${cursor.cityPriority} AND l."createdAt" = ${new Date(cursor.createdAt)} AND l.id < ${cursor.id})
-        )
-      `
-      : Prisma.empty;
+    if (sellerTypes.length > 0) {
+      filters.push(this.buildEnumAnyFilter(Prisma.sql`l."sellerType"`, sellerTypes));
+    }
 
-    return this.prisma.$queryRaw<ListingFeedCandidate[]>(Prisma.sql`
-      SELECT
-        l.id,
-        ${cityPrioritySql} AS "cityPriority",
-        l."createdAt"
-      FROM "Listing" l
-      LEFT JOIN "GarageVehicle" gv
-        ON gv.id = l."garageVehicleId"
-      LEFT JOIN "VehiclePackage" vp
-        ON vp.id = gv."vehiclePackageId"
-      LEFT JOIN "VehicleModel" vm
-        ON vm.id = vp."modelId"
-      LEFT JOIN "VehicleBrand" vb
-        ON vb.id = vm."brandId"
-      LEFT JOIN LATERAL (
-        SELECT *
-        FROM "VehicleSpec" vs
-        WHERE vs."packageId" = vp.id
-          AND vs."isActive" = true
-        ORDER BY vs."manualReviewNeeded" ASC, vs."year" DESC, vs."enginePowerHp" DESC
-        LIMIT 1
-      ) vs ON true
-      WHERE ${Prisma.join(filters, ' AND ')}
-      ${cursorFilter}
-      ORDER BY
-        "cityPriority" DESC,
-        l."createdAt" DESC,
-        l.id DESC
-      LIMIT ${limit + 1}
-    `);
+    if (query.onlyVerifiedSeller) {
+      filters.push(
+        Prisma.sql`(
+          COALESCE(p."blueVerified", false) = true
+          OR COALESCE(p."goldVerified", false) = true
+          OR COALESCE(u."isVerified", false) = true
+          OR COALESCE(u."isCommercialApproved", false) = true
+        )`,
+      );
+    }
+
+    if (query.noPaint) {
+      filters.push(
+        Prisma.sql`NOT EXISTS (
+          SELECT 1
+          FROM "ListingDamagePart" ldp
+          WHERE ldp."listingId" = l.id
+            AND ldp."damageStatus" = 'PAINTED'
+        )`,
+      );
+    }
+
+    if (query.noChangedParts) {
+      filters.push(
+        Prisma.sql`NOT EXISTS (
+          SELECT 1
+          FROM "ListingDamagePart" ldp
+          WHERE ldp."listingId" = l.id
+            AND ldp."damageStatus" = 'REPLACED'
+        )`,
+      );
+    }
+
+    if (query.noHeavyDamage) {
+      const heavyDamageTerms = ['agir hasar', 'pert', 'tramer', 'agir hasar kayitli'];
+      filters.push(this.buildNegativeContainsFilter(['l.title', 'l.description'], heavyDamageTerms));
+    }
+
+    if (query.tradeAvailable) {
+      filters.push(Prisma.sql`l."tradeAvailable" = true`);
+    }
+
+    if (query.guaranteed) {
+      filters.push(this.buildPositiveContainsFilter(['l.description', 'gv."equipmentNotes"'], ['garanti']));
+    }
+
+    return {
+      filters,
+      fromSql,
+      orderBySql: this.buildFeedOrderBy(query.sort, cityPrioritySql),
+    };
   }
 
   private async getFeedListings(userId: string, listingIds: string[]) {
@@ -874,6 +1014,16 @@ export class ListingsService {
             sortOrder: 'asc',
           },
           take: 1,
+          include: {
+            mediaAsset: {
+              select: {
+                id: true,
+                url: true,
+                storageKey: true,
+                visibility: true,
+              },
+            },
+          },
         },
         savedItems: {
           where: {
@@ -892,6 +1042,25 @@ export class ListingsService {
                     brand: true,
                   },
                 },
+                specs: {
+                  where: {
+                    isActive: true,
+                  },
+                  orderBy: [{ manualReviewNeeded: 'asc' }, { year: 'desc' }, { enginePowerHp: 'desc' }],
+                  take: 1,
+                },
+              },
+            },
+          },
+        },
+        seller: {
+          select: {
+            isVerified: true,
+            isCommercialApproved: true,
+            profile: {
+              select: {
+                blueVerified: true,
+                goldVerified: true,
               },
             },
           },
@@ -904,11 +1073,25 @@ export class ListingsService {
     listing: Awaited<ReturnType<typeof this.getFeedListings>>[number],
   ) {
     const garageVehicle = listing.garageVehicle;
+    const spec = garageVehicle?.vehiclePackage?.specs?.[0] ?? null;
+    const firstMediaUrl = this.normalizeMediaUrl(listing.media[0]?.url, listing.media[0]?.mediaAsset);
+    const isVerifiedSeller =
+      Boolean(listing.seller.profile?.blueVerified) ||
+      Boolean(listing.seller.profile?.goldVerified) ||
+      Boolean(listing.seller.isVerified) ||
+      Boolean(listing.seller.isCommercialApproved);
+
+    if (shouldLogMediaDebug()) {
+      console.info('[listings.feed] media', {
+        listingId: listing.id,
+        firstMediaUrl,
+      });
+    }
 
     return {
       listingId: listing.id,
       listingNo: listing.listingNo,
-      firstMediaUrl: listing.media[0]?.url ?? null,
+      firstMediaUrl,
       title: listing.title,
       brand: garageVehicle?.vehiclePackage?.model.brand.name ?? garageVehicle?.brandText ?? null,
       model: garageVehicle?.vehiclePackage?.model.name ?? garageVehicle?.modelText ?? null,
@@ -916,8 +1099,16 @@ export class ListingsService {
       city: listing.city,
       district: listing.district ?? null,
       price: Number(listing.price),
+      year: garageVehicle?.year ?? null,
       km: garageVehicle?.km ?? null,
+      fuelType: (spec?.fuelType as FuelType | null) ?? garageVehicle?.fuelType ?? null,
+      transmissionType:
+        (spec?.transmissionType as TransmissionType | null) ?? garageVehicle?.transmissionType ?? null,
+      bodyType: spec?.bodyType ?? null,
+      color: garageVehicle?.color ?? null,
       sellerType: listing.sellerType,
+      tradeAvailable: listing.tradeAvailable,
+      isVerifiedSeller,
       isSaved: Boolean(listing.savedItems.length),
     };
   }
@@ -939,7 +1130,13 @@ export class ListingsService {
           goldVerified: boolean;
         } | null;
       };
-      media: Array<{ id: string; url: string; mediaType: 'IMAGE' | 'VIDEO'; sortOrder: number }>;
+      media: Array<{
+        id: string;
+        url: string;
+        mediaType: 'IMAGE' | 'VIDEO';
+        sortOrder: number;
+        mediaAsset?: MediaAssetReference | null;
+      }>;
       damageParts: Array<{ partName: string; damageStatus: string }>;
       savedItems: Array<{ id: string }>;
       obdExpertiseReport: {
@@ -1018,6 +1215,19 @@ export class ListingsService {
     const selectedExpertiseReport = obdEnabled
       ? typedListing.obdExpertiseReport ?? typedListing.garageVehicle?.obdExpertiseReports[0] ?? null
       : null;
+    const media = typedListing.media.map((mediaItem) => ({
+      id: mediaItem.id,
+      url: this.normalizeMediaUrl(mediaItem.url, mediaItem.mediaAsset),
+      mediaType: mediaItem.mediaType,
+      sortOrder: mediaItem.sortOrder,
+    }));
+
+    if (shouldLogMediaDebug()) {
+      console.info('[listings.detail] media', {
+        listingId: typedListing.id,
+        media,
+      });
+    }
 
     return {
       id: typedListing.id,
@@ -1044,12 +1254,7 @@ export class ListingsService {
         blueVerified: typedListing.seller.profile?.blueVerified ?? false,
         goldVerified: typedListing.seller.profile?.goldVerified ?? false,
       },
-      media: typedListing.media.map((mediaItem) => ({
-        id: mediaItem.id,
-        url: mediaItem.url,
-        mediaType: mediaItem.mediaType,
-        sortOrder: mediaItem.sortOrder,
-      })),
+      media,
       vehicle: {
         garageVehicleId: typedListing.garageVehicle?.id ?? null,
         brand:
@@ -1100,6 +1305,115 @@ export class ListingsService {
     };
   }
 
+  private mergeStringFilters(arrayValue?: string[], singleValue?: string) {
+    return [...(arrayValue ?? []), ...(singleValue ? [singleValue] : [])]
+      .map((value) => trimNullable(value))
+      .filter((value): value is string => Boolean(value))
+      .filter((value, index, values) => values.indexOf(value) === index);
+  }
+
+  private mergeEnumFilters<T extends string>(arrayValue?: T[], singleValue?: T) {
+    return [...(arrayValue ?? []), ...(singleValue ? [singleValue] : [])].filter(
+      (value, index, values) => values.indexOf(value) === index,
+    );
+  }
+
+  private normalizeFilterText(value: string) {
+    return value
+      .trim()
+      .toLocaleLowerCase('tr-TR')
+      .replace(/[çÇ]/g, 'c')
+      .replace(/[ğĞ]/g, 'g')
+      .replace(/[ıİI]/g, 'i')
+      .replace(/[öÖ]/g, 'o')
+      .replace(/[şŞ]/g, 's')
+      .replace(/[üÜ]/g, 'u');
+  }
+
+  private normalizedTextSql(expression: string) {
+    return Prisma.sql`LOWER(translate(COALESCE(${Prisma.raw(expression)}, ''), 'ÇĞİIÖŞÜçğıiöşü', 'CGIIOSUcgiiosu'))`;
+  }
+
+  private buildNormalizedAnyFilter(expression: string, values: string[]) {
+    const normalizedValues = values
+      .map((value) => this.normalizeFilterText(value))
+      .filter(Boolean)
+      .filter((value, index, items) => items.indexOf(value) === index);
+
+    return Prisma.sql`(${Prisma.join(
+      normalizedValues.map(
+        (value) => Prisma.sql`${this.normalizedTextSql(expression)} = ${value}`,
+      ),
+      ' OR ',
+    )})`;
+  }
+
+  private buildEnumAnyFilter(expression: Prisma.Sql, values: string[]) {
+    return Prisma.sql`(${Prisma.join(
+      values.map((value) => Prisma.sql`${expression} = ${value}`),
+      ' OR ',
+    )})`;
+  }
+
+  private buildNegativeContainsFilter(expressions: string[], values: string[]) {
+    const patterns = values.map((value) => `%${this.normalizeFilterText(value)}%`);
+    const comparisons = expressions.flatMap((expression) =>
+      patterns.map((pattern) => Prisma.sql`${this.normalizedTextSql(expression)} LIKE ${pattern}`),
+    );
+
+    return Prisma.sql`NOT (${Prisma.join(comparisons, ' OR ')})`;
+  }
+
+  private buildPositiveContainsFilter(expressions: string[], values: string[]) {
+    const patterns = values.map((value) => `%${this.normalizeFilterText(value)}%`);
+    const comparisons = expressions.flatMap((expression) =>
+      patterns.map((pattern) => Prisma.sql`${this.normalizedTextSql(expression)} LIKE ${pattern}`),
+    );
+
+    return Prisma.sql`(${Prisma.join(comparisons, ' OR ')})`;
+  }
+
+  private buildFeedOrderBy(sort: ListingSortQuery | undefined, cityPrioritySql: Prisma.Sql) {
+    switch (sort) {
+      case 'PRICE_ASC':
+        return Prisma.sql`l.price ASC NULLS LAST, l."createdAt" DESC, l.id DESC`;
+      case 'PRICE_DESC':
+        return Prisma.sql`l.price DESC NULLS LAST, l."createdAt" DESC, l.id DESC`;
+      case 'KM_ASC':
+        return Prisma.sql`gv.km ASC NULLS LAST, l."createdAt" DESC, l.id DESC`;
+      case 'YEAR_DESC':
+        return Prisma.sql`gv.year DESC NULLS LAST, l."createdAt" DESC, l.id DESC`;
+      case 'NEWEST':
+        return Prisma.sql`l."createdAt" DESC, l.id DESC`;
+      default:
+        return Prisma.sql`${cityPrioritySql} DESC, l."createdAt" DESC, l.id DESC`;
+    }
+  }
+
+  private mapVehicleTypeQuery(value: ListingVehicleTypeQuery) {
+    switch (value) {
+      case 'CAR':
+        return VehicleCatalogType.AUTOMOBILE;
+      case 'MOTORCYCLE':
+        return VehicleCatalogType.MOTORCYCLE;
+      case 'COMMERCIAL':
+        return VehicleCatalogType.COMMERCIAL;
+      default:
+        return VehicleCatalogType.AUTOMOBILE;
+    }
+  }
+
+  private normalizeMediaUrl(
+    value: string | null | undefined,
+    mediaAsset?: MediaAssetReference | null,
+  ) {
+    return (
+      normalizePersistedMediaUrl(value, {
+        mediaAsset: mediaAsset ?? null,
+      }) ?? value ?? null
+    );
+  }
+
   private async getListingForPublicInteraction(userId: string, listingId: string) {
     const listing = await this.prisma.listing.findUnique({
       where: {
@@ -1148,20 +1462,19 @@ export class ListingsService {
     return listing;
   }
 
-  private encodeFeedCursor(cursor: ListingFeedCursor) {
-    return Buffer.from(JSON.stringify(cursor), 'utf8').toString('base64url');
+  private encodeFeedCursor(cursor: number) {
+    return Buffer.from(String(cursor), 'utf8').toString('base64url');
   }
 
-  private decodeFeedCursor(cursor: string) {
-    try {
-      const parsed = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8')) as ListingFeedCursor;
+  private decodeFeedCursor(cursor?: string | null) {
+    if (!cursor) {
+      return 0;
+    }
 
-      if (
-        typeof parsed.id !== 'string' ||
-        typeof parsed.createdAt !== 'string' ||
-        typeof parsed.cityPriority !== 'number' ||
-        Number.isNaN(new Date(parsed.createdAt).getTime())
-      ) {
+    try {
+      const parsed = Number(Buffer.from(cursor, 'base64url').toString('utf8'));
+
+      if (!Number.isFinite(parsed) || parsed < 0) {
         throw new Error('Invalid cursor');
       }
 

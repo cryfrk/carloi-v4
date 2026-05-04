@@ -27,6 +27,14 @@ export enum SellerType {
   DEALER = 'DEALER',
 }
 
+export enum ListingSortOption {
+  NEWEST = 'NEWEST',
+  PRICE_ASC = 'PRICE_ASC',
+  PRICE_DESC = 'PRICE_DESC',
+  KM_ASC = 'KM_ASC',
+  YEAR_DESC = 'YEAR_DESC',
+}
+
 export enum DamageStatus {
   NONE = 'NONE',
   PAINTED = 'PAINTED',
@@ -83,6 +91,15 @@ export enum SystemMessageCardType {
   INSURANCE_OFFER_CARD = 'INSURANCE_OFFER_CARD',
   PAYMENT_STATUS_CARD = 'PAYMENT_STATUS_CARD',
   POLICY_DOCUMENT_CARD = 'POLICY_DOCUMENT_CARD',
+  POST_CARD = 'POST_CARD',
+  LISTING_CARD = 'LISTING_CARD',
+  VEHICLE_CARD = 'VEHICLE_CARD',
+}
+
+export enum SharedContentType {
+  POST = 'POST',
+  LISTING = 'LISTING',
+  VEHICLE = 'VEHICLE',
 }
 
 export enum NotificationType {

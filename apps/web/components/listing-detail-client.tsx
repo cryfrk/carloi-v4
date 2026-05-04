@@ -1,15 +1,22 @@
 'use client';
 
+import { SharedContentType, type ListingDetailResponse } from '@carloi-v4/types';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
-import type { ListingDetailResponse } from '@carloi-v4/types';
 import { AppShell } from './app-shell';
+import { ShareContentSheet } from './share-content-sheet';
 import { useAuth } from './auth-provider';
 import { VehicleDamageMap } from './vehicle-damage-map';
+import { buildDemoMessageFixtures, demoListingById } from '../lib/demo-content';
 import { formatKm, formatPrice, fuelTypeLabels, sellerTypeLabels, transmissionLabels } from '../lib/listings-ui';
 import { webListingsApi } from '../lib/listings-api';
+import { resolveWebMediaUrl } from '../lib/media-url';
 import { webMessagesApi } from '../lib/messages-api';
+
+function sharedCardMatchesTarget(card: unknown, targetId: string): boolean {
+  return Boolean(card && typeof card === 'object' && 'targetId' in card && card.targetId === targetId);
+}
 
 export function ListingDetailClient({ listingId }: { listingId: string }) {
   const router = useRouter();
@@ -18,6 +25,21 @@ export function ListingDetailClient({ listingId }: { listingId: string }) {
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [shareOpen, setShareOpen] = useState(false);
+  const demoMessages = useMemo(
+    () =>
+      buildDemoMessageFixtures(
+        session
+          ? {
+              id: session.user.id,
+              username: session.user.username,
+              firstName: session.user.firstName,
+              lastName: session.user.lastName,
+            }
+          : null,
+      ),
+    [session],
+  );
 
   useEffect(() => {
     if (!session?.accessToken) {
@@ -26,6 +48,12 @@ export function ListingDetailClient({ listingId }: { listingId: string }) {
 
     setLoading(true);
     setErrorMessage(null);
+
+    if (listingId.startsWith('demo-listing-')) {
+      setListing(demoListingById[listingId] ?? null);
+      setLoading(false);
+      return;
+    }
 
     void webListingsApi
       .getDetail(session.accessToken, listingId)
@@ -92,6 +120,22 @@ export function ListingDetailClient({ listingId }: { listingId: string }) {
   async function startListingConversation() {
     if (!session?.accessToken || !listing) {
       return;
+    }
+
+    if (listing.id.startsWith('demo-listing-')) {
+      const demoThread =
+        Object.values(demoMessages.threadDetails).find((thread) =>
+          thread.messages.some((message) => sharedCardMatchesTarget(message.systemCard, listing.id)),
+        ) ??
+        demoMessages.threads.find((thread) =>
+          thread.participants.some((participant) => participant.id === listing.owner.id),
+        ) ??
+        demoMessages.threads[0];
+
+      if (demoThread) {
+        router.push(`/messages?thread=${demoThread.id}`);
+        return;
+      }
     }
 
     try {
@@ -173,12 +217,21 @@ export function ListingDetailClient({ listingId }: { listingId: string }) {
               <div className="listing-detail-gallery">
                 {listing.media.map((mediaItem) => (
                   <div className="listing-detail-frame" key={mediaItem.id}>
-                    {mediaItem.mediaType === 'IMAGE' ? (
-                      <img alt={listing.title} src={mediaItem.url} />
+                    {resolveWebMediaUrl(mediaItem.url) ? (
+                      mediaItem.mediaType === 'IMAGE' ? (
+                        <img alt={listing.title} src={resolveWebMediaUrl(mediaItem.url) ?? undefined} />
+                      ) : (
+                        <video
+                          className="post-media-image"
+                          controls
+                          preload="metadata"
+                          src={resolveWebMediaUrl(mediaItem.url) ?? undefined}
+                        />
+                      )
                     ) : (
                       <div className="video-tile">
-                        <span className="video-pill">VIDEO</span>
-                        <p>{mediaItem.url}</p>
+                        <span className="video-pill">MEDYA</span>
+                        <p>Medya hazirlaniyor</p>
                       </div>
                     )}
                   </div>
@@ -267,12 +320,26 @@ export function ListingDetailClient({ listingId }: { listingId: string }) {
               >
                 Mesaj
               </button>
+              <button className="secondary-link subtle-button" onClick={() => setShareOpen(true)}>
+                Paylas
+              </button>
               <button className="secondary-link subtle-button" onClick={() => void toggleSave()}>
                 {listing.isSaved ? 'Kayitli' : 'Kaydet'}
               </button>
             </div>
           </aside>
         </div>
+      ) : null}
+      {listing ? (
+        <ShareContentSheet
+          accessToken={session.accessToken}
+          contentId={listing.id}
+          contentType={SharedContentType.LISTING}
+          currentUserId={session.user.id}
+          onClose={() => setShareOpen(false)}
+          onShared={(count) => setNotice(`${count} kisiye gonderildi.`)}
+          visible={shareOpen}
+        />
       ) : null}
     </AppShell>
   );

@@ -19,6 +19,7 @@ import {
 import { AppShell } from './app-shell';
 import { useAuth } from './auth-provider';
 import { VehicleDamageMap } from './vehicle-damage-map';
+import { WebMediaView } from './web-media-view';
 import { sellerTypeLabels } from '../lib/listings-ui';
 import { webListingsApi } from '../lib/listings-api';
 import { webMediaApi } from '../lib/media-api';
@@ -208,7 +209,13 @@ export function ListingCreateClient({ initialVehicleId = '' }: { initialVehicleI
             <div className="vehicle-inline-grid">
               {garageVehicles.map((vehicle) => (
                 <button key={vehicle.id} className={`vehicle-inline-tile button-reset ${form.garageVehicleId === vehicle.id ? 'active' : ''}`} type="button" onClick={() => patchForm('garageVehicleId', vehicle.id)}>
-                  {vehicle.firstMediaUrl ? <img alt={`${vehicle.brand} ${vehicle.model}`} src={vehicle.firstMediaUrl} /> : <div className="profile-tile-fallback">ARAC</div>}
+                  {vehicle.firstMediaUrl ? (
+                    <WebMediaView
+                      alt={`${vehicle.brand} ${vehicle.model}`}
+                      mediaType="IMAGE"
+                      uri={vehicle.firstMediaUrl}
+                    />
+                  ) : <div className="profile-tile-fallback">ARAC</div>}
                   <strong>{vehicle.brand} {vehicle.model}</strong>
                   <small>{vehicle.package ?? vehicle.plateMasked}</small>
                 </button>
@@ -244,7 +251,12 @@ export function ListingCreateClient({ initialVehicleId = '' }: { initialVehicleI
               <div className="upload-preview-row">
                 {listingUploads.map((item) => (
                   <button key={item.id} className="upload-preview-tile button-reset" type="button" onClick={() => setListingUploads((current) => current.filter((entry) => entry.id !== item.id))}>
-                    <img alt="Ilan medya" className="upload-preview-image" src={item.url} />
+                    <WebMediaView
+                      alt="Ilan medya"
+                      className="upload-preview-image"
+                      mediaType={item.mimeType.startsWith('video/') ? 'VIDEO' : 'IMAGE'}
+                      uri={item.url}
+                    />
                   </button>
                 ))}
               </div>

@@ -12,6 +12,7 @@ import { CurrentUser } from '../../common/auth/current-user.decorator';
 import type { AuthenticatedUser } from '../../common/auth/auth.types';
 import { JwtAuthGuard } from '../../common/auth/jwt-auth.guard';
 import { SearchUsersQueryDto } from './dto/search-users-query.dto';
+import { ShareContentDto } from './dto/share-content.dto';
 import {
   CreateDirectThreadDto,
   CreateGroupThreadDto,
@@ -69,6 +70,11 @@ export class MessagesController {
     @Body() body: SendMessageDto,
   ) {
     return this.messagesService.sendMessage(user.userId, threadId, body);
+  }
+
+  @Post('share')
+  shareContent(@CurrentUser() user: AuthenticatedUser, @Body() body: ShareContentDto) {
+    return this.messagesService.shareContent(user.userId, body);
   }
 
   @Patch('threads/:id/seen')

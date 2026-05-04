@@ -1,6 +1,7 @@
 import type { MediaAssetPurpose, MediaAssetUploadResponse } from '@carloi-v4/types';
 
 import { WEB_API_BASE_URL } from './api-base-url';
+import { resolveWebMediaUrl } from './media-url';
 
 const API_BASE_URL = WEB_API_BASE_URL;
 
@@ -15,7 +16,12 @@ async function handleUploadResponse(response: Response) {
     );
   }
 
-  return payload as unknown as MediaAssetUploadResponse;
+  const upload = payload as unknown as MediaAssetUploadResponse;
+
+  return {
+    ...upload,
+    url: resolveWebMediaUrl(upload.url) ?? upload.url,
+  };
 }
 
 export const webMediaApi = {

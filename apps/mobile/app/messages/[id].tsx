@@ -1,6 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
-import { MediaAssetPurpose, MessageType, type MessageThreadDetail } from '@carloi-v4/types';
-import { Redirect, useLocalSearchParams } from 'expo-router';
+import {
+  AttachmentType,
+  MediaAssetPurpose,
+  MessageType,
+  SharedContentType,
+  type MessageThreadDetail,
+} from '@carloi-v4/types';
+import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   Pressable,
@@ -11,9 +17,12 @@ import {
   View,
 } from 'react-native';
 import { MobileShell } from '../../components/mobile-shell';
+import { MobileSharedContentCard } from '../../components/mobile-shared-content-card';
 import { useAuth } from '../../context/auth-context';
+import { buildDemoMessageFixtures } from '../../lib/demo-content';
 import { mobileMediaApi } from '../../lib/media-api';
 import { mobileMessagesApi } from '../../lib/messages-api';
+import { getMobileSharedContentPath } from '../../lib/share-content';
 import { pickDocumentFiles, pickMediaFiles } from '../../lib/upload-picker';
 
 function formatTime(value: string) {
@@ -24,6 +33,7 @@ function formatTime(value: string) {
 }
 
 export default function MessageThreadScreen() {
+  const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { session } = useAuth();
   const [thread, setThread] = useState<MessageThreadDetail | null>(null);
@@ -37,6 +47,20 @@ export default function MessageThreadScreen() {
 
   const accessToken = session?.accessToken ?? null;
   const currentUserId = session?.user.id ?? null;
+  const demoFixtures = useMemo(
+    () =>
+      buildDemoMessageFixtures(
+        session
+          ? {
+              id: session.user.id,
+              username: session.user.username,
+              firstName: session.user.firstName,
+              lastName: session.user.lastName,
+            }
+          : null,
+      ),
+    [session],
+  );
   const counterpart = useMemo(() => {
     if (!thread || !currentUserId) {
       return null;
@@ -46,7 +70,17 @@ export default function MessageThreadScreen() {
   }, [currentUserId, thread]);
 
   useEffect(() => {
-    if (!accessToken || !id) {
+    if (!id) {
+      return;
+    }
+
+    if (id.startsWith('demo-thread-')) {
+      setThread(demoFixtures.threadDetails[id] ?? null);
+      setLoading(false);
+      return;
+    }
+
+    if (!accessToken) {
       return;
     }
 
@@ -61,16 +95,21 @@ export default function MessageThreadScreen() {
         setErrorMessage(error instanceof Error ? error.message : 'Sohbet acilamadi.');
       })
       .finally(() => setLoading(false));
-  }, [accessToken, id]);
+  }, [accessToken, demoFixtures.threadDetails, id]);
 
-  if (!accessToken || !currentUserId) {
+  if (!session || !accessToken || !currentUserId) {
     return <Redirect href="/login" />;
   }
 
   const token: string = accessToken;
+  const currentUser = session.user;
 
   async function refreshThread() {
     if (!id) {
+      return;
+    }
+
+    if (id.startsWith('demo-thread-')) {
       return;
     }
 
@@ -92,6 +131,56 @@ export default function MessageThreadScreen() {
 
     setSending(true);
     try {
+      if (thread.id.startsWith('demo-thread-')) {
+        const nextAttachmentType =
+          attachmentType === MessageType.IMAGE
+            ? AttachmentType.IMAGE
+            : attachmentType === MessageType.VIDEO
+              ? AttachmentType.VIDEO
+              : attachmentType === MessageType.AUDIO
+                ? AttachmentType.AUDIO
+                : AttachmentType.FILE;
+
+        setThread((current) =>
+          current
+            ? {
+                ...current,
+                updatedAt: new Date().toISOString(),
+                unreadCount: 0,
+                messages: [
+                  ...current.messages,
+                  {
+                    id: `demo-thread-message-${Date.now()}`,
+                    threadId: current.id,
+                    senderId: currentUser.id,
+                    senderUsername: currentUser.username,
+                    senderFullName: `${currentUser.firstName} ${currentUser.lastName}`,
+                    isMine: true,
+                    body: body || (hasAttachments ? 'Ek paylasildi.' : null),
+                    messageType: hasAttachments ? attachmentType : MessageType.TEXT,
+                    seenAt: null,
+                    createdAt: new Date().toISOString(),
+                    attachments: attachments.map((attachment, index) => ({
+                      id: `${attachment.id}-${index}`,
+                      attachmentType: nextAttachmentType,
+                      url: attachment.url,
+                      fileName: null,
+                      mimeType: attachment.mimeType,
+                      sizeBytes: null,
+                      sortOrder: index,
+                    })),
+                    systemCard: null,
+                  } satisfies MessageThreadDetail['messages'][number],
+                ],
+              }
+            : current,
+        );
+        setComposer('');
+        setAttachments([]);
+        setAttachmentType(MessageType.IMAGE);
+        return;
+      }
+
       await mobileMessagesApi.sendMessage(token, thread.id, {
         body: body || undefined,
         messageType: hasAttachments ? attachmentType : MessageType.TEXT,
@@ -186,6 +275,10 @@ export default function MessageThreadScreen() {
   const headerTitle = thread?.groupName ?? thread?.listing?.title ?? counterpart?.fullName ?? `@${counterpart?.username ?? 'thread'}`;
   const headerSubtitle = counterpart ? `@${counterpart.username}` : 'Sohbet';
 
+  function openSharedCard(targetId: string, type: SharedContentType) {
+    router.push(getMobileSharedContentPath(type, targetId) as never);
+  }
+
   return (
     <MobileShell title={headerTitle} subtitle={headerSubtitle}>
       <View style={styles.layout}>
@@ -227,7 +320,12 @@ export default function MessageThreadScreen() {
             <>
               {thread.messages.map((message) => {
                 const systemCard = message.systemCard;
-                const showAvatar = !message.isMine && message.messageType !== 'SYSTEM_CARD';
+                const isShareCard =
+                  systemCard?.type === 'POST_CARD' ||
+                  systemCard?.type === 'LISTING_CARD' ||
+                  systemCard?.type === 'VEHICLE_CARD';
+                const isPureSystemCard = message.messageType === 'SYSTEM_CARD' && !isShareCard;
+                const showAvatar = !message.isMine && !isPureSystemCard;
 
                 return (
                   <View key={message.id} style={[styles.messageRow, message.isMine ? styles.messageRowMine : styles.messageRowOther]}>
@@ -239,7 +337,14 @@ export default function MessageThreadScreen() {
                       <View style={styles.inlineAvatarSpacer} />
                     )}
                     <View style={[styles.messageColumn, message.isMine ? styles.messageColumnMine : styles.messageColumnOther]}>
-                      {message.messageType === 'SYSTEM_CARD' ? (
+                      {isShareCard && systemCard ? (
+                        <MobileSharedContentCard
+                          body={message.body}
+                          card={systemCard}
+                          mine={message.isMine}
+                          onPress={() => openSharedCard(systemCard.targetId, systemCard.contentType)}
+                        />
+                      ) : message.messageType === 'SYSTEM_CARD' ? (
                         <View style={styles.systemCard}>
                           <Text style={styles.systemCardType}>{systemCard?.type ?? 'SYSTEM_CARD'}</Text>
                           {message.body ? <Text style={styles.systemCardText}>{message.body}</Text> : null}

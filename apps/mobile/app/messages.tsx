@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { MobileShell } from '../components/mobile-shell';
 import { useAuth } from '../context/auth-context';
+import { buildDemoMessageFixtures } from '../lib/demo-content';
 import { mobileMessagesApi } from '../lib/messages-api';
 
 function formatTime(value: string) {
@@ -47,16 +48,32 @@ export default function MessagesScreen() {
 
   const accessToken = session?.accessToken ?? null;
   const currentUserId = session?.user.id ?? null;
+  const demoFixtures = useMemo(
+    () =>
+      buildDemoMessageFixtures(
+        session
+          ? {
+              id: session.user.id,
+              username: session.user.username,
+              firstName: session.user.firstName,
+              lastName: session.user.lastName,
+            }
+          : null,
+      ),
+    [session],
+  );
+  const displayThreads = !loading && threads.length === 0 ? demoFixtures.threads : threads;
+  const displayFriends = !loading && friends.length === 0 ? demoFixtures.friends : friends;
   const selectableParticipants = useMemo(() => {
     const map = new Map<string, MessageParticipantSummary>();
-    for (const friend of friends) {
+    for (const friend of displayFriends) {
       map.set(friend.id, friend);
     }
     for (const result of searchResults) {
       map.set(result.id, result);
     }
     return [...map.values()];
-  }, [friends, searchResults]);
+  }, [displayFriends, searchResults]);
 
   useEffect(() => {
     if (!accessToken) {
@@ -103,6 +120,19 @@ export default function MessagesScreen() {
   }
 
   async function openDirect(userId: string) {
+    if (threads.length === 0) {
+      const demoThread = demoFixtures.threads.find((thread) =>
+        thread.participants.some((participant) => participant.id === userId),
+      );
+
+      if (demoThread) {
+        setSearchQuery('');
+        setSearchResults([]);
+        router.push(`/messages/${demoThread.id}`);
+        return;
+      }
+    }
+
     try {
       const response = await mobileMessagesApi.createDirectThread(token, {
         targetUserId: userId,
@@ -167,9 +197,9 @@ export default function MessagesScreen() {
           />
         </View>
 
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.friendRow}>
-          {friends.length > 0 ? (
-            friends.map((friend) => (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.friendRow}>
+          {displayFriends.length > 0 ? (
+            displayFriends.map((friend) => (
               <Pressable key={friend.id} style={styles.friendItem} onPress={() => void openDirect(friend.id)}>
                 <Avatar username={friend.username} />
                 <Text numberOfLines={1} style={styles.friendName}>@{friend.username}</Text>
@@ -235,7 +265,7 @@ export default function MessagesScreen() {
             <ActivityIndicator color="#111111" />
             <Text style={styles.helperText}>Sohbetler yukleniyor...</Text>
           </View>
-        ) : threads.length === 0 ? (
+        ) : displayThreads.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyTitle}>Henuz sohbet yok</Text>
             <Text style={styles.helperText}>Ilan sahipleriyle konusmaya basla veya arama alanindan bir kullanici sec.</Text>
@@ -245,7 +275,7 @@ export default function MessagesScreen() {
           </View>
         ) : (
           <FlatList
-            data={threads}
+            data={displayThreads}
             keyExtractor={(item) => item.id}
             renderItem={({ item: thread }) => {
               const counterpart = thread.participants.find((participant) => participant.id !== currentUserId) ?? thread.participants[0];

@@ -1,8 +1,10 @@
 ﻿'use client';
 
 import {
+  AttachmentType,
   MediaAssetPurpose,
   MessageType,
+  SharedContentType,
   type MessageParticipantSummary,
   type MessageThreadDetail,
   type MessageThreadSummary,
@@ -12,8 +14,11 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AppShell } from './app-shell';
 import { useAuth } from './auth-provider';
+import { SharedContentCard } from './shared-content-card';
+import { buildDemoMessageFixtures } from '../lib/demo-content';
 import { webMediaApi } from '../lib/media-api';
 import { webMessagesApi } from '../lib/messages-api';
+import { getWebSharedContentPath } from '../lib/share-content';
 
 function formatTime(value: string) {
   return new Date(value).toLocaleTimeString('tr-TR', {
@@ -51,17 +56,41 @@ export function MessagesClient() {
   const accessToken = session?.accessToken ?? null;
   const currentUserId = session?.user.id ?? null;
   const threadFromQuery = searchParams.get('thread');
+  const demoFixtures = useMemo(
+    () =>
+      buildDemoMessageFixtures(
+        session
+          ? {
+              id: session.user.id,
+              username: session.user.username,
+              firstName: session.user.firstName,
+              lastName: session.user.lastName,
+            }
+          : null,
+      ),
+    [session],
+  );
+  const [demoThreads, setDemoThreads] = useState<MessageThreadSummary[]>(demoFixtures.threads);
+  const [demoThreadDetails, setDemoThreadDetails] = useState<Record<string, MessageThreadDetail>>(demoFixtures.threadDetails);
+
+  useEffect(() => {
+    setDemoThreads(demoFixtures.threads);
+    setDemoThreadDetails(demoFixtures.threadDetails);
+  }, [demoFixtures]);
+
+  const displayThreads = !loading && threads.length === 0 ? demoThreads : threads;
+  const displayFriends = !loading && friends.length === 0 ? demoFixtures.friends : friends;
 
   const selectableParticipants = useMemo(() => {
     const map = new Map<string, MessageParticipantSummary>();
-    for (const friend of friends) {
+    for (const friend of displayFriends) {
       map.set(friend.id, friend);
     }
     for (const result of searchResults) {
       map.set(result.id, result);
     }
     return [...map.values()];
-  }, [friends, searchResults]);
+  }, [displayFriends, searchResults]);
 
   const activeCounterpart = useMemo(() => {
     if (!activeThread || !currentUserId) {
@@ -83,17 +112,28 @@ export function MessagesClient() {
       .then(([threadResponse, friendResponse]) => {
         setThreads(threadResponse.items);
         setFriends(friendResponse.items);
-        setActiveThreadId((current) => current ?? threadFromQuery ?? threadResponse.items[0]?.id ?? null);
+        setActiveThreadId(
+          (current) => current ?? threadFromQuery ?? threadResponse.items[0]?.id ?? demoFixtures.threads[0]?.id ?? null,
+        );
       })
       .catch((error) => {
         setErrorMessage(error instanceof Error ? error.message : 'Mesajlar yuklenemedi.');
       })
       .finally(() => setLoading(false));
-  }, [accessToken, threadFromQuery]);
+  }, [accessToken, demoFixtures.threads, threadFromQuery]);
 
   useEffect(() => {
-    if (!accessToken || !activeThreadId) {
+    if (!activeThreadId) {
       setActiveThread(null);
+      return;
+    }
+
+    if (activeThreadId.startsWith('demo-thread-')) {
+      setActiveThread(demoThreadDetails[activeThreadId] ?? null);
+      return;
+    }
+
+    if (!accessToken) {
       return;
     }
 
@@ -106,7 +146,7 @@ export function MessagesClient() {
       .catch((error) => {
         setErrorMessage(error instanceof Error ? error.message : 'Sohbet acilamadi.');
       });
-  }, [accessToken, activeThreadId]);
+  }, [accessToken, activeThreadId, demoThreadDetails]);
 
   useEffect(() => {
     if (!accessToken || searchQuery.trim().length < 2) {
@@ -147,6 +187,22 @@ export function MessagesClient() {
   }
 
   async function openDirect(userId: string) {
+    if (threads.length === 0) {
+      const demoThread = Object.values(demoThreadDetails).find((thread) =>
+        thread.participants.some((participant) => participant.id === userId),
+      );
+
+      if (demoThread) {
+        setSearchQuery('');
+        setSearchResults([]);
+        setGroupOpen(false);
+        setActiveThreadId(demoThread.id);
+        setActiveThread(demoThread);
+        router.replace(`/messages?thread=${demoThread.id}`);
+        return;
+      }
+    }
+
     if (!accessToken) {
       return;
     }
@@ -200,6 +256,89 @@ export function MessagesClient() {
     setErrorMessage(null);
 
     try {
+      if (activeThread.id.startsWith('demo-thread-')) {
+        const nextAttachmentType =
+          attachmentType === MessageType.IMAGE
+            ? AttachmentType.IMAGE
+            : attachmentType === MessageType.VIDEO
+              ? AttachmentType.VIDEO
+              : attachmentType === MessageType.AUDIO
+                ? AttachmentType.AUDIO
+                : AttachmentType.FILE;
+        const createdAt = new Date().toISOString();
+        const nextMessage = {
+          id: `demo-message-${Date.now()}`,
+          threadId: activeThread.id,
+          senderId: currentUser.id,
+          senderUsername: currentUser.username,
+          senderFullName: `${currentUser.firstName} ${currentUser.lastName}`,
+          isMine: true,
+          body: body || (hasAttachments ? 'Ek paylasildi.' : null),
+          messageType: hasAttachments ? attachmentType : MessageType.TEXT,
+          seenAt: null,
+          createdAt,
+          attachments: attachments.map((item, index) => ({
+            id: `${item.id}-${index}`,
+            attachmentType: nextAttachmentType,
+            url: item.url,
+            fileName: null,
+            mimeType: item.mimeType,
+            sizeBytes: null,
+            sortOrder: index,
+          })),
+          systemCard: null,
+        } satisfies MessageThreadDetail['messages'][number];
+
+        setDemoThreadDetails((current) => {
+          const target = current[activeThread.id];
+          if (!target) {
+            return current;
+          }
+          return {
+            ...current,
+            [activeThread.id]: {
+              ...target,
+              updatedAt: createdAt,
+              unreadCount: 0,
+              messages: [...target.messages, nextMessage],
+            },
+          };
+        });
+        setDemoThreads((current) =>
+          current.map((thread) =>
+            thread.id === activeThread.id
+              ? {
+                  ...thread,
+                  updatedAt: createdAt,
+                  lastMessage: {
+                    id: nextMessage.id,
+                    bodyPreview: nextMessage.body,
+                    messageType: nextMessage.messageType,
+                    createdAt,
+                    seenAt: null,
+                    senderUsername: nextMessage.senderUsername,
+                  },
+                  unreadCount: 0,
+                }
+              : thread,
+          ),
+        );
+        setActiveThread((current) =>
+          current
+            ? {
+                ...current,
+                updatedAt: createdAt,
+                unreadCount: 0,
+                messages: [...current.messages, nextMessage],
+              }
+            : current,
+        );
+        setComposer('');
+        setAttachments([]);
+        setAttachmentType(MessageType.IMAGE);
+        return;
+      }
+
       await webMessagesApi.sendMessage(accessToken, activeThread.id, {
         body: body || undefined,
         messageType: hasAttachments ? attachmentType : MessageType.TEXT,
@@ -309,6 +448,10 @@ export function MessagesClient() {
     return thread.lastMessage?.bodyPreview ?? 'Henuz mesaj yok';
   }
 
+  function openSharedCard(targetId: string, type: SharedContentType) {
+    router.push(getWebSharedContentPath(type, targetId));
+  }
+
   if (!isReady) {
     return (
       <AppShell>
@@ -333,6 +476,8 @@ export function MessagesClient() {
     );
   }
 
+  const currentUser = session.user;
+
   return (
     <AppShell>
       <input
@@ -353,8 +498,8 @@ export function MessagesClient() {
           </div>
 
           <div className="messages-ig-friends">
-            {friends.length > 0 ? (
-              friends.map((friend) => (
+            {displayFriends.length > 0 ? (
+              displayFriends.map((friend) => (
                 <button key={friend.id} type="button" className="messages-ig-friend" onClick={() => void openDirect(friend.id)}>
                   <Avatar username={friend.username} />
                   <strong>@{friend.username}</strong>
@@ -410,8 +555,8 @@ export function MessagesClient() {
           ) : null}
 
           <div className="messages-ig-thread-list">
-            {threads.length > 0 ? (
-              threads.map((thread) => {
+            {displayThreads.length > 0 ? (
+              displayThreads.map((thread) => {
                 const counterpart = thread.participants.find((participant) => participant.id !== currentUserId) ?? thread.participants[0];
                 const active = thread.id === activeThreadId;
                 return (
@@ -503,11 +648,23 @@ export function MessagesClient() {
               <div className="messages-ig-stream">
                 {activeThread.messages.map((message) => {
                   const systemCard = message.systemCard;
+                  const isShareCard =
+                    systemCard?.type === 'POST_CARD' ||
+                    systemCard?.type === 'LISTING_CARD' ||
+                    systemCard?.type === 'VEHICLE_CARD';
+                  const isPureSystemCard = message.messageType === 'SYSTEM_CARD' && !isShareCard;
                   return (
-                    <article key={message.id} className={`messages-ig-message ${message.isMine ? 'mine' : 'other'} ${message.messageType === 'SYSTEM_CARD' ? 'system' : ''}`}>
-                      {!message.isMine && message.messageType !== 'SYSTEM_CARD' ? <Avatar username={message.senderUsername} /> : <span className="messages-ig-avatar-spacer" />}
+                    <article key={message.id} className={`messages-ig-message ${message.isMine ? 'mine' : 'other'} ${isPureSystemCard ? 'system' : ''}`}>
+                      {!message.isMine && !isPureSystemCard ? <Avatar username={message.senderUsername} /> : <span className="messages-ig-avatar-spacer" />}
                       <div className={`messages-ig-message-col ${message.isMine ? 'mine' : 'other'}`}>
-                        {message.messageType === 'SYSTEM_CARD' ? (
+                        {isShareCard && systemCard ? (
+                          <SharedContentCard
+                            body={message.body}
+                            card={systemCard}
+                            mine={message.isMine}
+                            onPress={() => openSharedCard(systemCard.targetId, systemCard.contentType)}
+                          />
+                        ) : message.messageType === 'SYSTEM_CARD' ? (
                           <div className="messages-ig-system-card">
                             <small>{systemCard?.type ?? 'SYSTEM_CARD'}</small>
                             {message.body ? <p>{message.body}</p> : null}

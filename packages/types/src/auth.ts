@@ -90,3 +90,25 @@ export interface AuthErrorResponse {
   message: string;
   verificationRequired?: boolean;
 }
+
+export interface AuthSessionDevice {
+  id: string;
+  deviceName: string | null;
+  platform: string | null;
+  userAgent: string | null;
+  ip: string | null;
+  approximateLocation: string | null;
+  lastSeenAt: string | null;
+  createdAt: string;
+  revokedAt: string | null;
+  isCurrent: boolean;
+}
+
+export interface AuthSessionsResponse {
+  items: AuthSessionDevice[];
+}
+
+export interface RevokeAuthSessionResponse {
+  success: true;
+  revokedSessionId: string;
+}

@@ -73,6 +73,17 @@ export class JwtAuthGuard implements CanActivate {
         throw new UnauthorizedException('Oturum gecersiz veya suresi dolmus.');
       }
 
+      void this.prisma.accountSession
+        .update({
+          where: {
+            id: payload.sessionId,
+          },
+          data: {
+            lastSeenAt: new Date(),
+          },
+        })
+        .catch(() => undefined);
+
       request.authUser = {
         userId: payload.sub,
         username: payload.username,

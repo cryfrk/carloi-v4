@@ -1,6 +1,7 @@
 import type { MediaAssetPurpose, MediaAssetUploadResponse } from '@carloi-v4/types';
 
 import { MOBILE_API_BASE_URL } from './api-base-url';
+import { resolveMobileMediaUrl } from './media-url';
 
 const API_BASE_URL = MOBILE_API_BASE_URL;
 
@@ -10,6 +11,8 @@ export type ReactNativeUploadFile = {
   uri: string;
   name: string;
   type: string;
+  size?: number | null;
+  durationMs?: number | null;
 };
 
 async function handleUploadResponse(response: Response) {
@@ -21,7 +24,12 @@ async function handleUploadResponse(response: Response) {
     );
   }
 
-  return payload as unknown as MediaAssetUploadResponse;
+  const upload = payload as unknown as MediaAssetUploadResponse;
+
+  return {
+    ...upload,
+    url: resolveMobileMediaUrl(upload.url) ?? upload.url,
+  };
 }
 
 export const mobileMediaApi = {

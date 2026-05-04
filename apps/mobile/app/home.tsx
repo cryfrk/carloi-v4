@@ -15,10 +15,12 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
+import { MobileMediaView } from '../components/mobile-media-view';
 import { MobileShell } from '../components/mobile-shell';
 import { StoryStrip } from '../components/story-strip';
 import { useAuth } from '../context/auth-context';
 import { demoFeedComments, demoFeedPosts } from '../lib/demo-content';
+import { resolveMobileMediaUrl } from '../lib/media-url';
 import { mobileSocialApi } from '../lib/social-api';
 
 type CommentsState = Record<string, SocialComment[]>;
@@ -75,12 +77,13 @@ export default function HomeScreen() {
   const [loadingComments, setLoadingComments] = useState<LoadingCommentsState>({});
   const [openComments, setOpenComments] = useState<OpenCommentsState>({});
   const [storyRefreshKey, setStoryRefreshKey] = useState(0);
+  const [demoFeedState, setDemoFeedState] = useState<FeedPost[]>(demoFeedPosts);
 
   const mediaWidth = useMemo(() => Math.max(320, width), [width]);
   const maybeAccessToken = session?.accessToken;
   const maybeCurrentUserId = session?.user.id;
   const demoMode = !loading && feed.length === 0;
-  const displayedFeed = demoMode ? demoFeedPosts : feed;
+  const displayedFeed = demoMode ? demoFeedState : feed;
 
   useEffect(() => {
     if (maybeAccessToken) {
@@ -127,6 +130,10 @@ export default function HomeScreen() {
     setFeed((current) => current.map((post) => (post.id === postId ? updater(post) : post)));
   }
 
+  function patchDemoPost(postId: string, updater: (post: FeedPost) => FeedPost) {
+    setDemoFeedState((current) => current.map((post) => (post.id === postId ? updater(post) : post)));
+  }
+
   function patchOwner(ownerId: string, following: boolean) {
     setFeed((current) =>
       current.map((post) =>
@@ -139,7 +146,7 @@ export default function HomeScreen() {
 
   async function handleLike(post: FeedPost) {
     if (post.id.startsWith('demo-')) {
-      patchPost(post.id, (current) => ({
+      patchDemoPost(post.id, (current) => ({
         ...current,
         isLiked: !current.isLiked,
         likeCount: current.likeCount + (current.isLiked ? -1 : 1),
@@ -166,7 +173,7 @@ export default function HomeScreen() {
 
   async function handleSave(post: FeedPost) {
     if (post.id.startsWith('demo-')) {
-      patchPost(post.id, (current) => ({
+      patchDemoPost(post.id, (current) => ({
         ...current,
         isSaved: !current.isSaved,
       }));
@@ -270,7 +277,7 @@ export default function HomeScreen() {
         [postId]: [newComment, ...(current[postId] ?? demoFeedComments[postId] ?? [])],
       }));
       setOpenComments((current) => ({ ...current, [postId]: true }));
-      patchPost(postId, (current) => ({
+      patchDemoPost(postId, (current) => ({
         ...current,
         commentCount: current.commentCount + 1,
       }));
@@ -336,22 +343,13 @@ export default function HomeScreen() {
       >
         {post.media.map((item, index) => (
           <View key={item.id} style={[styles.mediaFrame, { width: mediaWidth }]}>
-            {item.mediaType === 'IMAGE' ? (
-              <Image
-                source={{ uri: item.url }}
-                style={styles.mediaImage}
-                resizeMode="cover"
-                progressiveRenderingEnabled
-                fadeDuration={120}
-              />
-            ) : (
-              <View style={styles.videoPlaceholder}>
-                <Text style={styles.videoBadge}>VIDEO</Text>
-                <Text numberOfLines={2} style={styles.videoUrl}>
-                  {item.url}
-                </Text>
-              </View>
-            )}
+            <MobileMediaView
+              autoPlay={item.mediaType === 'VIDEO'}
+              mediaType={item.mediaType}
+              nativeControls={item.mediaType === 'VIDEO'}
+              style={styles.mediaImage}
+              uri={item.url}
+            />
             {post.media.length > 1 ? (
               <View style={styles.mediaCounter}>
                 <Text style={styles.mediaCounterLabel}>{index + 1}/{post.media.length}</Text>
@@ -373,8 +371,8 @@ export default function HomeScreen() {
         <View style={styles.postHeader}>
           <View style={styles.ownerBlock}>
             <View style={styles.avatar}>
-              {post.owner.avatarUrl ? (
-                <Image source={{ uri: post.owner.avatarUrl }} style={styles.avatarImage} />
+              {resolveMobileMediaUrl(post.owner.avatarUrl) ? (
+                <Image source={{ uri: resolveMobileMediaUrl(post.owner.avatarUrl)! }} style={styles.avatarImage} />
               ) : (
                 <Text style={styles.avatarLabel}>{post.owner.username.slice(0, 1).toUpperCase()}</Text>
               )}
@@ -804,24 +802,6 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 11,
     fontWeight: '700',
-  },
-  videoPlaceholder: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingHorizontal: 20,
-    backgroundColor: '#eef1f4',
-  },
-  videoBadge: {
-    color: '#6b7280',
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1.2,
-  },
-  videoUrl: {
-    color: '#6b7280',
-    textAlign: 'center',
   },
   actionsRow: {
     flexDirection: 'row',

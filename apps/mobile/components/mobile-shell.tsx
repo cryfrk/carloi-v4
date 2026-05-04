@@ -16,7 +16,7 @@ export function MobileShell({
   children,
 }: {
   title: string;
-  subtitle: string;
+  subtitle?: string;
   actionLabel?: string;
   onActionPress?: () => void;
   children: React.ReactNode;
@@ -62,9 +62,8 @@ export function MobileShell({
       <View style={styles.container}>
         <View style={styles.header}>
           <View style={styles.headerCopy}>
-            <Text style={styles.eyebrow}>Carloi</Text>
             <Text style={styles.title}>{title}</Text>
-            <Text style={styles.subtitle}>{subtitle}</Text>
+            {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
           </View>
 
           <View style={styles.headerActions}>
@@ -179,62 +178,52 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'space-between',
     gap: 12,
     paddingHorizontal: 6,
-    paddingBottom: 12,
+    paddingBottom: 10,
   },
   headerCopy: {
     flex: 1,
-    gap: 4,
-  },
-  eyebrow: {
-    color: mobileTheme.colors.textMuted,
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1.4,
-    textTransform: 'uppercase',
+    gap: 2,
   },
   title: {
     color: mobileTheme.colors.textStrong,
-    fontSize: 26,
+    fontSize: 20,
     fontWeight: '700',
   },
   subtitle: {
     color: mobileTheme.colors.textMuted,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 12,
+    lineHeight: 17,
   },
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   headerIconButton: {
-    minWidth: 44,
-    minHeight: 44,
-    paddingHorizontal: 12,
-    borderRadius: mobileTheme.radius.md,
+    width: 38,
+    height: 38,
+    borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: mobileTheme.colors.accent,
-    ...mobileTheme.shadow,
+    backgroundColor: '#f4f6f8',
   },
   headerGhostButton: {
-    minWidth: 44,
-    minHeight: 44,
-    paddingHorizontal: 12,
-    borderRadius: mobileTheme.radius.md,
+    width: 38,
+    height: 38,
+    borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: mobileTheme.colors.surface,
+    backgroundColor: '#f4f6f8',
     borderWidth: 1,
-    borderColor: mobileTheme.colors.border,
+    borderColor: '#eef1f4',
     position: 'relative',
   },
   iconButtonText: {
-    color: mobileTheme.colors.white,
+    color: mobileTheme.colors.textStrong,
     fontSize: 12,
     fontWeight: '800',
   },

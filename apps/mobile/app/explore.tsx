@@ -13,6 +13,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { MobileShell } from '../components/mobile-shell';
+import { MobileMediaView } from '../components/mobile-media-view';
 import { useAuth } from '../context/auth-context';
 import { demoExploreVehicles } from '../lib/demo-content';
 import { mobileTheme } from '../lib/design-system';
@@ -92,7 +93,14 @@ export default function ExploreScreen() {
               <View style={[styles.reelCard, { minHeight: reelHeight }]}> 
                 <Pressable style={styles.mediaFrame} onPress={() => router.push(`/vehicles/${item.id}`)}>
                   {media?.url ? (
-                    <Image source={{ uri: media.url }} style={styles.mediaImage} />
+                    <MobileMediaView
+                      autoPlay={media.mediaType === 'VIDEO'}
+                      loop={media.mediaType === 'VIDEO'}
+                      mediaType={media.mediaType}
+                      muted={media.mediaType === 'VIDEO'}
+                      style={styles.mediaImage}
+                      uri={media.url}
+                    />
                   ) : (
                     <View style={styles.mediaFallback}>
                       <Text style={styles.mediaFallbackLabel}>{item.brand} {item.model}</Text>
@@ -115,11 +123,6 @@ export default function ExploreScreen() {
                         icon="chatbubble-outline"
                         label="Detay"
                         onPress={() => {
-                          if (item.id.startsWith('demo-')) {
-                            setNotice('Ornek arac detayi yerine kendi arac koleksiyonunu olusturmaya yonlendiriliyorsun.');
-                            router.push('/vehicles/create');
-                            return;
-                          }
                           router.push(`/vehicles/${item.id}`);
                         }}
                       />
@@ -275,4 +278,5 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
   },
 });
+
 

@@ -12,6 +12,7 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { getUserOwnedMediaAssetMap } from '../media/media-asset.helpers';
+import { normalizePersistedMediaUrl, shouldLogMediaDebug } from '../media/media-url.utils';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CommentsQueryDto } from './dto/comments-query.dto';
 import { CreateCommentDto } from './dto/create-comment.dto';
@@ -54,7 +55,18 @@ type FeedPostRecord = Prisma.PostGetPayload<{
         };
       };
     };
-    media: true;
+    media: {
+      include: {
+        mediaAsset: {
+          select: {
+            id: true;
+            url: true;
+            storageKey: true;
+            visibility: true;
+          };
+        };
+      };
+    };
     likes: {
       select: {
         id: true;
@@ -145,13 +157,43 @@ export class PostsService {
           orderBy: {
             sortOrder: 'asc',
           },
+          include: {
+            mediaAsset: {
+              select: {
+                id: true,
+                url: true,
+                storageKey: true,
+                visibility: true,
+              },
+            },
+          },
         },
       },
     });
 
+    if (shouldLogMediaDebug()) {
+      console.info('[posts.create] media payload', {
+        userId,
+        postId: post.id,
+        media: post.media.map((item) => ({
+          id: item.id,
+          mediaAssetId: item.mediaAssetId,
+          mediaType: item.mediaType,
+          storedUrl: item.url,
+          normalizedUrl: this.normalizeMediaUrl(item.url, item.mediaAsset),
+        })),
+      });
+    }
+
     return {
       success: true,
-      post,
+      post: {
+        ...post,
+        media: post.media.map((item) => ({
+          ...item,
+          url: this.normalizeMediaUrl(item.url, item.mediaAsset),
+        })),
+      },
     };
   }
 
@@ -574,6 +616,16 @@ export class PostsService {
           orderBy: {
             sortOrder: 'asc',
           },
+          include: {
+            mediaAsset: {
+              select: {
+                id: true,
+                url: true,
+                storageKey: true,
+                visibility: true,
+              },
+            },
+          },
         },
         likes: {
           where: {
@@ -602,6 +654,20 @@ export class PostsService {
   }
 
   private serializeFeedPost(post: FeedPostRecord, currentUserId: string) {
+    const media = post.media.map((item) => ({
+      id: item.id,
+      mediaType: item.mediaType,
+      url: this.normalizeMediaUrl(item.url, item.mediaAsset),
+      sortOrder: item.sortOrder,
+    }));
+
+    if (shouldLogMediaDebug()) {
+      console.info('[posts.feed] serialized media', {
+        postId: post.id,
+        media,
+      });
+    }
+
     return {
       id: post.id,
       caption: post.caption,
@@ -618,17 +684,23 @@ export class PostsService {
         isFollowing:
           post.owner.id === currentUserId ? false : Boolean(post.owner.followers.length),
       },
-      media: post.media.map((item) => ({
-        id: item.id,
-        mediaType: item.mediaType,
-        url: item.url,
-        sortOrder: item.sortOrder,
-      })),
+      media,
       likeCount: post._count.likes,
       commentCount: post._count.comments,
       isLiked: Boolean(post.likes.length),
       isSaved: Boolean(post.savedItems.length),
     };
+  }
+
+  private normalizeMediaUrl(
+    value: string | null | undefined,
+    mediaAsset?: FeedPostRecord['media'][number]['mediaAsset'] | null,
+  ) {
+    return (
+      normalizePersistedMediaUrl(value, {
+        mediaAsset: mediaAsset ?? null,
+      }) ?? value ?? ''
+    );
   }
 
   private serializeComment(comment: CommentRecord) {

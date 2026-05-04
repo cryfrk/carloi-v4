@@ -7,6 +7,7 @@ import type {
   GarageVehicleResponse,
   GarageVehiclesResponse,
   ListingDetailResponse,
+  ListingFeedCountResponse,
   ListingFeedQuery,
   ListingFeedResponse,
   ListingMutationResponse,
@@ -63,9 +64,24 @@ function buildListingFeedQuery(query: ListingFeedQuery = {}) {
   const search = new URLSearchParams();
 
   for (const [key, value] of Object.entries(query)) {
-    if (value !== undefined && value !== null && value !== '') {
-      search.set(key, String(value));
+    if (value === undefined || value === null || value === '') {
+      continue;
     }
+
+    if (Array.isArray(value)) {
+      if (value.length > 0) {
+        search.set(key, value.join(','));
+      }
+
+      continue;
+    }
+
+    if (typeof value === 'boolean') {
+      search.set(key, value ? 'true' : 'false');
+      continue;
+    }
+
+    search.set(key, String(value));
   }
 
   const suffix = search.toString();
@@ -125,6 +141,11 @@ export const webListingsApi = {
   },
   getFeed(accessToken: string, query?: ListingFeedQuery) {
     return requestJson<ListingFeedResponse>(`/listings/feed${buildListingFeedQuery(query)}`, {
+      accessToken,
+    });
+  },
+  getCount(accessToken: string, query?: ListingFeedQuery) {
+    return requestJson<ListingFeedCountResponse>(`/listings/count${buildListingFeedQuery(query)}`, {
       accessToken,
     });
   },
