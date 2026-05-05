@@ -14,6 +14,7 @@ import {
 import { MobileShell } from '../components/mobile-shell';
 import { useAuth } from '../context/auth-context';
 import { buildDemoMessageFixtures } from '../lib/demo-content';
+import { mobileDemoContentEnabled } from '../lib/demo-runtime';
 import { mobileMessagesApi } from '../lib/messages-api';
 
 function formatTime(value: string) {
@@ -62,8 +63,8 @@ export default function MessagesScreen() {
       ),
     [session],
   );
-  const displayThreads = !loading && threads.length === 0 ? demoFixtures.threads : threads;
-  const displayFriends = !loading && friends.length === 0 ? demoFixtures.friends : friends;
+  const displayThreads = mobileDemoContentEnabled && !loading && threads.length === 0 ? demoFixtures.threads : threads;
+  const displayFriends = mobileDemoContentEnabled && !loading && friends.length === 0 ? demoFixtures.friends : friends;
   const selectableParticipants = useMemo(() => {
     const map = new Map<string, MessageParticipantSummary>();
     for (const friend of displayFriends) {
@@ -120,7 +121,7 @@ export default function MessagesScreen() {
   }
 
   async function openDirect(userId: string) {
-    if (threads.length === 0) {
+    if (mobileDemoContentEnabled && threads.length === 0) {
       const demoThread = demoFixtures.threads.find((thread) =>
         thread.participants.some((participant) => participant.id === userId),
       );

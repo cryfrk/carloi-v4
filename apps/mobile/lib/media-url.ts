@@ -1,4 +1,5 @@
 import { MOBILE_API_BASE_URL } from './api-base-url';
+import { mobileRuntimeIsProduction } from './demo-runtime';
 import { isDemoMediaKey, resolveDemoMediaUri } from './demo-media-assets';
 
 const KNOWN_LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '0.0.0.0', '10.0.2.2']);
@@ -21,10 +22,18 @@ export function resolveMobileMediaUrl(value: string | null | undefined) {
   }
 
   if (value.startsWith('demo://')) {
+    if (mobileRuntimeIsProduction) {
+      return null;
+    }
+
     return isDemoMediaKey(value) ? resolveDemoMediaUri(value) : resolveDemoMediaUri('demo://placeholder');
   }
 
   if (isDemoMediaKey(value)) {
+    if (mobileRuntimeIsProduction) {
+      return null;
+    }
+
     return resolveDemoMediaUri(value);
   }
 

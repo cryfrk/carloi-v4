@@ -326,6 +326,76 @@ export class ProfilesService {
     };
   }
 
+  async getProfileFollowers(viewerId: string, usernameOrId: string) {
+    const target = await this.resolveTargetUser(usernameOrId);
+    const access = await this.resolveAccess(viewerId, target.id);
+
+    if (!access.canViewContent && !access.isOwnProfile) {
+      return { items: [] };
+    }
+
+    const followers = await this.prisma.follow.findMany({
+      where: { followingId: target.id },
+      include: {
+        follower: {
+          select: {
+            id: true,
+            username: true,
+            firstName: true,
+            lastName: true,
+            profile: {
+              select: {
+                avatarUrl: true,
+                isPrivate: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
+
+    return {
+      items: followers.map((item) => this.serializeConnection(item.follower)),
+    };
+  }
+
+  async getProfileFollowing(viewerId: string, usernameOrId: string) {
+    const target = await this.resolveTargetUser(usernameOrId);
+    const access = await this.resolveAccess(viewerId, target.id);
+
+    if (!access.canViewContent && !access.isOwnProfile) {
+      return { items: [] };
+    }
+
+    const following = await this.prisma.follow.findMany({
+      where: { followerId: target.id },
+      include: {
+        following: {
+          select: {
+            id: true,
+            username: true,
+            firstName: true,
+            lastName: true,
+            profile: {
+              select: {
+                avatarUrl: true,
+                isPrivate: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
+
+    return {
+      items: following.map((item) => this.serializeConnection(item.following)),
+    };
+  }
+
   async getSettings(userId: string) {
     const user = await this.prisma.user.findFirst({
       where: {
@@ -903,6 +973,23 @@ export class ProfilesService {
     }
 
     return [...new Set((bio.match(/@[a-zA-Z0-9._-]+/g) ?? []).map((item) => item.slice(1)))];
+  }
+
+  private serializeConnection(user: {
+    id: string;
+    username: string;
+    firstName: string;
+    lastName: string;
+    profile: { avatarUrl: string | null; isPrivate: boolean } | null;
+  }) {
+    return {
+      id: user.id,
+      username: user.username,
+      fullName: `${user.firstName} ${user.lastName}`.trim(),
+      avatarUrl: user.profile?.avatarUrl ?? null,
+      isPrivate: user.profile?.isPrivate ?? false,
+      isMutualFollow: false,
+    };
   }
 
   private toOptionalString(value: string | undefined) {

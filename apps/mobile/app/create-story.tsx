@@ -1,5 +1,10 @@
 ﻿import { Ionicons } from '@expo/vector-icons';
-import { MediaAssetPurpose, type MediaAssetUploadResponse } from '@carloi-v4/types';
+import {
+  MediaAssetPurpose,
+  TURKIYE_CITIES,
+  TURKIYE_DISTRICT_SUGGESTIONS,
+  type MediaAssetUploadResponse,
+} from '@carloi-v4/types';
 import { Redirect, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -25,6 +30,7 @@ export default function CreateStoryScreen() {
   const { session } = useAuth();
   const [caption, setCaption] = useState('');
   const [locationText, setLocationText] = useState('');
+  const [locationSearch, setLocationSearch] = useState('');
   const [uploadedMedia, setUploadedMedia] = useState<MediaAssetUploadResponse | null>(null);
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -50,6 +56,21 @@ export default function CreateStoryScreen() {
     ],
     [],
   );
+  const locationSuggestions = useMemo(() => {
+    const source = [
+      ...TURKIYE_CITIES,
+      ...Object.entries(TURKIYE_DISTRICT_SUGGESTIONS).flatMap(([city, districts]) =>
+        districts.map((district) => `${city} / ${district}`),
+      ),
+    ];
+    const query = locationSearch.trim().toLocaleLowerCase('tr-TR');
+
+    if (!query) {
+      return source.slice(0, 8);
+    }
+
+    return source.filter((item) => item.toLocaleLowerCase('tr-TR').includes(query)).slice(0, 8);
+  }, [locationSearch]);
 
   async function uploadStoryFile(kind: 'gallery' | 'camera') {
     setUploading(true);
@@ -59,8 +80,20 @@ export default function CreateStoryScreen() {
     try {
       const files =
         kind === 'camera'
-          ? await pickCameraMedia({ videoMaxDuration: 15 })
-          : await pickMediaFiles({ videoMaxDuration: 15 });
+          ? await pickCameraMedia({
+              videoMaxDuration: 15,
+              allowsEditing: true,
+              aspect: [9, 16],
+              quality: 0.82,
+              maxFileSizeMb: 60,
+            })
+          : await pickMediaFiles({
+              videoMaxDuration: 15,
+              allowsEditing: true,
+              aspect: [9, 16],
+              quality: 0.82,
+              maxFileSizeMb: 60,
+            });
       const selectedFile = files[0];
 
       if (!selectedFile) {
@@ -179,6 +212,9 @@ export default function CreateStoryScreen() {
         </View>
 
         <View style={styles.section}>
+          <Text style={styles.sectionMeta}>
+            Medya secildiginde tekli secimde hizli crop/edit acilir. Uzun video 15 saniye ile sinirlanir.
+          </Text>
           <Text style={styles.label}>Story metni</Text>
           <TextInput
             value={caption}
@@ -191,12 +227,33 @@ export default function CreateStoryScreen() {
           />
           <Text style={styles.label}>Konum etiketi</Text>
           <TextInput
-            value={locationText}
-            onChangeText={setLocationText}
-            placeholder="Ornek: Istanbul / Besiktas"
+            value={locationSearch || locationText}
+            onChangeText={(value) => {
+              setLocationSearch(value);
+              if (!value.trim()) {
+                setLocationText('');
+              }
+            }}
+            placeholder="Konum ara"
             placeholderTextColor={mobileTheme.colors.textMuted}
             style={styles.input}
           />
+          <View style={styles.locationSuggestionWrap}>
+            {locationSuggestions.map((item) => (
+              <Pressable
+                key={item}
+                style={styles.locationSuggestion}
+                onPress={() => {
+                  setLocationSearch(item);
+                  setLocationText(item);
+                  setMessage(`Konum etiketi secildi: ${item}`);
+                }}
+              >
+                <Ionicons color="#6b7280" name="location-outline" size={15} />
+                <Text style={styles.locationSuggestionLabel}>{item}</Text>
+              </Pressable>
+            ))}
+          </View>
         </View>
 
         {message ? (
@@ -338,6 +395,25 @@ const styles = StyleSheet.create({
     color: mobileTheme.colors.textStrong,
     fontSize: 12,
     fontWeight: '700',
+  },
+  locationSuggestionWrap: {
+    gap: 8,
+  },
+  locationSuggestion: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 14,
+    backgroundColor: '#f7f8fa',
+    borderWidth: 1,
+    borderColor: '#edf0f3',
+  },
+  locationSuggestionLabel: {
+    color: mobileTheme.colors.textStrong,
+    fontSize: 13,
+    fontWeight: '600',
   },
   label: {
     color: mobileTheme.colors.textStrong,

@@ -6,6 +6,7 @@ import { AppShell } from './app-shell';
 import { useAuth } from './auth-provider';
 import { WebMediaView } from './web-media-view';
 import { demoFeedPostById } from '../lib/demo-content';
+import { webDemoContentEnabled } from '../lib/demo-runtime';
 import { webSocialApi } from '../lib/social-api';
 import { ShareContentSheet } from './share-content-sheet';
 
@@ -17,7 +18,7 @@ export function PostDetailClient({ postId }: { postId: string }) {
   const [shareOpen, setShareOpen] = useState(false);
 
   useEffect(() => {
-    if (postId.startsWith('demo-post-')) {
+    if (webDemoContentEnabled && postId.startsWith('demo-post-')) {
       setPost(demoFeedPostById[postId] ?? null);
       return;
     }

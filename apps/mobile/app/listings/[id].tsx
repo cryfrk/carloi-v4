@@ -18,6 +18,7 @@ import { ShareContentSheet } from '../../components/share-content-sheet';
 import { VehicleDamageMap } from '../../components/vehicle-damage-map';
 import { useAuth } from '../../context/auth-context';
 import { buildDemoMessageFixtures, demoListingById } from '../../lib/demo-content';
+import { mobileDemoContentEnabled } from '../../lib/demo-runtime';
 import { mobileTheme } from '../../lib/design-system';
 import { mobileListingsApi } from '../../lib/listings-api';
 import { fuelTypeLabels, formatKm, formatPrice, sellerTypeLabels, transmissionLabels } from '../../lib/listings-ui';
@@ -65,7 +66,7 @@ export default function ListingDetailScreen() {
     setLoading(true);
     setErrorMessage(null);
 
-    if (id.startsWith('demo-listing-')) {
+    if (mobileDemoContentEnabled && id.startsWith('demo-listing-')) {
       setListing(demoListingById[id] ?? null);
       setLoading(false);
       return;
@@ -107,7 +108,7 @@ export default function ListingDetailScreen() {
       return;
     }
 
-    if (listing.id.startsWith('demo-listing-')) {
+    if (mobileDemoContentEnabled && listing.id.startsWith('demo-listing-')) {
       const demoThread =
         Object.values(demoMessages.threadDetails).find((thread) =>
           thread.messages.some((message) => sharedCardMatchesTarget(message.systemCard, listing.id)),

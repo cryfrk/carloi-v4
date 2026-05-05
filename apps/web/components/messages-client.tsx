@@ -16,6 +16,7 @@ import { AppShell } from './app-shell';
 import { useAuth } from './auth-provider';
 import { SharedContentCard } from './shared-content-card';
 import { buildDemoMessageFixtures } from '../lib/demo-content';
+import { webDemoContentEnabled } from '../lib/demo-runtime';
 import { webMediaApi } from '../lib/media-api';
 import { webMessagesApi } from '../lib/messages-api';
 import { getWebSharedContentPath } from '../lib/share-content';
@@ -70,16 +71,18 @@ export function MessagesClient() {
       ),
     [session],
   );
-  const [demoThreads, setDemoThreads] = useState<MessageThreadSummary[]>(demoFixtures.threads);
-  const [demoThreadDetails, setDemoThreadDetails] = useState<Record<string, MessageThreadDetail>>(demoFixtures.threadDetails);
+  const [demoThreads, setDemoThreads] = useState<MessageThreadSummary[]>(() => (webDemoContentEnabled ? demoFixtures.threads : []));
+  const [demoThreadDetails, setDemoThreadDetails] = useState<Record<string, MessageThreadDetail>>(
+    () => (webDemoContentEnabled ? demoFixtures.threadDetails : {}),
+  );
 
   useEffect(() => {
     setDemoThreads(demoFixtures.threads);
     setDemoThreadDetails(demoFixtures.threadDetails);
   }, [demoFixtures]);
 
-  const displayThreads = !loading && threads.length === 0 ? demoThreads : threads;
-  const displayFriends = !loading && friends.length === 0 ? demoFixtures.friends : friends;
+  const displayThreads = webDemoContentEnabled && !loading && threads.length === 0 ? demoThreads : threads;
+  const displayFriends = webDemoContentEnabled && !loading && friends.length === 0 ? demoFixtures.friends : friends;
 
   const selectableParticipants = useMemo(() => {
     const map = new Map<string, MessageParticipantSummary>();
@@ -113,7 +116,7 @@ export function MessagesClient() {
         setThreads(threadResponse.items);
         setFriends(friendResponse.items);
         setActiveThreadId(
-          (current) => current ?? threadFromQuery ?? threadResponse.items[0]?.id ?? demoFixtures.threads[0]?.id ?? null,
+          (current) => current ?? threadFromQuery ?? threadResponse.items[0]?.id ?? (webDemoContentEnabled ? demoFixtures.threads[0]?.id ?? null : null),
         );
       })
       .catch((error) => {
@@ -128,7 +131,7 @@ export function MessagesClient() {
       return;
     }
 
-    if (activeThreadId.startsWith('demo-thread-')) {
+    if (webDemoContentEnabled && activeThreadId.startsWith('demo-thread-')) {
       setActiveThread(demoThreadDetails[activeThreadId] ?? null);
       return;
     }
@@ -187,7 +190,7 @@ export function MessagesClient() {
   }
 
   async function openDirect(userId: string) {
-    if (threads.length === 0) {
+    if (webDemoContentEnabled && threads.length === 0) {
       const demoThread = Object.values(demoThreadDetails).find((thread) =>
         thread.participants.some((participant) => participant.id === userId),
       );
@@ -256,7 +259,7 @@ export function MessagesClient() {
     setErrorMessage(null);
 
     try {
-      if (activeThread.id.startsWith('demo-thread-')) {
+      if (webDemoContentEnabled && activeThread.id.startsWith('demo-thread-')) {
         const nextAttachmentType =
           attachmentType === MessageType.IMAGE
             ? AttachmentType.IMAGE

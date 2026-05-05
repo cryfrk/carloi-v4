@@ -9,6 +9,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   Image,
   Linking,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -18,6 +19,7 @@ import {
 } from 'react-native';
 import { useAuth } from '../context/auth-context';
 import { buildDemoMessageFixtures, buildDemoProfileFixtures } from '../lib/demo-content';
+import { mobileDemoContentEnabled } from '../lib/demo-runtime';
 import { mobileMessagesApi } from '../lib/messages-api';
 import { mobileProfileApi } from '../lib/profile-api';
 import { mobileSocialApi } from '../lib/social-api';
@@ -25,6 +27,7 @@ import { MobileShell } from './mobile-shell';
 import { MobileMediaView } from './mobile-media-view';
 
 type TabKey = 'posts' | 'listings' | 'vehicles';
+type ConnectionsTab = 'followers' | 'following' | null;
 
 export function MobileProfileScreen({
   identifier,
@@ -42,6 +45,12 @@ export function MobileProfileScreen({
   const [listings, setListings] = useState<ProfileListingItem[]>([]);
   const [vehicles, setVehicles] = useState<ProfileVehicleItem[]>([]);
   const [activeTab, setActiveTab] = useState<TabKey>(defaultTab);
+  const [connectionsOpen, setConnectionsOpen] = useState<ConnectionsTab>(null);
+  const [connectionsLoading, setConnectionsLoading] = useState(false);
+  const [connections, setConnections] = useState<{
+    followers: Array<{ id: string; username: string; fullName: string; avatarUrl: string | null; isPrivate: boolean }>;
+    following: Array<{ id: string; username: string; fullName: string; avatarUrl: string | null; isPrivate: boolean }>;
+  }>({ followers: [], following: [] });
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const demoProfile = useMemo(
@@ -81,7 +90,10 @@ export function MobileProfileScreen({
 
   const tileSize = useMemo(() => Math.floor((width - 4) / 3), [width]);
   const profileKey = identifier ?? 'me';
-  const showDemoProfile = !loading && (!profile || (posts.length === 0 && listings.length === 0 && vehicles.length === 0));
+  const showDemoProfile =
+    mobileDemoContentEnabled &&
+    !loading &&
+    (!profile || (posts.length === 0 && listings.length === 0 && vehicles.length === 0));
   const displayProfile = showDemoProfile ? demoProfile.profile : profile;
   const displayPosts = showDemoProfile ? demoProfile.posts : posts;
   const displayListings = showDemoProfile ? demoProfile.listings : listings;
@@ -123,7 +135,7 @@ export function MobileProfileScreen({
       return;
     }
 
-    if (showDemoProfile || displayProfile.id.startsWith('demo-owner-')) {
+    if (mobileDemoContentEnabled && (showDemoProfile || displayProfile.id.startsWith('demo-owner-'))) {
       setErrorMessage('Bu demo profil Carloi akisinin nasil gorunecegini gostermek icin hazirlandi.');
       return;
     }
@@ -147,7 +159,7 @@ export function MobileProfileScreen({
       return;
     }
 
-    if (showDemoProfile || displayProfile.id.startsWith('demo-owner-')) {
+    if (mobileDemoContentEnabled && (showDemoProfile || displayProfile.id.startsWith('demo-owner-'))) {
       const demoThread = demoMessages.threads.find((thread) =>
         thread.participants.some((participant) => participant.id === displayProfile.id),
       );
@@ -172,6 +184,35 @@ export function MobileProfileScreen({
   const canViewContent = displayProfile?.canViewContent ?? true;
   const isOwnProfile = displayProfile?.isOwnProfile ?? !identifier;
 
+  async function openConnectionsSheet(type: Exclude<ConnectionsTab, null>) {
+    if (!session?.accessToken || !displayProfile) {
+      return;
+    }
+
+    setConnectionsOpen(type);
+
+    if (connections[type].length > 0) {
+      return;
+    }
+
+    try {
+      setConnectionsLoading(true);
+      const response =
+        type === 'followers'
+          ? await mobileProfileApi.getProfileFollowers(session.accessToken, displayProfile.username)
+          : await mobileProfileApi.getProfileFollowing(session.accessToken, displayProfile.username);
+
+      setConnections((current) => ({
+        ...current,
+        [type]: response.items,
+      }));
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Kullanici listesi getirilemedi.');
+    } finally {
+      setConnectionsLoading(false);
+    }
+  }
+
   return (
     <MobileShell
       title={isOwnProfile ? 'Profil' : `@${profileUsername}`}
@@ -181,13 +222,13 @@ export function MobileProfileScreen({
         {errorMessage ? <Text style={styles.error}>{errorMessage}</Text> : null}
 
         <View style={styles.topSection}>
-          <View style={styles.avatarShell}>
+          <Pressable style={styles.avatarShell} onPress={() => (isOwnProfile ? router.push('/settings') : undefined)}>
             {displayProfile?.avatarUrl ? (
               <Image source={{ uri: displayProfile.avatarUrl }} style={styles.avatarImage} />
             ) : (
               <Text style={styles.avatarText}>{displayInitial}</Text>
             )}
-          </View>
+          </Pressable>
 
           <Text style={styles.username}>@{profileUsername}</Text>
           {displayProfile ? <Text style={styles.nameText}>{displayProfile.firstName} {displayProfile.lastName}</Text> : null}
@@ -208,9 +249,15 @@ export function MobileProfileScreen({
               </Pressable>
             ) : null}
             {displayProfile?.locationText ? <Text style={styles.metaText}>{displayProfile.locationText}</Text> : null}
-            <Text style={styles.metaText}>
-              {displayProfile?.followerCount ?? 0} takipci · {displayProfile?.followingCount ?? 0} takip edilen
-            </Text>
+            <View style={styles.connectionRow}>
+              <Pressable onPress={() => void openConnectionsSheet('followers')}>
+                <Text style={styles.metaText}>{displayProfile?.followerCount ?? 0} takipci</Text>
+              </Pressable>
+              <Text style={styles.metaSeparator}>·</Text>
+              <Pressable onPress={() => void openConnectionsSheet('following')}>
+                <Text style={styles.metaText}>{displayProfile?.followingCount ?? 0} takip edilen</Text>
+              </Pressable>
+            </View>
           </View>
 
           <View style={styles.actionRow}>
@@ -344,6 +391,50 @@ export function MobileProfileScreen({
           </View>
         ) : null}
       </ScrollView>
+      <Modal
+        animationType="slide"
+        onRequestClose={() => setConnectionsOpen(null)}
+        transparent
+        visible={Boolean(connectionsOpen)}
+      >
+        <View style={styles.connectionsBackdrop}>
+          <Pressable style={StyleSheet.absoluteFillObject} onPress={() => setConnectionsOpen(null)} />
+          <View style={styles.connectionsSheet}>
+            <View style={styles.connectionsHandle} />
+            <Text style={styles.connectionsTitle}>
+              {connectionsOpen === 'followers' ? 'Takipciler' : 'Takip edilenler'}
+            </Text>
+            {connectionsLoading ? <Text style={styles.helperText}>Liste yukleniyor...</Text> : null}
+            <ScrollView contentContainerStyle={styles.connectionsList}>
+              {(connectionsOpen ? connections[connectionsOpen] : []).map((item) => (
+                <Pressable
+                  key={item.id}
+                  onPress={() => {
+                    setConnectionsOpen(null);
+                    router.push(`/profile/${item.username}` as never);
+                  }}
+                  style={styles.connectionItem}
+                >
+                  <View style={styles.connectionAvatar}>
+                    {item.avatarUrl ? (
+                      <Image source={{ uri: item.avatarUrl }} style={styles.connectionAvatarImage} />
+                    ) : (
+                      <Text style={styles.connectionAvatarLabel}>{item.username.slice(0, 1).toUpperCase()}</Text>
+                    )}
+                  </View>
+                  <View style={styles.connectionCopy}>
+                    <Text style={styles.connectionUsername}>@{item.username}</Text>
+                    <Text style={styles.connectionFullName}>{item.fullName}{item.isPrivate ? ' · Gizli' : ''}</Text>
+                  </View>
+                </Pressable>
+              ))}
+              {!connectionsLoading && connectionsOpen && connections[connectionsOpen].length === 0 ? (
+                <Text style={styles.helperText}>Bu listede gosterilecek kullanici yok.</Text>
+              ) : null}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </MobileShell>
   );
 }
@@ -456,6 +547,14 @@ const styles = StyleSheet.create({
   metaText: {
     color: '#6b7280',
     textAlign: 'center',
+  },
+  connectionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  metaSeparator: {
+    color: '#9aa3af',
   },
   linkText: {
     color: '#2563eb',
@@ -652,6 +751,71 @@ const styles = StyleSheet.create({
   emptyState: {
     width: '100%',
     paddingVertical: 32,
+  },
+  connectionsBackdrop: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(17,17,17,0.2)',
+  },
+  connectionsSheet: {
+    gap: 12,
+    paddingHorizontal: 18,
+    paddingTop: 12,
+    paddingBottom: 24,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    backgroundColor: '#ffffff',
+  },
+  connectionsHandle: {
+    alignSelf: 'center',
+    width: 42,
+    height: 4,
+    borderRadius: 999,
+    backgroundColor: '#d7dbe0',
+  },
+  connectionsTitle: {
+    color: '#111111',
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  connectionsList: {
+    gap: 10,
+    paddingBottom: 12,
+  },
+  connectionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 8,
+  },
+  connectionAvatar: {
+    width: 42,
+    height: 42,
+    borderRadius: 999,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#111111',
+  },
+  connectionAvatarImage: {
+    width: '100%',
+    height: '100%',
+  },
+  connectionAvatarLabel: {
+    color: '#ffffff',
+    fontWeight: '800',
+  },
+  connectionCopy: {
+    flex: 1,
+    gap: 3,
+  },
+  connectionUsername: {
+    color: '#111111',
+    fontWeight: '700',
+  },
+  connectionFullName: {
+    color: '#6b7280',
+    fontSize: 12,
   },
   error: {
     color: '#dc2626',

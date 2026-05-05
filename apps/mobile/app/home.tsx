@@ -20,6 +20,7 @@ import { MobileShell } from '../components/mobile-shell';
 import { StoryStrip } from '../components/story-strip';
 import { useAuth } from '../context/auth-context';
 import { demoFeedComments, demoFeedPosts } from '../lib/demo-content';
+import { mobileDemoContentEnabled } from '../lib/demo-runtime';
 import { resolveMobileMediaUrl } from '../lib/media-url';
 import { mobileSocialApi } from '../lib/social-api';
 
@@ -77,12 +78,13 @@ export default function HomeScreen() {
   const [loadingComments, setLoadingComments] = useState<LoadingCommentsState>({});
   const [openComments, setOpenComments] = useState<OpenCommentsState>({});
   const [storyRefreshKey, setStoryRefreshKey] = useState(0);
-  const [demoFeedState, setDemoFeedState] = useState<FeedPost[]>(demoFeedPosts);
+  const [demoFeedState, setDemoFeedState] = useState<FeedPost[]>(() => (mobileDemoContentEnabled ? demoFeedPosts : []));
 
   const mediaWidth = useMemo(() => Math.max(320, width), [width]);
   const maybeAccessToken = session?.accessToken;
   const maybeCurrentUserId = session?.user.id;
-  const demoMode = !loading && feed.length === 0;
+  const demoMode = mobileDemoContentEnabled && !loading && feed.length === 0;
+  const showRealEmptyState = !loading && !demoMode && feed.length === 0;
   const displayedFeed = demoMode ? demoFeedState : feed;
 
   useEffect(() => {
@@ -562,6 +564,22 @@ export default function HomeScreen() {
                 </Pressable>
               </View>
             ) : null}
+            {showRealEmptyState ? (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyTitle}>Akis henuz bos</Text>
+                <Text style={styles.emptyCopy}>
+                  Gercek gonderiler paylasildiginda burada gorunecek. Ilk gonderini olusturabilir veya kesfete goz atabilirsin.
+                </Text>
+                <View style={styles.emptyActions}>
+                  <Pressable style={styles.onboardingButton} onPress={() => router.push('/create')}>
+                    <Text style={styles.onboardingButtonLabel}>Gonderi olustur</Text>
+                  </Pressable>
+                  <Pressable style={styles.secondaryCta} onPress={() => router.push('/explore')}>
+                    <Text style={styles.secondaryCtaLabel}>Kesfete git</Text>
+                  </Pressable>
+                </View>
+              </View>
+            ) : null}
           </View>
         }
         ListFooterComponent={
@@ -698,6 +716,27 @@ const styles = StyleSheet.create({
   },
   onboardingButtonLabel: {
     color: '#ffffff',
+    fontWeight: '700',
+  },
+  emptyActions: {
+    flexDirection: 'row',
+    gap: 10,
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+  },
+  secondaryCta: {
+    marginTop: 8,
+    minHeight: 42,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 18,
+    borderWidth: 1,
+    borderColor: '#d7dce3',
+    backgroundColor: '#ffffff',
+  },
+  secondaryCtaLabel: {
+    color: '#111111',
     fontWeight: '700',
   },
   postCard: {

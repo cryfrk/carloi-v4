@@ -6606,3 +6606,98 @@ textarea {
   }
 }
 
+.create-sheet-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.2);
+}
+
+.create-sheet-dismiss {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.create-sheet-panel {
+  position: relative;
+  width: min(760px, calc(100% - 24px));
+  margin-bottom: 22px;
+  padding: 14px;
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.14);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  backdrop-filter: blur(18px);
+}
+
+.create-sheet-handle {
+  width: 46px;
+  height: 4px;
+  border-radius: 999px;
+  margin: 0 auto 14px;
+  background: #d7dbe0;
+}
+
+.create-sheet-header {
+  display: grid;
+  gap: 4px;
+  padding: 0 6px 10px;
+}
+
+.create-sheet-header strong {
+  color: var(--text);
+  font-size: 1.05rem;
+}
+
+.create-sheet-header span {
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.create-sheet-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.create-sheet-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  padding: 16px;
+  border-radius: 22px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: #f8fafc;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.create-sheet-card div {
+  display: grid;
+  gap: 4px;
+}
+
+.create-sheet-card strong {
+  font-size: 0.98rem;
+}
+
+.create-sheet-card span,
+.create-sheet-card small {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+@media (max-width: 720px) {
+  .create-sheet-grid {
+    grid-template-columns: 1fr;
+  }
+}

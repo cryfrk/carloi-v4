@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/auth-context';
 import { mobileTheme } from '../lib/design-system';
 import { mobileNotificationsApi } from '../lib/notifications-api';
+import { CreateActionSheet } from './create-action-sheet';
 import { MobileTabBar } from './mobile-tab-bar';
 
 export function MobileShell({
@@ -26,6 +27,7 @@ export function MobileShell({
   const { session, sessions, isReady, switchAccount } = useAuth();
   const [switcherVisible, setSwitcherVisible] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [createSheetVisible, setCreateSheetVisible] = useState(false);
 
   useEffect(() => {
     if (!session?.accessToken) {
@@ -42,6 +44,32 @@ export function MobileShell({
     () => pathname === '/home' || pathname === '/listings' || pathname === '/profile',
     [pathname],
   );
+  const canGoBack = useMemo(
+    () =>
+      !['/home', '/listings', '/explore', '/loi-ai', '/profile'].includes(pathname),
+    [pathname],
+  );
+  const headerTitle = useMemo(() => {
+    if (pathname === '/home') {
+      return 'Carloi';
+    }
+    if (pathname === '/listings') {
+      return 'Ilanlar';
+    }
+    if (pathname === '/explore') {
+      return 'Kesfet';
+    }
+    if (pathname === '/loi-ai') {
+      return 'Loi AI';
+    }
+    if (pathname === '/profile') {
+      return `@${session?.user.username ?? 'profil'}`;
+    }
+    if (pathname.startsWith('/messages')) {
+      return title;
+    }
+    return title;
+  }, [pathname, session?.user.username, title]);
 
   if (!isReady) {
     return (
@@ -59,50 +87,56 @@ export function MobileShell({
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <View style={styles.headerCopy}>
-            <Text style={styles.title}>{title}</Text>
-            {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
-          </View>
+        <View style={styles.container}>
+          <View style={styles.header}>
+            <View style={styles.headerLeading}>
+              {canGoBack ? (
+                <Pressable onPress={() => router.back()} style={styles.slimHeaderButton}>
+                  <Ionicons color="#111111" name="chevron-back" size={20} />
+                </Pressable>
+              ) : null}
+              <Text numberOfLines={1} style={styles.title}>
+                {headerTitle}
+              </Text>
+            </View>
 
-          <View style={styles.headerActions}>
-            {showPrimaryHeader ? (
-              <>
-                <Pressable onPress={() => router.push('/create')} style={styles.headerIconButton}>
-                  <Ionicons color="#111111" name="add" size={20} />
-                </Pressable>
-                <Pressable onPress={() => router.push('/notifications')} style={styles.headerGhostButton}>
-                  <Ionicons color="#111111" name="notifications-outline" size={18} />
-                  {unreadCount > 0 ? <Text style={styles.inlineBadge}>{unreadCount}</Text> : null}
-                </Pressable>
-                <Pressable
-                  onPress={() => router.push(pathname === '/profile' ? '/settings' : '/messages')}
-                  style={styles.headerGhostButton}
-                >
-                  <Ionicons
-                    color="#111111"
-                    name={pathname === '/profile' ? 'menu-outline' : 'paper-plane-outline'}
-                    size={18}
-                  />
-                </Pressable>
-              </>
-            ) : (
-              <>
-                {!pathname.startsWith('/messages') ? (
-                  <Pressable onPress={() => router.push('/messages')} style={styles.headerGhostButton}>
-                    <Ionicons color="#111111" name="paper-plane-outline" size={18} />
+            <View style={styles.headerActions}>
+              {showPrimaryHeader ? (
+                <>
+                  <Pressable onPress={() => setCreateSheetVisible(true)} style={styles.slimHeaderButton}>
+                    <Ionicons color="#111111" name="add-circle-outline" size={21} />
                   </Pressable>
-                ) : null}
-                {actionLabel && onActionPress ? (
-                  <Pressable onPress={onActionPress} style={styles.headerIconButton}>
-                    <Text style={styles.iconButtonText}>{actionLabel}</Text>
+                  <Pressable onPress={() => router.push('/notifications')} style={styles.slimHeaderButton}>
+                    <Ionicons color="#111111" name="heart-outline" size={20} />
+                    {unreadCount > 0 ? <Text style={styles.inlineBadge}>{unreadCount}</Text> : null}
                   </Pressable>
-                ) : null}
-              </>
-            )}
+                  <Pressable
+                    onPress={() => router.push(pathname === '/profile' ? '/settings' : '/messages')}
+                    style={styles.slimHeaderButton}
+                  >
+                    <Ionicons
+                      color="#111111"
+                      name={pathname === '/profile' ? 'menu-outline' : 'paper-plane-outline'}
+                      size={19}
+                    />
+                  </Pressable>
+                </>
+              ) : (
+                <>
+                  {!pathname.startsWith('/messages') ? (
+                    <Pressable onPress={() => router.push('/messages')} style={styles.slimHeaderButton}>
+                      <Ionicons color="#111111" name="paper-plane-outline" size={19} />
+                    </Pressable>
+                  ) : null}
+                  {actionLabel && onActionPress ? (
+                    <Pressable onPress={onActionPress} style={styles.headerTextAction}>
+                      <Text style={styles.headerTextActionLabel}>{actionLabel}</Text>
+                    </Pressable>
+                  ) : null}
+                </>
+              )}
+            </View>
           </View>
-        </View>
 
         <View style={styles.body}>{children}</View>
 
@@ -112,6 +146,7 @@ export function MobileShell({
           profileInitial={session.user.username.slice(0, 1).toUpperCase()}
         />
       </View>
+      <CreateActionSheet onClose={() => setCreateSheetVisible(false)} visible={createSheetVisible} />
 
       <Modal visible={switcherVisible} transparent animationType="fade" onRequestClose={() => setSwitcherVisible(false)}>
         <View style={styles.modalBackdrop}>
@@ -171,8 +206,8 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    paddingHorizontal: mobileTheme.spacing.md,
-    paddingTop: 8,
+    paddingHorizontal: 0,
+    paddingTop: 0,
     paddingBottom: 12,
     backgroundColor: mobileTheme.colors.background,
   },
@@ -181,49 +216,49 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 12,
-    paddingHorizontal: 6,
-    paddingBottom: 10,
+    minHeight: 48,
+    paddingHorizontal: 14,
+    paddingBottom: 6,
+    backgroundColor: '#ffffff',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#edf0f3',
   },
-  headerCopy: {
+  headerLeading: {
     flex: 1,
-    gap: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   title: {
-    color: mobileTheme.colors.textStrong,
-    fontSize: 20,
-    fontWeight: '700',
-  },
-  subtitle: {
-    color: mobileTheme.colors.textMuted,
-    fontSize: 12,
-    lineHeight: 17,
+    flex: 1,
+    color: '#111111',
+    fontSize: 19,
+    fontWeight: '800',
   },
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 2,
   },
-  headerIconButton: {
-    width: 38,
-    height: 38,
+  slimHeaderButton: {
+    width: 34,
+    height: 34,
     borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#f4f6f8',
-  },
-  headerGhostButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 999,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#f4f6f8',
-    borderWidth: 1,
-    borderColor: '#eef1f4',
+    backgroundColor: 'transparent',
     position: 'relative',
   },
-  iconButtonText: {
-    color: mobileTheme.colors.textStrong,
+  headerTextAction: {
+    minHeight: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+    borderRadius: 999,
+    backgroundColor: '#f4f6f8',
+  },
+  headerTextActionLabel: {
+    color: '#111111',
     fontSize: 12,
     fontWeight: '800',
   },
@@ -242,6 +277,7 @@ const styles = StyleSheet.create({
   },
   body: {
     flex: 1,
+    paddingHorizontal: mobileTheme.spacing.md,
   },
   modalBackdrop: {
     flex: 1,

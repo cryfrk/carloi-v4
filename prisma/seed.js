@@ -72,6 +72,14 @@ function getDevelopmentSeedPassword() {
   return DEVELOPMENT_SEED_PASSWORD;
 }
 
+function isEnabledFlag(value, fallback = false) {
+  if (value == null || value === '') {
+    return fallback;
+  }
+
+  return ['1', 'true', 'yes', 'on'].includes(String(value).trim().toLowerCase());
+}
+
 function hashPlate(plateNumber) {
   return crypto.createHash('sha256').update(plateNumber).digest('hex');
 }
@@ -2841,8 +2849,14 @@ async function main() {
 
   await seedVehicleCatalog();
   await seedVehicleKnowledge();
-  await seedExampleUsersAndContent(sharedPassword);
-  await seedBackendDemoData(prisma);
+  const demoDataEnabled = isEnabledFlag(process.env.ENABLE_DEMO_DATA, false);
+
+  if (demoDataEnabled) {
+    await seedExampleUsersAndContent(sharedPassword);
+    await seedBackendDemoData(prisma);
+  } else {
+    console.log('Skipping example and backend demo data seed because ENABLE_DEMO_DATA is not true.');
+  }
 
   console.log('Seeded admin users:', adminUsers.map((adminUser) => adminUser.username).join(', '));
   console.log('Seeded vehicle catalog:', 'Fiat/Egea, Renault/Clio, Volkswagen/Golf');

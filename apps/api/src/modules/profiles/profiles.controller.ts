@@ -39,6 +39,16 @@ export class ProfilesController {
   getProfileVehicles(@CurrentUser() user: AuthenticatedUser, @Param('username') username: string) {
     return this.profilesService.getProfileVehicles(user.userId, username);
   }
+
+  @Get(':username/followers')
+  getProfileFollowers(@CurrentUser() user: AuthenticatedUser, @Param('username') username: string) {
+    return this.profilesService.getProfileFollowers(user.userId, username);
+  }
+
+  @Get(':username/following')
+  getProfileFollowing(@CurrentUser() user: AuthenticatedUser, @Param('username') username: string) {
+    return this.profilesService.getProfileFollowing(user.userId, username);
+  }
 }
 
 @UseGuards(JwtAuthGuard)

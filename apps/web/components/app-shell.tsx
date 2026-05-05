@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useAuth } from './auth-provider';
 import { webNotificationsApi } from '../lib/notifications-api';
+import { CreateActionSheet } from './create-action-sheet';
 import {
   BellIcon,
   CarIcon,
@@ -80,6 +81,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { session, sessions, signOut, switchAccount, isReady } = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
+  const [createSheetVisible, setCreateSheetVisible] = useState(false);
 
   useEffect(() => {
     if (!session?.accessToken) {
@@ -94,7 +96,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const quickActionHref = pathname === '/profile' ? '/settings' : '/messages';
   const quickActionLabel = pathname === '/profile' ? 'Ayarlar' : 'Mesajlar';
-  const activeAccounts = useMemo(() => sessions.slice(0, 3), [sessions]);
+  const activeAccounts = useMemo(() => sessions.slice(0, 2), [sessions]);
 
   if (!session) {
     return <div className="public-shell">{children}</div>;
@@ -108,10 +110,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <span className="compact-logo-mark">C</span>
             <span className="compact-logo-text">Carloi</span>
           </Link>
-          <div className="compact-brand-copy">
-            <strong>@{session.user.username}</strong>
-            <span>{session.user.userType === 'COMMERCIAL' ? 'Ticari hesap' : 'Bireysel hesap'}</span>
-          </div>
         </div>
 
         <div className="compact-topbar-actions">
@@ -130,9 +128,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="topbar-icon-row">
-            <Link aria-label="Olustur" className="topbar-icon-button" href="/create">
+            <button
+              aria-label="Olustur"
+              className="topbar-icon-button button-reset"
+              onClick={() => setCreateSheetVisible(true)}
+              type="button"
+            >
               <PlusIcon className="topbar-icon" />
-            </Link>
+            </button>
             <Link aria-label="Bildirimler" className="topbar-icon-button" href="/notifications">
               <BellIcon className="topbar-icon" />
               {unreadCount > 0 ? <span className="topbar-badge">{unreadCount}</span> : null}
@@ -159,6 +162,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </header>
 
       <main className="content">{children}</main>
+      <CreateActionSheet onClose={() => setCreateSheetVisible(false)} visible={createSheetVisible} />
 
       <nav className="dock-nav compact" aria-label="Primary navigation">
         {NAV_ITEMS.map((item) => {

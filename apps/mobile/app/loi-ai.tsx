@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import {
   AttachmentType,
+  MediaAssetPurpose,
   type LoiAiAttachmentInput,
   type LoiAiCard,
   type LoiAiConversationDetail,
@@ -19,35 +20,16 @@ import {
 import { MobileShell } from '../components/mobile-shell';
 import { useAuth } from '../context/auth-context';
 import { demoLoiAiWelcomeConversation, loiAiSuggestedPrompts } from '../lib/demo-content';
+import { mobileDemoContentEnabled } from '../lib/demo-runtime';
+import { mobileMediaApi } from '../lib/media-api';
 import { mobileLoiAiApi } from '../lib/loi-ai-api';
-
-const ATTACHMENT_SEQUENCE: AttachmentType[] = [
-  AttachmentType.IMAGE,
-  AttachmentType.FILE,
-  AttachmentType.VIDEO,
-];
+import { pickDocumentFiles, pickMediaFiles } from '../lib/upload-picker';
 
 function formatTime(value: string) {
   return new Date(value).toLocaleTimeString('tr-TR', {
     hour: '2-digit',
     minute: '2-digit',
   });
-}
-
-function createMockAttachment(type: AttachmentType, index: number): LoiAiAttachmentInput {
-  if (type === AttachmentType.AUDIO) {
-    return {
-      type,
-      name: `sesli-not-${index + 1}.m4a`,
-      transcript: 'Sesli not eklendi. Icerik daha sonra detaylandirilacak.',
-    };
-  }
-
-  return {
-    type,
-    name: `ek-${index + 1}`,
-    url: `https://example.com/mock-${type.toLowerCase()}-${index + 1}`,
-  };
 }
 
 export default function LoiAiScreen() {
@@ -68,7 +50,8 @@ export default function LoiAiScreen() {
     () => conversations.find((item) => item.id === activeConversationId) ?? null,
     [activeConversationId, conversations],
   );
-  const displayConversation = activeConversation ?? demoLoiAiWelcomeConversation;
+  const displayConversation =
+    activeConversation ?? (mobileDemoContentEnabled ? demoLoiAiWelcomeConversation : null);
 
   useEffect(() => {
     if (!accessToken) {
@@ -106,12 +89,14 @@ export default function LoiAiScreen() {
     return <Redirect href="/login" />;
   }
 
+  const token = accessToken;
+
   async function refreshConversations(nextActiveId?: string | null) {
     if (!accessToken) {
       return;
     }
 
-    const items = await mobileLoiAiApi.getConversations(accessToken);
+      const items = await mobileLoiAiApi.getConversations(token);
     setConversations(items);
     if (nextActiveId !== undefined) {
       setActiveConversationId(nextActiveId);
@@ -129,7 +114,7 @@ export default function LoiAiScreen() {
       return activeConversationId;
     }
 
-    const conversation = await mobileLoiAiApi.createConversation(accessToken, {});
+    const conversation = await mobileLoiAiApi.createConversation(token, {});
     setActiveConversationId(conversation.id);
     await refreshConversations(conversation.id);
     return conversation.id;
@@ -141,7 +126,7 @@ export default function LoiAiScreen() {
     }
 
     try {
-      const conversation = await mobileLoiAiApi.createConversation(accessToken, {});
+      const conversation = await mobileLoiAiApi.createConversation(token, {});
       setActiveConversation(conversation);
       setActiveConversationId(conversation.id);
       setHistoryOpen(false);
@@ -159,7 +144,7 @@ export default function LoiAiScreen() {
     }
 
     try {
-      await mobileLoiAiApi.deleteConversation(accessToken, conversationId);
+      await mobileLoiAiApi.deleteConversation(token, conversationId);
       const nextActive = activeConversationId === conversationId ? null : activeConversationId;
       if (activeConversationId === conversationId) {
         setActiveConversation(null);
@@ -176,7 +161,7 @@ export default function LoiAiScreen() {
     }
 
     try {
-      await Promise.all(conversations.map((conversation) => mobileLoiAiApi.deleteConversation(accessToken, conversation.id)));
+      await Promise.all(conversations.map((conversation) => mobileLoiAiApi.deleteConversation(token, conversation.id)));
       setConversations([]);
       setActiveConversationId(null);
       setActiveConversation(null);
@@ -201,7 +186,7 @@ export default function LoiAiScreen() {
 
     try {
       const conversationId = await ensureConversation();
-      const response = await mobileLoiAiApi.sendMessage(accessToken, conversationId, {
+      const response = await mobileLoiAiApi.sendMessage(token, conversationId, {
         content,
         attachments: attachments.length > 0 ? attachments : undefined,
       });
@@ -234,8 +219,48 @@ export default function LoiAiScreen() {
     }
   }
 
-  function pushAttachment(type: AttachmentType) {
-    setAttachments((current) => [...current, createMockAttachment(type, current.length)]);
+  async function pickAttachments(type: AttachmentType) {
+    try {
+      const files =
+        type === AttachmentType.IMAGE || type === AttachmentType.VIDEO
+          ? await pickMediaFiles({
+              allowsMultipleSelection: true,
+              videoMaxDuration: 120,
+              quality: 0.84,
+              maxFileSizeMb: 80,
+            })
+          : await pickDocumentFiles({
+              multiple: true,
+              type:
+                type === AttachmentType.AUDIO
+                  ? ['audio/mpeg', 'audio/mp4', 'audio/x-m4a']
+                  : ['application/pdf', 'image/*', 'video/mp4'],
+            });
+
+      if (!files.length) {
+        return;
+      }
+
+      const uploads = await mobileMediaApi.uploadFiles(token, files, MediaAssetPurpose.MESSAGE_ATTACHMENT);
+      setAttachments((current) => [
+        ...current,
+        ...uploads.map((item) => ({
+          type:
+            item.mimeType.startsWith('image/')
+              ? AttachmentType.IMAGE
+              : item.mimeType.startsWith('video/')
+                ? AttachmentType.VIDEO
+                : item.mimeType.startsWith('audio/')
+                  ? AttachmentType.AUDIO
+                  : AttachmentType.FILE,
+          url: item.url,
+          name: item.id,
+          mimeType: item.mimeType,
+        })),
+      ]);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Ek dosya yuklenemedi.');
+    }
   }
 
   function openCard(card: LoiAiCard) {
@@ -303,7 +328,7 @@ export default function LoiAiScreen() {
             </View>
           ) : null}
 
-          {displayConversation.messages.map((message) => (
+          {(displayConversation?.messages ?? []).map((message) => (
             <View key={message.id} style={styles.messageBlock}>
               <Text style={styles.messageMeta}>
                 {message.role === 'USER' ? 'Siz' : 'Loi AI'} | {formatTime(message.createdAt)}
@@ -333,18 +358,23 @@ export default function LoiAiScreen() {
         <View style={styles.attachmentRow}>
           {attachments.map((attachment, index) => (
             <Pressable key={`${attachment.type}-${index}`} style={styles.attachmentChip} onPress={() => setAttachments((current) => current.filter((_, itemIndex) => itemIndex !== index))}>
-              <Text style={styles.attachmentChipText}>{attachment.type} x</Text>
+              <Text style={styles.attachmentChipText}>{attachment.type} · {(attachment.name ?? 'ek').slice(0, 18)} x</Text>
             </Pressable>
           ))}
         </View>
 
         <View style={styles.composer}>
-          <Pressable
-            style={styles.composerIconButton}
-            onPress={() => pushAttachment(ATTACHMENT_SEQUENCE[attachments.length % ATTACHMENT_SEQUENCE.length] ?? AttachmentType.IMAGE)}
-          >
-            <Ionicons color="#6b7280" name="add" size={18} />
-          </Pressable>
+          <View style={styles.composerTools}>
+            <Pressable style={styles.composerIconButton} onPress={() => void pickAttachments(AttachmentType.IMAGE)}>
+              <Ionicons color="#6b7280" name="image-outline" size={18} />
+            </Pressable>
+            <Pressable style={styles.composerIconButton} onPress={() => void pickAttachments(AttachmentType.FILE)}>
+              <Ionicons color="#6b7280" name="document-attach-outline" size={18} />
+            </Pressable>
+            <Pressable style={styles.composerIconButton} onPress={() => void pickAttachments(AttachmentType.VIDEO)}>
+              <Ionicons color="#6b7280" name="videocam-outline" size={18} />
+            </Pressable>
+          </View>
           <TextInput
             style={styles.input}
             multiline
@@ -354,14 +384,16 @@ export default function LoiAiScreen() {
             value={input}
             onChangeText={setInput}
           />
-          <Pressable style={styles.composerIconButton} onPress={() => pushAttachment(AttachmentType.AUDIO)}>
+          <Pressable style={styles.composerIconButton} onPress={() => void pickAttachments(AttachmentType.AUDIO)}>
             <Ionicons color="#6b7280" name="mic-outline" size={17} />
           </Pressable>
           <Pressable style={styles.composerSendButton} onPress={() => void handleSend()}>
             {sending ? <Text style={styles.primaryButtonLabel}>...</Text> : <Ionicons color="#ffffff" name="arrow-up" size={16} />}
           </Pressable>
         </View>
-        <Text style={styles.footerHint}>Aktif sohbet: {activeSummary?.title ?? demoLoiAiWelcomeConversation.title}</Text>
+        <Text style={styles.footerHint}>
+          Aktif sohbet: {activeSummary?.title ?? (displayConversation?.title ?? 'Loi AI ile yeni sohbet')}
+        </Text>
       </View>
     </MobileShell>
   );
@@ -476,6 +508,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 6,
     backgroundColor: '#f8fafc',
+  },
+  composerTools: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   input: {
     flex: 1,

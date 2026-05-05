@@ -16,6 +16,7 @@ import { ShareContentSheet } from '../../components/share-content-sheet';
 import { MobileMediaView } from '../../components/mobile-media-view';
 import { useAuth } from '../../context/auth-context';
 import { buildDemoMessageFixtures, demoExploreVehicleById } from '../../lib/demo-content';
+import { mobileDemoContentEnabled } from '../../lib/demo-runtime';
 import { mobileTheme } from '../../lib/design-system';
 import { mobileExploreApi } from '../../lib/explore-api';
 import { vehicleEquipmentCategoryLabels } from '../../lib/listings-ui';
@@ -58,7 +59,7 @@ export default function VehicleDetailScreen() {
     setLoading(true);
     setErrorMessage(null);
 
-    if (id.startsWith('demo-vehicle-')) {
+    if (mobileDemoContentEnabled && id.startsWith('demo-vehicle-')) {
       setVehicle(demoExploreVehicleById[id] ?? null);
       setLoading(false);
       return;
@@ -91,7 +92,7 @@ export default function VehicleDetailScreen() {
       return;
     }
 
-    if (vehicle.id.startsWith('demo-vehicle-')) {
+    if (mobileDemoContentEnabled && vehicle.id.startsWith('demo-vehicle-')) {
       const demoThread =
         demoMessages.threads.find((thread) =>
           thread.participants.some((participant) => participant.id === vehicle.owner.id),

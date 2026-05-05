@@ -20,6 +20,7 @@ import { MobileShell } from '../../components/mobile-shell';
 import { MobileSharedContentCard } from '../../components/mobile-shared-content-card';
 import { useAuth } from '../../context/auth-context';
 import { buildDemoMessageFixtures } from '../../lib/demo-content';
+import { mobileDemoContentEnabled } from '../../lib/demo-runtime';
 import { mobileMediaApi } from '../../lib/media-api';
 import { mobileMessagesApi } from '../../lib/messages-api';
 import { getMobileSharedContentPath } from '../../lib/share-content';
@@ -74,7 +75,7 @@ export default function MessageThreadScreen() {
       return;
     }
 
-    if (id.startsWith('demo-thread-')) {
+    if (mobileDemoContentEnabled && id.startsWith('demo-thread-')) {
       setThread(demoFixtures.threadDetails[id] ?? null);
       setLoading(false);
       return;
@@ -109,7 +110,7 @@ export default function MessageThreadScreen() {
       return;
     }
 
-    if (id.startsWith('demo-thread-')) {
+    if (mobileDemoContentEnabled && id.startsWith('demo-thread-')) {
       return;
     }
 
@@ -131,7 +132,7 @@ export default function MessageThreadScreen() {
 
     setSending(true);
     try {
-      if (thread.id.startsWith('demo-thread-')) {
+      if (mobileDemoContentEnabled && thread.id.startsWith('demo-thread-')) {
         const nextAttachmentType =
           attachmentType === MessageType.IMAGE
             ? AttachmentType.IMAGE

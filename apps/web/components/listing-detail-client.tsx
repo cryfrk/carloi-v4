@@ -9,6 +9,7 @@ import { ShareContentSheet } from './share-content-sheet';
 import { useAuth } from './auth-provider';
 import { VehicleDamageMap } from './vehicle-damage-map';
 import { buildDemoMessageFixtures, demoListingById } from '../lib/demo-content';
+import { webDemoContentEnabled } from '../lib/demo-runtime';
 import { formatKm, formatPrice, fuelTypeLabels, sellerTypeLabels, transmissionLabels } from '../lib/listings-ui';
 import { webListingsApi } from '../lib/listings-api';
 import { resolveWebMediaUrl } from '../lib/media-url';
@@ -49,7 +50,7 @@ export function ListingDetailClient({ listingId }: { listingId: string }) {
     setLoading(true);
     setErrorMessage(null);
 
-    if (listingId.startsWith('demo-listing-')) {
+    if (webDemoContentEnabled && listingId.startsWith('demo-listing-')) {
       setListing(demoListingById[listingId] ?? null);
       setLoading(false);
       return;
@@ -122,7 +123,7 @@ export function ListingDetailClient({ listingId }: { listingId: string }) {
       return;
     }
 
-    if (listing.id.startsWith('demo-listing-')) {
+    if (webDemoContentEnabled && listing.id.startsWith('demo-listing-')) {
       const demoThread =
         Object.values(demoMessages.threadDetails).find((thread) =>
           thread.messages.some((message) => sharedCardMatchesTarget(message.systemCard, listing.id)),

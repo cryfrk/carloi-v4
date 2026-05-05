@@ -2,6 +2,7 @@
 
 import {
   AttachmentType,
+  MediaAssetPurpose,
   type LoiAiAttachmentInput,
   type LoiAiCard,
   type LoiAiConversationDetail,
@@ -13,13 +14,9 @@ import { useRouter } from 'next/navigation';
 import { AppShell } from './app-shell';
 import { useAuth } from './auth-provider';
 import { demoLoiAiWelcomeConversation, loiAiSuggestedPrompts } from '../lib/demo-content';
+import { webDemoContentEnabled } from '../lib/demo-runtime';
+import { webMediaApi } from '../lib/media-api';
 import { webLoiAiApi } from '../lib/loi-ai-api';
-
-const ATTACHMENT_SEQUENCE: AttachmentType[] = [
-  AttachmentType.IMAGE,
-  AttachmentType.FILE,
-  AttachmentType.VIDEO,
-];
 
 function formatTime(value: string) {
   return new Date(value).toLocaleString('tr-TR', {
@@ -28,22 +25,6 @@ function formatTime(value: string) {
     hour: '2-digit',
     minute: '2-digit',
   });
-}
-
-function createMockAttachment(type: AttachmentType, index: number): LoiAiAttachmentInput {
-  if (type === AttachmentType.AUDIO) {
-    return {
-      type,
-      name: `sesli-not-${index + 1}.m4a`,
-      transcript: 'Sesli not eklendi. Icerik daha sonra detaylandirilacak.',
-    };
-  }
-
-  return {
-    type,
-    name: `ek-${index + 1}.${type === AttachmentType.IMAGE ? 'jpg' : type === AttachmentType.VIDEO ? 'mp4' : 'pdf'}`,
-    url: `https://example.com/mock-${type.toLowerCase()}-${index + 1}`,
-  };
 }
 
 export function LoiAiClient() {
@@ -64,7 +45,8 @@ export function LoiAiClient() {
     () => conversations.find((item) => item.id === activeConversationId) ?? null,
     [activeConversationId, conversations],
   );
-  const displayConversation = activeConversation ?? demoLoiAiWelcomeConversation;
+  const displayConversation =
+    activeConversation ?? (webDemoContentEnabled ? demoLoiAiWelcomeConversation : null);
 
   useEffect(() => {
     if (!accessToken) {
@@ -226,8 +208,40 @@ export function LoiAiClient() {
     }
   }
 
-  function pushAttachment(type: AttachmentType) {
-    setAttachments((current) => [...current, createMockAttachment(type, current.length)]);
+  async function handleAttachmentSelection(event: React.ChangeEvent<HTMLInputElement>) {
+    if (!accessToken) {
+      return;
+    }
+
+    const files = event.target.files;
+
+    if (!files?.length) {
+      return;
+    }
+
+    try {
+      const uploads = await webMediaApi.uploadFiles(accessToken, files, MediaAssetPurpose.MESSAGE_ATTACHMENT);
+      setAttachments((current) => [
+        ...current,
+        ...uploads.map((item) => ({
+          type:
+            item.mimeType.startsWith('image/')
+              ? AttachmentType.IMAGE
+              : item.mimeType.startsWith('video/')
+                ? AttachmentType.VIDEO
+                : item.mimeType.startsWith('audio/')
+                  ? AttachmentType.AUDIO
+                  : AttachmentType.FILE,
+          url: item.url,
+          name: item.id,
+          mimeType: item.mimeType,
+        } satisfies LoiAiAttachmentInput)),
+      ]);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Ek dosya yuklenemedi.');
+    } finally {
+      event.target.value = '';
+    }
   }
 
   function openCard(card: LoiAiCard) {
@@ -304,7 +318,7 @@ export function LoiAiClient() {
                 </div>
               </div>
             ) : null}
-            {displayConversation.messages.map((message) => (
+            {(displayConversation?.messages ?? []).map((message) => (
               <article key={message.id} className={`ai-message ai-message-${message.role.toLowerCase()}`}>
                 <div className="ai-message-meta">
                   <strong>{message.role === 'USER' ? 'Siz' : 'Loi AI'}</strong>
@@ -353,9 +367,16 @@ export function LoiAiClient() {
               ))}
             </div>
             <div className="ai-composer-row">
-              <button type="button" className="secondary-cta" onClick={() => pushAttachment(ATTACHMENT_SEQUENCE[attachments.length % ATTACHMENT_SEQUENCE.length] ?? AttachmentType.IMAGE)}>
-                Dosya ekle
-              </button>
+              <label className="secondary-cta">
+                Gorsel / video
+                <input
+                  accept="image/*,video/mp4"
+                  className="upload-input-hidden"
+                  multiple
+                  onChange={(event) => void handleAttachmentSelection(event)}
+                  type="file"
+                />
+              </label>
               <textarea
                 className="ai-textarea"
                 rows={2}
@@ -363,9 +384,16 @@ export function LoiAiClient() {
                 onChange={(event) => setInput(event.target.value)}
                 placeholder="Ilan ara, arac sorusu sor veya saticiya mesaj iste..."
               />
-              <button type="button" className="secondary-cta" onClick={() => pushAttachment(AttachmentType.AUDIO)}>
-                Sesli not
-              </button>
+              <label className="secondary-cta">
+                PDF / ses
+                <input
+                  accept="application/pdf,audio/mpeg,audio/mp4,audio/x-m4a"
+                  className="upload-input-hidden"
+                  multiple
+                  onChange={(event) => void handleAttachmentSelection(event)}
+                  type="file"
+                />
+              </label>
               <button type="button" className="primary-cta" onClick={() => void handleSend()} disabled={sending || !session}>
                 {sending ? 'Gonderiliyor' : 'Gonder'}
               </button>

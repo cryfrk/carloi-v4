@@ -1,17 +1,19 @@
 import { SharedContentType, type PostDetailResponse } from '@carloi-v4/types';
 import { Redirect, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { MobileMediaView } from '../../components/mobile-media-view';
 import { ShareContentSheet } from '../../components/share-content-sheet';
 import { MobileShell } from '../../components/mobile-shell';
 import { useAuth } from '../../context/auth-context';
 import { demoFeedPostById } from '../../lib/demo-content';
+import { mobileDemoContentEnabled } from '../../lib/demo-runtime';
 import { mobileSocialApi } from '../../lib/social-api';
 
 export default function PostDetailScreen() {
   const params = useLocalSearchParams<{ id: string }>();
   const { session } = useAuth();
+  const { width } = useWindowDimensions();
   const [post, setPost] = useState<PostDetailResponse | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -22,7 +24,7 @@ export default function PostDetailScreen() {
       return;
     }
 
-    if (params.id.startsWith('demo-post-')) {
+    if (mobileDemoContentEnabled && params.id.startsWith('demo-post-')) {
       setPost(demoFeedPostById[params.id] ?? null);
       return;
     }
@@ -42,6 +44,8 @@ export default function PostDetailScreen() {
   if (!session?.accessToken) {
     return <Redirect href="/login" />;
   }
+
+  const mediaWidth = Math.max(width, 320);
 
   return (
     <MobileShell title="Post" subtitle="Gonderi detayi">
@@ -63,7 +67,7 @@ export default function PostDetailScreen() {
               contentContainerStyle={styles.mediaTrack}
             >
               {post.media.map((item, index) => (
-                <View key={item.id} style={styles.mediaFrame}>
+                <View key={item.id} style={[styles.mediaFrame, { width: mediaWidth }]}>
                   <MobileMediaView
                     autoPlay={item.mediaType === 'VIDEO'}
                     mediaType={item.mediaType}
@@ -165,16 +169,18 @@ const styles = StyleSheet.create({
   actionRow: {
     paddingHorizontal: 14,
     paddingTop: 4,
+    alignItems: 'flex-start',
   },
   shareButton: {
-    minHeight: 44,
+    minHeight: 38,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 14,
-    backgroundColor: '#111111',
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    backgroundColor: '#f4f6f8',
   },
   shareButtonLabel: {
-    color: '#ffffff',
+    color: '#111111',
     fontWeight: '800',
   },
   meta: {

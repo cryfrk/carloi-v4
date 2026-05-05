@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { demoStoryAnalyticsById, demoStoryGroups } from '../lib/demo-content';
+import { mobileDemoContentEnabled } from '../lib/demo-runtime';
 import { resolveMobileMediaUrl } from '../lib/media-url';
 import { mobileSocialApi } from '../lib/social-api';
 import { MobileMediaView } from './mobile-media-view';
@@ -59,7 +60,7 @@ export function StoryStrip({
   refreshKey = 0,
 }: StoryStripProps) {
   const [groups, setGroups] = useState<StoryFeedGroup[]>([]);
-  const [demoGroupsState, setDemoGroupsState] = useState<StoryFeedGroup[]>(demoStoryGroups);
+  const [demoGroupsState, setDemoGroupsState] = useState<StoryFeedGroup[]>(() => (mobileDemoContentEnabled ? demoStoryGroups : []));
   const [loading, setLoading] = useState(true);
   const [activeGroupIndex, setActiveGroupIndex] = useState<number | null>(null);
   const [activeStoryIndex, setActiveStoryIndex] = useState(0);
@@ -76,7 +77,7 @@ export function StoryStrip({
   const elapsedBeforePauseRef = useRef(0);
   const segmentStartedAtRef = useRef(0);
 
-  const usingDemoGroups = !loading && groups.length === 0;
+  const usingDemoGroups = mobileDemoContentEnabled && !loading && groups.length === 0;
   const displayedGroups = usingDemoGroups ? demoGroupsState : groups;
   const activeGroup = activeGroupIndex !== null ? displayedGroups[activeGroupIndex] ?? null : null;
   const activeStory = activeGroup?.stories[activeStoryIndex] ?? null;
@@ -258,7 +259,7 @@ export function StoryStrip({
     setAnalyticsTab(tab);
     setAnalyticsOpen(true);
 
-    if (activeStory.id.startsWith('demo-story-')) {
+    if (mobileDemoContentEnabled && activeStory.id.startsWith('demo-story-')) {
       const analytics = demoStoryAnalyticsById[activeStory.id];
       setViewerItems(analytics?.viewers ?? []);
       setLikerItems(analytics?.likers ?? []);
@@ -286,7 +287,7 @@ export function StoryStrip({
       return;
     }
 
-    if (activeStory.id.startsWith('demo-story-')) {
+    if (mobileDemoContentEnabled && activeStory.id.startsWith('demo-story-')) {
       setDemoGroupsState((current) =>
         current
           .map((group) => ({
@@ -348,7 +349,7 @@ export function StoryStrip({
 
           {loading ? (
             <StorySkeleton />
-          ) : (
+          ) : displayedGroups.length > 0 ? (
             displayedGroups.map((group, index) => (
               <Pressable key={group.owner.id} onPress={() => openGroup(index)} style={styles.storyBubble}>
                 <View style={[styles.storyRing, group.hasUnviewed ? styles.storyRingActive : styles.storyRingViewed]}>
@@ -368,6 +369,11 @@ export function StoryStrip({
                 </Text>
               </Pressable>
             ))
+          ) : (
+            <View style={styles.inlineEmptyState}>
+              <Text style={styles.inlineEmptyTitle}>Hikaye yok</Text>
+              <Text style={styles.inlineEmptyCopy}>Ilk hikayeni paylasarak profilini canlandir.</Text>
+            </View>
           )}
         </ScrollView>
       </View>
@@ -523,6 +529,21 @@ const styles = StyleSheet.create({
   stripRow: {
     gap: 12,
     paddingHorizontal: 14,
+  },
+  inlineEmptyState: {
+    minHeight: 72,
+    justifyContent: 'center',
+    paddingLeft: 6,
+  },
+  inlineEmptyTitle: {
+    color: '#111111',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  inlineEmptyCopy: {
+    color: '#6b7280',
+    fontSize: 12,
+    marginTop: 2,
   },
   storyBubble: {
     width: 74,

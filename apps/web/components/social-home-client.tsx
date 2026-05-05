@@ -13,6 +13,7 @@ import { AppShell } from './app-shell';
 import { CommentIcon, HeartIcon, SaveIcon, ShareIcon } from './app-icons';
 import { useAuth } from './auth-provider';
 import { demoFeedComments, demoFeedPosts } from '../lib/demo-content';
+import { webDemoContentEnabled } from '../lib/demo-runtime';
 import { resolveWebMediaUrl } from '../lib/media-url';
 import { webSocialApi } from '../lib/social-api';
 import { WebMediaView } from './web-media-view';
@@ -99,13 +100,14 @@ export function SocialHomeClient() {
   const [commentDrafts, setCommentDrafts] = useState<DraftState>({});
   const [openComments, setOpenComments] = useState<OpenCommentsState>({});
   const [loadingComments, setLoadingComments] = useState<LoadingCommentsState>({});
-  const [demoFeedState, setDemoFeedState] = useState<FeedPost[]>(demoFeedPosts);
+  const [demoFeedState, setDemoFeedState] = useState<FeedPost[]>(() => (webDemoContentEnabled ? demoFeedPosts : []));
 
   const activeStoryGroup =
     activeStoryGroupIndex !== null ? (stories[activeStoryGroupIndex] ?? null) : null;
   const activeStory: StoryItem | null = activeStoryGroup?.stories[activeStoryIndex] ?? null;
   const isOwnActiveStory = Boolean(session && activeStory && activeStory.owner.id === session.user.id);
-  const demoMode = !loading && feed.length === 0;
+  const demoMode = webDemoContentEnabled && !loading && feed.length === 0;
+  const showRealEmptyState = !loading && !demoMode && feed.length === 0;
   const displayedFeed = demoMode ? demoFeedState : feed;
 
   useEffect(() => {
@@ -542,11 +544,11 @@ export function SocialHomeClient() {
           {loadingStories ? (
             <StoryStripSkeleton />
           ) : stories.length === 0 ? (
-            <button className="story-bubble button-reset" type="button" onClick={() => setNotice("Aracini veya ilk hikayeni paylastiginda bu alan canlanacak.")}>
-              <span className="story-avatar-shell unviewed">
-                <span className="story-avatar-fallback">C</span>
+            <button className="story-bubble button-reset" type="button" onClick={() => setNotice('Hikaye akisi, ilk paylasimindan sonra burada gorunecek.')}>
+              <span className="story-avatar-shell viewed">
+                <span className="story-avatar-fallback">+</span>
               </span>
-              <span className="story-bubble-label">@carloi</span>
+              <span className="story-bubble-label">Ilk hikaye</span>
             </button>
           ) : (
             stories.map((group, index) => (
@@ -580,6 +582,16 @@ export function SocialHomeClient() {
           <div className="gate-actions">
             <Link className="primary-link" href="/create">Ilk paylasimini baslat</Link>
             <Link className="secondary-link" href="/vehicles/create">Arac ekle</Link>
+          </div>
+        </section>
+      ) : showRealEmptyState ? (
+        <section className="detail-card gate-card">
+          <div className="card-label">Feed</div>
+          <h3 className="card-title">Akis henuz bos</h3>
+          <p className="card-copy">Gercek gonderiler paylasildiginda burada gorunecek. Ilk gonderini veya hikayeni olusturabilirsin.</p>
+          <div className="gate-actions">
+            <Link className="primary-link" href="/create">Paylasim olustur</Link>
+            <Link className="secondary-link" href="/explore">Kesfete git</Link>
           </div>
         </section>
       ) : loading ? (

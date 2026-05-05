@@ -1,4 +1,5 @@
 import { WEB_API_BASE_URL } from './api-base-url';
+import { webRuntimeIsProduction } from './demo-runtime';
 
 const KNOWN_LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '0.0.0.0']);
 
@@ -20,6 +21,10 @@ export function resolveWebMediaUrl(value: string | null | undefined) {
   }
 
   if (value.startsWith('demo://')) {
+    if (webRuntimeIsProduction) {
+      return null;
+    }
+
     const key = value.slice('demo://'.length).trim();
     return key ? `/demo-media/${key}.png` : '/demo-media/carloi-placeholder.png';
   }

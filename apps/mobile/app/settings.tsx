@@ -229,7 +229,12 @@ export default function SettingsScreen() {
     setErrorMessage(null);
 
     try {
-      const files = await pickMediaFiles();
+      const files = await pickMediaFiles({
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.84,
+        maxFileSizeMb: 20,
+      });
       const selectedFile = files[0];
 
       if (!selectedFile) {

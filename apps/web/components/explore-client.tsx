@@ -8,6 +8,7 @@ import { useAuth } from './auth-provider';
 import { HeartIcon, MessageIcon, ShareIcon } from './app-icons';
 import { WebMediaView } from './web-media-view';
 import { demoExploreVehicles } from '../lib/demo-content';
+import { webDemoContentEnabled } from '../lib/demo-runtime';
 import { webExploreApi } from '../lib/explore-api';
 import { webMessagesApi } from '../lib/messages-api';
 
@@ -18,7 +19,8 @@ export function ExploreClient() {
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const displayItems = !loading && items.length === 0 ? demoExploreVehicles : items;
+  const displayItems = webDemoContentEnabled && !loading && items.length === 0 ? demoExploreVehicles : items;
+  const showRealEmptyState = !loading && !webDemoContentEnabled && items.length === 0;
 
   useEffect(() => {
     if (!session?.accessToken) {
@@ -74,12 +76,21 @@ export function ExploreClient() {
         {loading ? <div className="detail-card">Kesif akisi yukleniyor...</div> : null}
         {!loading && items.length === 0 ? (
           <div className="detail-card empty-explore-card">
-            <h3 className="card-title">Kesfeti simdiden deneyimle</h3>
-            <p className="card-copy">Asagidaki ornek araclar, reels benzeri dikey akisin nasil gorunecegini gosteriyor.</p>
+            <h3 className="card-title">{webDemoContentEnabled ? 'Kesfeti simdiden deneyimle' : 'Kesfet henuz bos'}</h3>
+            <p className="card-copy">
+              {webDemoContentEnabled
+                ? 'Asagidaki ornek araclar, reels benzeri dikey akisin nasil gorunecegini gosteriyor.'
+                : 'Kesfete acik araclar paylasildiginda burada gorunecek. Profilinden arac ekleyip kesfete acabilirsin.'}
+            </p>
+            {showRealEmptyState ? (
+              <div className="gate-actions">
+                <Link className="primary-link" href="/profile?tab=vehicles">Araclarini yonet</Link>
+              </div>
+            ) : null}
           </div>
         ) : null}
 
-        {!loading ? (
+        {!loading && displayItems.length > 0 ? (
           <section className="explore-feed">
             {displayItems.map((item) => {
               const liked = Boolean(likedMap[item.id]);

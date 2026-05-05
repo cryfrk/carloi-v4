@@ -48,6 +48,10 @@ function normalizeFile(uri: string, mimeType?: string | null, fileName?: string 
 export async function pickMediaFiles(options?: {
   allowsMultipleSelection?: boolean;
   videoMaxDuration?: number;
+  allowsEditing?: boolean;
+  aspect?: [number, number];
+  quality?: number;
+  maxFileSizeMb?: number;
 }) {
   const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
@@ -58,7 +62,9 @@ export async function pickMediaFiles(options?: {
   const result = await ImagePicker.launchImageLibraryAsync({
     mediaTypes: ImagePicker.MediaTypeOptions.All,
     allowsMultipleSelection: options?.allowsMultipleSelection ?? false,
-    quality: 0.9,
+    allowsEditing: options?.allowsEditing && !(options?.allowsMultipleSelection ?? false),
+    aspect: options?.aspect,
+    quality: options?.quality ?? 0.86,
     videoMaxDuration: options?.videoMaxDuration,
   });
 
@@ -76,6 +82,14 @@ export async function pickMediaFiles(options?: {
       throw new Error(`Video en fazla ${options.videoMaxDuration} saniye olabilir.`);
     }
 
+    if (
+      options?.maxFileSizeMb &&
+      asset.fileSize &&
+      asset.fileSize / 1024 / 1024 > options.maxFileSizeMb
+    ) {
+      throw new Error(`Secilen medya ${options.maxFileSizeMb} MB sinirini asiyor.`);
+    }
+
     return {
       ...normalizeFile(asset.uri, asset.mimeType, asset.fileName),
       size: asset.fileSize ?? null,
@@ -87,6 +101,10 @@ export async function pickMediaFiles(options?: {
 export async function pickCameraMedia(options?: {
   videoMaxDuration?: number;
   preferredType?: 'photo' | 'video';
+  allowsEditing?: boolean;
+  aspect?: [number, number];
+  quality?: number;
+  maxFileSizeMb?: number;
 }) {
   const permission = await ImagePicker.requestCameraPermissionsAsync();
 
@@ -101,7 +119,9 @@ export async function pickCameraMedia(options?: {
         : options?.preferredType === 'photo'
           ? ImagePicker.MediaTypeOptions.Images
           : ImagePicker.MediaTypeOptions.All,
-    quality: 0.9,
+    allowsEditing: options?.allowsEditing && options?.preferredType !== 'video',
+    aspect: options?.aspect,
+    quality: options?.quality ?? 0.86,
     videoMaxDuration: options?.videoMaxDuration,
   });
 
@@ -117,6 +137,14 @@ export async function pickCameraMedia(options?: {
       asset.duration / 1000 > options.videoMaxDuration
     ) {
       throw new Error(`Video en fazla ${options.videoMaxDuration} saniye olabilir.`);
+    }
+
+    if (
+      options?.maxFileSizeMb &&
+      asset.fileSize &&
+      asset.fileSize / 1024 / 1024 > options.maxFileSizeMb
+    ) {
+      throw new Error(`Secilen medya ${options.maxFileSizeMb} MB sinirini asiyor.`);
     }
 
     return {

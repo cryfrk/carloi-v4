@@ -1,15 +1,7 @@
 ﻿import { MediaAssetPurpose, type CreatePostMediaInput, type MediaAssetUploadResponse } from '@carloi-v4/types';
 import { Redirect, useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import {
-  Image,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { MobileShell } from '../components/mobile-shell';
 import { MobileMediaView } from '../components/mobile-media-view';
 import { useAuth } from '../context/auth-context';
@@ -21,6 +13,8 @@ import { pickMediaFiles } from '../lib/upload-picker';
 function inferMediaType(mimeType: string): CreatePostMediaInput['mediaType'] {
   return mimeType.startsWith('video/') ? 'VIDEO' : 'IMAGE';
 }
+
+const EDITOR_CHIPS = ['Kirp', 'Dondur', 'Filtre', 'Kapak sec'];
 
 export default function CreatePostScreen() {
   const router = useRouter();
@@ -48,7 +42,12 @@ export default function CreatePostScreen() {
     setMessage(null);
 
     try {
-      const files = await pickMediaFiles({ allowsMultipleSelection: true });
+      const files = await pickMediaFiles({
+        allowsMultipleSelection: true,
+        videoMaxDuration: 45,
+        quality: 0.82,
+        maxFileSizeMb: 80,
+      });
 
       if (!files.length) {
         return;
@@ -105,6 +104,9 @@ export default function CreatePostScreen() {
     >
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.section}>
+          <Text style={styles.sectionHint}>
+            Foto ve videolar yukleme oncesi hafif sikistirilir. Videoda 45 saniye ve 80 MB siniri uygulanir.
+          </Text>
           <Text style={styles.label}>Caption</Text>
           <TextInput
             value={caption}
@@ -211,6 +213,17 @@ export default function CreatePostScreen() {
                   <Text style={styles.toolLabel}>Sil</Text>
                 </Pressable>
               </View>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.editorChipRow}>
+                {EDITOR_CHIPS.map((chip) => (
+                  <Pressable
+                    key={`${item.id}-${chip}`}
+                    onPress={() => setMessage(`${chip} araci bu medya icin editor katmanina baglanmaya hazir.`)}
+                    style={styles.editorChip}
+                  >
+                    <Text style={styles.editorChipLabel}>{chip}</Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
             </View>
           ))}
         </View>
@@ -253,6 +266,11 @@ const styles = StyleSheet.create({
     backgroundColor: mobileTheme.colors.surface,
     borderWidth: 1,
     borderColor: mobileTheme.colors.border,
+  },
+  sectionHint: {
+    color: mobileTheme.colors.textMuted,
+    fontSize: 12,
+    lineHeight: 18,
   },
   label: {
     color: mobileTheme.colors.textStrong,
@@ -369,6 +387,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
     flexWrap: 'wrap',
+  },
+  editorChipRow: {
+    gap: 8,
+  },
+  editorChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: 999,
+    backgroundColor: '#f7f8fa',
+    borderWidth: 1,
+    borderColor: '#eceff3',
+  },
+  editorChipLabel: {
+    color: mobileTheme.colors.textStrong,
+    fontSize: 12,
+    fontWeight: '700',
   },
   toolButton: {
     borderRadius: mobileTheme.radius.md,

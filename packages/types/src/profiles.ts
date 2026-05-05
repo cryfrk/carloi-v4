@@ -5,6 +5,7 @@ import type {
   SellerType,
   TransmissionType,
 } from './enums';
+import type { MessageParticipantSummary } from './messages';
 
 export interface MutualFollowerSummary {
   id: string;
@@ -110,4 +111,8 @@ export interface ProfileVehiclesResponse {
   items: ProfileVehicleItem[];
   hiddenByPrivacy: boolean;
   hiddenByProfile: boolean;
+}
+
+export interface ProfileConnectionsResponse {
+  items: MessageParticipantSummary[];
 }

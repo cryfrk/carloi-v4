@@ -16,6 +16,7 @@ import { MobileShell } from '../components/mobile-shell';
 import { MobileMediaView } from '../components/mobile-media-view';
 import { useAuth } from '../context/auth-context';
 import { demoExploreVehicles } from '../lib/demo-content';
+import { mobileDemoContentEnabled } from '../lib/demo-runtime';
 import { mobileTheme } from '../lib/design-system';
 import { mobileExploreApi } from '../lib/explore-api';
 import { mobileMessagesApi } from '../lib/messages-api';
@@ -30,8 +31,9 @@ export default function ExploreScreen() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const reelHeight = useMemo(() => Math.max(height - 208, 420), [height]);
-  const displayItems = !loading && items.length === 0 ? demoExploreVehicles : items;
+  const reelHeight = useMemo(() => Math.max(height - 144, 480), [height]);
+  const displayItems = mobileDemoContentEnabled && !loading && items.length === 0 ? demoExploreVehicles : items;
+  const showRealEmptyState = !loading && !mobileDemoContentEnabled && items.length === 0;
 
   useEffect(() => {
     if (!session?.accessToken) {
@@ -80,9 +82,26 @@ export default function ExploreScreen() {
           <Text style={styles.loadingText}>Kesif akisi yukleniyor...</Text>
         </View>
       ) : null}
-      {!loading ? (
+      {showRealEmptyState ? (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyTitle}>Kesfet henuz bos</Text>
+          <Text style={styles.emptyCopy}>
+            Kesfete acik araclar paylasildiginda burada gorunecek. Profilinden arac ekleyip kesfete acabilirsin.
+          </Text>
+          <Pressable style={styles.primaryCta} onPress={() => router.push('/profile?tab=vehicles' as never)}>
+            <Text style={styles.primaryCtaLabel}>Araclarini yonet</Text>
+          </Pressable>
+        </View>
+      ) : null}
+      {!loading && displayItems.length > 0 ? (
         <FlatList
           data={displayItems}
+          decelerationRate="fast"
+          getItemLayout={(_, index) => ({
+            length: reelHeight,
+            offset: reelHeight * index,
+            index,
+          })}
           keyExtractor={(item) => item.id}
           pagingEnabled
           renderItem={({ item }) => {
@@ -90,7 +109,7 @@ export default function ExploreScreen() {
             const media = item.media[0];
 
             return (
-              <View style={[styles.reelCard, { minHeight: reelHeight }]}> 
+              <View style={[styles.reelCard, { height: reelHeight }]}>
                 <Pressable style={styles.mediaFrame} onPress={() => router.push(`/vehicles/${item.id}`)}>
                   {media?.url ? (
                     <MobileMediaView
@@ -146,6 +165,7 @@ export default function ExploreScreen() {
           }}
           showsVerticalScrollIndicator={false}
           snapToAlignment="start"
+          snapToInterval={reelHeight}
         />
       ) : null}
     </MobileShell>
@@ -196,12 +216,23 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     textAlign: 'center',
   },
+  primaryCta: {
+    borderRadius: 999,
+    backgroundColor: '#111111',
+    paddingHorizontal: 18,
+    paddingVertical: 13,
+  },
+  primaryCtaLabel: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '700',
+  },
   reelCard: {
-    paddingBottom: 16,
+    paddingBottom: 0,
   },
   mediaFrame: {
     flex: 1,
-    borderRadius: 26,
+    borderRadius: 22,
     overflow: 'hidden',
     backgroundColor: '#0f172a',
   },
@@ -227,7 +258,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-end',
     paddingHorizontal: 18,
-    paddingVertical: 20,
+    paddingVertical: 18,
     backgroundColor: 'rgba(15,23,42,0.14)',
   },
   overlayCopy: {

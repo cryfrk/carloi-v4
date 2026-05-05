@@ -1,10 +1,10 @@
-import { useRouter } from 'expo-router';
+﻿import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import type { AppNotification } from '@carloi-v4/types';
 import { MobileShell } from '../components/mobile-shell';
 import { useAuth } from '../context/auth-context';
 import { mobileNotificationsApi, resolveMobileNotificationRoute } from '../lib/notifications-api';
-import type { AppNotification } from '@carloi-v4/types';
 
 export default function NotificationsScreen() {
   const router = useRouter();
@@ -42,7 +42,7 @@ export default function NotificationsScreen() {
         );
         setUnreadCount((current) => Math.max(0, current - 1));
       } catch {
-        // Keep navigation responsive even if seen update fails.
+        // Navigation should still continue if read-state update fails.
       }
     }
 
@@ -56,7 +56,13 @@ export default function NotificationsScreen() {
 
     try {
       await mobileNotificationsApi.markAllSeen(session.accessToken);
-      setItems((current) => current.map((item) => ({ ...item, isSeen: true, readAt: item.readAt ?? new Date().toISOString() })));
+      setItems((current) =>
+        current.map((item) => ({
+          ...item,
+          isSeen: true,
+          readAt: item.readAt ?? new Date().toISOString(),
+        })),
+      );
       setUnreadCount(0);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Bildirimler guncellenemedi.');
@@ -64,54 +70,124 @@ export default function NotificationsScreen() {
   }
 
   return (
-    <MobileShell title="Bildirimler" subtitle="Etkilesim, mesaj ve sigorta akislari burada toplanir." actionLabel="Tumunu oku" onActionPress={() => void markAllSeen()}>
+    <MobileShell
+      title="Bildirimler"
+      subtitle="Etkilesim, mesaj ve sigorta akislari burada toplanir."
+      actionLabel="Tumunu oku"
+      onActionPress={() => void markAllSeen()}
+    >
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.headerCard}>
-          <Text style={styles.kicker}>Notification center</Text>
+          <Text style={styles.kicker}>Bildirim merkezi</Text>
           <Text style={styles.title}>{unreadCount} okunmamis bildirim</Text>
+          <Text style={styles.copy}>Yeni takipler, yorumlar, paylasimlar ve sigorta akisi burada tek satirda toplanir.</Text>
         </View>
+
         {errorMessage ? <Text style={styles.error}>{errorMessage}</Text> : null}
+
         {items.map((notification) => (
-          <Pressable key={notification.id} style={[styles.card, !notification.isSeen ? styles.cardUnread : null]} onPress={() => void openNotification(notification)}>
+          <Pressable
+            key={notification.id}
+            style={[styles.card, !notification.isSeen ? styles.cardUnread : null]}
+            onPress={() => void openNotification(notification)}
+          >
             <View style={styles.rowBetween}>
               <Text style={styles.cardTitle}>{notification.title}</Text>
               {!notification.isSeen ? <View style={styles.dot} /> : null}
             </View>
             <Text style={styles.cardBody}>{notification.body}</Text>
-            <Text style={styles.meta}>{notification.type} � {new Date(notification.createdAt).toLocaleString('tr-TR')}</Text>
+            <Text style={styles.meta}>
+              {notification.type} · {new Date(notification.createdAt).toLocaleString('tr-TR')}
+            </Text>
           </Pressable>
         ))}
-        {!items.length ? <Text style={styles.meta}>Henuz bildirim yok.</Text> : null}
+
+        {!items.length ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyTitle}>Henuz bildirim yok</Text>
+            <Text style={styles.meta}>Yeni etkilesimler geldiginde burada goreceksin.</Text>
+          </View>
+        ) : null}
       </ScrollView>
     </MobileShell>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { gap: 12, paddingBottom: 18 },
-  headerCard: {
-    padding: 18,
-    borderRadius: 24,
-    backgroundColor: '#0d1d2a',
-    gap: 8,
+  content: {
+    gap: 12,
+    paddingBottom: 18,
+    backgroundColor: '#ffffff',
   },
-  kicker: { color: '#ffd6c2', fontSize: 11, fontWeight: '800', letterSpacing: 1.4, textTransform: 'uppercase' },
-  title: { color: '#f8f2ea', fontSize: 22, fontWeight: '900' },
+  headerCard: {
+    gap: 6,
+    paddingHorizontal: 4,
+    paddingVertical: 8,
+  },
+  kicker: {
+    color: '#6b7280',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+  },
+  title: {
+    color: '#111111',
+    fontSize: 20,
+    fontWeight: '800',
+  },
+  copy: {
+    color: '#6b7280',
+    lineHeight: 20,
+  },
   card: {
     gap: 8,
     padding: 16,
-    borderRadius: 22,
-    backgroundColor: '#102030',
+    borderRadius: 20,
+    backgroundColor: '#ffffff',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: '#eceff3',
   },
   cardUnread: {
-    borderColor: 'rgba(239,131,84,0.35)',
+    borderColor: '#dbe5f0',
+    backgroundColor: '#f8fbff',
   },
-  rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10 },
-  cardTitle: { color: '#f8f2ea', fontWeight: '800', flex: 1 },
-  cardBody: { color: '#c5d4de', lineHeight: 20 },
-  meta: { color: '#8fa4b5', fontSize: 12 },
-  error: { color: '#ffb4b4' },
-  dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#ef8354' },
+  rowBetween: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 10,
+  },
+  cardTitle: {
+    color: '#111111',
+    fontWeight: '800',
+    flex: 1,
+  },
+  cardBody: {
+    color: '#4b5563',
+    lineHeight: 20,
+  },
+  meta: {
+    color: '#6b7280',
+    fontSize: 12,
+  },
+  error: {
+    color: '#dc2626',
+  },
+  dot: {
+    width: 9,
+    height: 9,
+    borderRadius: 5,
+    backgroundColor: '#2563eb',
+  },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 28,
+  },
+  emptyTitle: {
+    color: '#111111',
+    fontWeight: '800',
+  },
 });

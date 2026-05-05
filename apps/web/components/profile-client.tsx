@@ -12,6 +12,7 @@ import type {
 import { useAuth } from './auth-provider';
 import { AppShell } from './app-shell';
 import { buildDemoMessageFixtures, buildDemoProfileFixtures } from '../lib/demo-content';
+import { webDemoContentEnabled } from '../lib/demo-runtime';
 import { webMessagesApi } from '../lib/messages-api';
 import { resolveWebMediaUrl } from '../lib/media-url';
 import { webProfileApi } from '../lib/profile-api';
@@ -102,7 +103,10 @@ export function ProfileClient({
       .finally(() => setLoading(false));
   }, [identifier, session?.accessToken, session?.user.username]);
 
-  const showDemoProfile = !loading && (!profile || (posts.length === 0 && listings.length === 0 && vehicles.length === 0));
+  const showDemoProfile =
+    webDemoContentEnabled &&
+    !loading &&
+    (!profile || (posts.length === 0 && listings.length === 0 && vehicles.length === 0));
   const displayProfile = showDemoProfile ? demoProfile.profile : profile;
   const displayPosts = showDemoProfile ? demoProfile.posts : posts;
   const displayListings = showDemoProfile ? demoProfile.listings : listings;
@@ -113,7 +117,7 @@ export function ProfileClient({
       return;
     }
 
-    if (showDemoProfile || displayProfile.id.startsWith('demo-owner-')) {
+    if (webDemoContentEnabled && (showDemoProfile || displayProfile.id.startsWith('demo-owner-'))) {
       setErrorMessage('Bu demo profil Carloi akisinin nasil gorunecegini gostermek icin hazirlandi.');
       return;
     }
@@ -137,7 +141,7 @@ export function ProfileClient({
       return;
     }
 
-    if (showDemoProfile || displayProfile.id.startsWith('demo-owner-')) {
+    if (webDemoContentEnabled && (showDemoProfile || displayProfile.id.startsWith('demo-owner-'))) {
       const demoThread = demoMessages.threads.find((thread) =>
         thread.participants.some((participant) => participant.id === displayProfile.id),
       );

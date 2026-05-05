@@ -2,6 +2,7 @@ import type {
   ChangePasswordRequest,
   GenericMessageResponse,
   ProfileDetailResponse,
+  ProfileConnectionsResponse,
   ProfileListingsResponse,
   ProfilePostsResponse,
   ProfileVehiclesResponse,
@@ -77,6 +78,18 @@ export const mobileProfileApi = {
   getProfileVehicles(accessToken: string, usernameOrId: string) {
     return requestJson<ProfileVehiclesResponse>(
       `/profiles/${encodeURIComponent(usernameOrId)}/vehicles`,
+      { accessToken },
+    );
+  },
+  getProfileFollowers(accessToken: string, usernameOrId: string) {
+    return requestJson<ProfileConnectionsResponse>(
+      `/profiles/${encodeURIComponent(usernameOrId)}/followers`,
+      { accessToken },
+    );
+  },
+  getProfileFollowing(accessToken: string, usernameOrId: string) {
+    return requestJson<ProfileConnectionsResponse>(
+      `/profiles/${encodeURIComponent(usernameOrId)}/following`,
       { accessToken },
     );
   },
